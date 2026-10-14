@@ -5,6 +5,8 @@ import org.junit.jupiter.api.Assertions.assertFalse
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Test
+import org.junit.jupiter.api.io.TempDir
+import java.io.File
 
 class AetherSettingsTest {
     @Test
@@ -33,6 +35,25 @@ class AetherSettingsTest {
         assertTrue("--wg-config" in arguments)
         assertEquals("/private/a profile/wireguard.toml", arguments[arguments.indexOf("--wg-config") + 1])
         assertFalse("--masque-config" in arguments)
+    }
+
+    @Test
+    fun protocolConfigsRemainWritableBesideAnExistingLegacyIdentity(@TempDir directory: File) {
+        val identityDirectory = File(directory, "aether/profile-guid")
+        assertTrue(identityDirectory.mkdirs())
+        val legacyIdentity = File(identityDirectory, "identity.toml")
+        legacyIdentity.writeText("existing identity")
+        listOf("masque" to "--masque-config", "wg" to "--wg-config").forEach { (protocol, option) ->
+            val arguments = AetherSettings(protocol = protocol).arguments(identityDirectory.absolutePath, 45123)
+            listOf("--config", option).forEach { flag ->
+                assertTrue(flag in arguments)
+                val config = File(arguments[arguments.indexOf(flag) + 1])
+                assertEquals(identityDirectory, config.parentFile)
+                config.writeText("registration config")
+                assertTrue(config.isFile)
+            }
+        }
+        assertEquals("existing identity", legacyIdentity.readText())
     }
 
     @Test

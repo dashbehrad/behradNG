@@ -46,7 +46,7 @@ class AetherSession {
         val identityDirectory = File(context.noBackupFilesDir, "aether/$guid")
         check(identityDirectory.isDirectory || identityDirectory.mkdirs())
         val command = listOf(launcher.absolutePath, core.absolutePath) +
-            settings.arguments(File(identityDirectory, "identity.toml").absolutePath, port)
+            settings.arguments(identityDirectory.absolutePath, port)
         val builder = ProcessBuilder(command).directory(identityDirectory).redirectErrorStream(true)
         builder.environment().keys.removeAll { it.startsWith("AETHER_") }
         builder.environment()["AETHER_ECH"] = "0"
