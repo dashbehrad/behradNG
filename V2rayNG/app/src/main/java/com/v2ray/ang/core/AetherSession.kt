@@ -29,6 +29,8 @@ class AetherSession {
     @Volatile
     private var stage = AetherStartupStage.CORE
     @Volatile
+    private var failure = AetherStartupFailure.UNKNOWN
+    @Volatile
     private var listenerReady = false
 
     suspend fun start(context: Context, guid: String, settings: AetherSettings,
@@ -55,6 +57,7 @@ class AetherSession {
         val child = builder.start()
         process = child
         stage = AetherStartupStage.CORE
+        failure = AetherStartupFailure.UNKNOWN
         listenerReady = false
         val listenerPattern = Regex("socks5 server listening on 127\\.0\\.0\\.1:$port(?:\\s|$)")
         outputJob = ownerScope.launch(Dispatchers.IO + CoroutineName("AetherStartupOutput")) {
@@ -70,12 +73,16 @@ class AetherSession {
                             val char = buffer[index]
                             if (char == '\n') {
                                 stage = stage.observe(line.toString())
+                                failure = failure.observe(line.toString())
                                 if (listenerPattern.containsMatchIn(line)) listenerReady = true
                                 line.setLength(0)
                             } else if (line.length < 1024) line.append(char)
                         }
                     }
-                    if (line.isNotEmpty()) stage = stage.observe(line.toString())
+                    if (line.isNotEmpty()) {
+                        stage = stage.observe(line.toString())
+                        failure = failure.observe(line.toString())
+                    }
                 }
             } catch (e: Exception) {
                 if (isActive && child.isAlive) {
@@ -89,7 +96,7 @@ class AetherSession {
                 while (true) {
                     if (!child.isAlive) {
                         withTimeout(1_000) { outputJob?.join() }
-                        throw AetherStartupException(stage, child.exitValue())
+                        throw AetherStartupException(stage, child.exitValue(), failure)
                     }
                     if (listenerReady && proxyReady(port)) break
                     delay(200)
@@ -97,7 +104,7 @@ class AetherSession {
             }
         } catch (e: TimeoutCancellationException) {
             child.destroyForcibly()
-            throw AetherStartupException(stage)
+            throw AetherStartupException(stage, failure = AetherStartupFailure.TIMEOUT)
         } catch (e: Exception) {
             child.destroyForcibly()
             throw e
