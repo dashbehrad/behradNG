@@ -56,10 +56,7 @@ class AetherSession {
         val command = listOf(launcher.absolutePath, core.absolutePath) +
             settings.arguments(identityDirectory.absolutePath, port)
         val builder = ProcessBuilder(command).directory(identityDirectory).redirectErrorStream(true)
-        builder.environment().keys.removeAll { it.startsWith("AETHER_") }
-        builder.environment()["AETHER_ECH"] = "0"
-        builder.environment()["AETHER_LOG_LEVEL"] = "info"
-        builder.environment()["RUST_LOG"] = "warn,aether=info"
+        configureEnvironment(builder.environment())
         val child = builder.start()
         process = child
         stage = AetherStartupStage.CORE
@@ -120,6 +117,14 @@ class AetherSession {
     }
 
     fun isAlive(): Boolean = process?.isAlive == true
+
+    internal fun configureEnvironment(environment: MutableMap<String, String>) {
+        environment.keys.removeAll { it.startsWith("AETHER_") }
+        // Aether v2.3.0 treats nonempty AETHER_ECH as "auto" or a Base64 key, not a Boolean.
+        // Leave it absent to use the core's default without an invalid ECH key.
+        environment["AETHER_LOG_LEVEL"] = "info"
+        environment["RUST_LOG"] = "warn,aether=info"
+    }
 
     private fun observeOutput(line: String) {
         stage = stage.observe(line)
