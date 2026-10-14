@@ -11,9 +11,12 @@ class AetherSettingsTest {
     fun defaultsProduceAnUnattendedLoopbackOnlyCommand() {
         val settings = AetherSettings()
         assertTrue(settings.isValid())
-        val arguments = settings.arguments("/private/identity.toml", 1819)
+        val arguments = settings.arguments("/private", 1819)
         assertEquals("127.0.0.1:1819", arguments[arguments.indexOf("--bind") + 1])
-        assertEquals("/private/identity.toml", arguments[arguments.indexOf("--config") + 1])
+        assertEquals("/private/aether.toml", arguments[arguments.indexOf("--config") + 1])
+        assertTrue("--masque-config" in arguments)
+        assertEquals("/private/masque.toml", arguments[arguments.indexOf("--masque-config") + 1])
+        assertFalse("--wg-config" in arguments)
         assertTrue("--h2" in arguments)
         assertTrue("--fragment" in arguments)
         assertFalse("--peer" in arguments)
@@ -23,10 +26,13 @@ class AetherSettingsTest {
     fun explicitSettingsRemainDistinctArgumentsWithoutShellInterpretation() {
         val settings = AetherSettings(protocol = "wg", carrier = "h3", endpoint = "[2606:4700::1]:2408", fragment = false)
         assertTrue(settings.isValid())
-        val arguments = settings.arguments("/private/a profile/identity.toml", 45123)
+        val arguments = settings.arguments("/private/a profile", 45123)
         assertTrue("--h3" in arguments && "--no-fragment" in arguments)
         assertEquals(settings.endpoint, arguments[arguments.indexOf("--peer") + 1])
-        assertEquals("/private/a profile/identity.toml", arguments.last { it.endsWith("identity.toml") })
+        assertEquals("/private/a profile/aether.toml", arguments[arguments.indexOf("--config") + 1])
+        assertTrue("--wg-config" in arguments)
+        assertEquals("/private/a profile/wireguard.toml", arguments[arguments.indexOf("--wg-config") + 1])
+        assertFalse("--masque-config" in arguments)
     }
 
     @Test
