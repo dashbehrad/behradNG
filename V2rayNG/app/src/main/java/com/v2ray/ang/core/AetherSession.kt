@@ -31,6 +31,12 @@ class AetherSession {
     @Volatile
     private var failure = AetherStartupFailure.UNKNOWN
     @Volatile
+    private var httpStatus: Int? = null
+    @Volatile
+    private var apiCode: Int? = null
+    @Volatile
+    private var ioCode: Int? = null
+    @Volatile
     private var listenerReady = false
 
     suspend fun start(context: Context, guid: String, settings: AetherSettings,
@@ -58,6 +64,9 @@ class AetherSession {
         process = child
         stage = AetherStartupStage.CORE
         failure = AetherStartupFailure.UNKNOWN
+        httpStatus = null
+        apiCode = null
+        ioCode = null
         listenerReady = false
         val listenerPattern = Regex("socks5 server listening on 127\\.0\\.0\\.1:$port(?:\\s|$)")
         outputJob = ownerScope.launch(Dispatchers.IO + CoroutineName("AetherStartupOutput")) {
@@ -72,16 +81,14 @@ class AetherSession {
                         for (index in 0 until count) {
                             val char = buffer[index]
                             if (char == '\n') {
-                                stage = stage.observe(line.toString())
-                                failure = failure.observe(line.toString())
+                                observeOutput(line.toString())
                                 if (listenerPattern.containsMatchIn(line)) listenerReady = true
                                 line.setLength(0)
                             } else if (line.length < 1024) line.append(char)
                         }
                     }
                     if (line.isNotEmpty()) {
-                        stage = stage.observe(line.toString())
-                        failure = failure.observe(line.toString())
+                        observeOutput(line.toString())
                     }
                 }
             } catch (e: Exception) {
@@ -96,7 +103,7 @@ class AetherSession {
                 while (true) {
                     if (!child.isAlive) {
                         withTimeout(1_000) { outputJob?.join() }
-                        throw AetherStartupException(stage, child.exitValue(), failure)
+                        throw AetherStartupException(stage, child.exitValue(), failure, httpStatus, apiCode, ioCode)
                     }
                     if (listenerReady && proxyReady(port)) break
                     delay(200)
@@ -113,6 +120,16 @@ class AetherSession {
     }
 
     fun isAlive(): Boolean = process?.isAlive == true
+
+    private fun observeOutput(line: String) {
+        stage = stage.observe(line)
+        failure = failure.observe(line)
+        if (failure.isErrorLine(line) || "identity ready" in line.lowercase()) {
+            httpStatus = failure.httpStatus(line)
+            apiCode = failure.apiCode(line)
+            ioCode = failure.ioCode(line)
+        }
+    }
 
     suspend fun stop() = withContext(Dispatchers.IO) {
         val child = process ?: return@withContext

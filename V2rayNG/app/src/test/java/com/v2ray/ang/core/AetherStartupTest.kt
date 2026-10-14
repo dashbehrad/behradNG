@@ -3,6 +3,7 @@ package com.v2ray.ang.core
 import com.v2ray.ang.dto.entities.AetherSettings
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertFalse
+import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Assertions.assertThrows
 import org.junit.jupiter.api.Assertions.assertNull
 import org.junit.jupiter.api.Test
@@ -28,10 +29,37 @@ class AetherStartupTest {
             assertFalse(exception.message.orEmpty().contains("api.cloudflareclient.com"))
         }
         assertEquals(AetherStartupFailure.UNKNOWN, AetherStartupFailure.UNKNOWN.observe("enrolling TLS key"))
-        assertEquals(AetherStartupFailure.UNKNOWN, AetherStartupFailure.UNKNOWN.observe("Error: Other(\"unknown secret\")"))
+        assertEquals(AetherStartupFailure.OTHER, AetherStartupFailure.UNKNOWN.observe("Error: Other(\"unknown secret\")"))
         assertEquals(AetherStartupFailure.DNS, AetherStartupFailure.DNS.observe("unrelated status 403"))
-        assertEquals(AetherStartupFailure.UNKNOWN, AetherStartupFailure.DNS.observe("Error: Other(\"unknown secret\")"))
+        assertEquals(AetherStartupFailure.UNKNOWN, AetherStartupFailure.DNS.observe("Error: Unexpected(\"unknown secret\")"))
         assertEquals(AetherStartupFailure.UNKNOWN, AetherStartupFailure.DNS.observe("[+] identity ready: device=DO_NOT_LOG"))
+    }
+
+    @Test
+    fun prefixedErrorsExposeOnlyTheirTypeAndNumericCodes() {
+        val classifier = AetherStartupFailure.UNKNOWN
+        val rejected = "[native] \u001B[31mError:\u001B[0m Api(\"registration: status 400 Bad Request: invalid (code 1044) credential=DO_NOT_LOG\")"
+        assertEquals(AetherStartupFailure.HTTP_ERROR, classifier.observe(rejected))
+        assertEquals(400, classifier.httpStatus(rejected))
+        assertEquals(1044, classifier.apiCode(rejected))
+        assertNull(classifier.ioCode(rejected))
+        val io = "  Error: Io(Os { code: 13, kind: PermissionDenied, message: \"secret path\" })"
+        assertEquals(AetherStartupFailure.CONFIG, classifier.observe(io))
+        assertEquals(13, classifier.ioCode(io))
+        assertEquals(AetherStartupFailure.API_RESPONSE, classifier.observe("Error: Api(\"registration decode: missing field token\")"))
+        assertEquals(AetherStartupFailure.API, classifier.observe("Error: Api(\"unrecognized private response\")"))
+        assertEquals(AetherStartupFailure.IO, classifier.observe("Error: Io(Custom { kind: Other, error: \"private response\" })"))
+        assertEquals(AetherStartupFailure.ECH, classifier.observe("Error: Ech(\"private response\")"))
+        val exception = AetherStartupException(AetherStartupStage.REGISTRATION, 1,
+            classifier.observe(rejected), classifier.httpStatus(rejected), classifier.apiCode(rejected))
+        assertTrue(exception.message.orEmpty().contains("httpStatus=400, apiCode=1044"))
+        assertFalse(exception.message.orEmpty().contains("DO_NOT_LOG"))
+        assertFalse(exception.message.orEmpty().contains("invalid"))
+        assertNull(classifier.httpStatus("credential=status 400"))
+        assertNull(classifier.apiCode("credential=(code 1044)"))
+        assertNull(classifier.ioCode("credential=code: 13"))
+        assertNull(classifier.httpStatus("Error: Api(\"status 40012345\")"))
+        assertNull(classifier.apiCode("Error: Api(\"(code 123456789)\")"))
     }
 
     @Test

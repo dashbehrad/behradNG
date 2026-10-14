@@ -18,12 +18,31 @@ enum class AetherStartupStage {
 
 /** Only fixed categories leave the native output reader; native error text may contain secrets. */
 enum class AetherStartupFailure {
-    UNKNOWN, DNS, TLS, TIMEOUT, NETWORK, REFUSED, RATE_LIMITED, CONFIG;
+    UNKNOWN, DNS, TLS, TIMEOUT, NETWORK, REFUSED, RATE_LIMITED, CONFIG,
+    HTTP_ERROR, API_RESPONSE, API, IO, ECH, OTHER;
+
+    private fun normalized(line: String): String =
+        line.replace(Regex("\u001B\\[[0-?]*[ -/]*[@-~]"), "").trim().lowercase()
+
+    fun isErrorLine(line: String): Boolean =
+        Regex("(?:^|\\s)error:").containsMatchIn(normalized(line))
+
+    fun httpStatus(line: String): Int? = if (isErrorLine(line)) {
+        Regex("\\bstatus ([1-5][0-9]{2})\\b").find(normalized(line))?.groupValues?.get(1)?.toIntOrNull()
+    } else null
+
+    fun apiCode(line: String): Int? = if (isErrorLine(line)) {
+        Regex("\\(code ([0-9]{1,8})\\)").find(normalized(line))?.groupValues?.get(1)?.toIntOrNull()
+    } else null
+
+    fun ioCode(line: String): Int? = if (isErrorLine(line)) {
+        Regex("\\bcode: ([0-9]{1,4})\\b").find(normalized(line))?.groupValues?.get(1)?.toIntOrNull()
+    } else null
 
     fun observe(line: String): AetherStartupFailure {
-        val text = line.lowercase()
+        val text = normalized(line)
         if ("identity ready" in text) return UNKNOWN
-        if (!text.startsWith("error:") && "registration retry" !in text && "key enrollment retry" !in text) return this
+        if (!isErrorLine(line) && "registration retry" !in text && "key enrollment retry" !in text) return this
         return when {
             "status 429" in text -> RATE_LIMITED
             "status 403" in text || "identityrefused(" in text -> REFUSED
@@ -36,11 +55,18 @@ enum class AetherStartupFailure {
             "did not answer within" in text || "timedout" in text || "timed out" in text -> TIMEOUT
             "connect to" in text || "connection refused" in text ||
                 "network is unreachable" in text || "connection reset" in text -> NETWORK
-            else -> if (text.startsWith("error:")) UNKNOWN else this
+            httpStatus(line) != null -> HTTP_ERROR
+            "registration decode:" in text || "key enrollment decode:" in text -> API_RESPONSE
+            "api(" in text -> API
+            "io(" in text -> IO
+            "ech(" in text -> ECH
+            "other(" in text -> OTHER
+            else -> if (isErrorLine(line)) UNKNOWN else this
         }
     }
 }
 
 class AetherStartupException(val stage: AetherStartupStage, val exitCode: Int? = null,
-    val failure: AetherStartupFailure = AetherStartupFailure.UNKNOWN) :
-    IllegalStateException("Aether startup stage=${stage.name}, exitCode=${exitCode ?: "timeout"}, failure=${failure.name}")
+    val failure: AetherStartupFailure = AetherStartupFailure.UNKNOWN,
+    val httpStatus: Int? = null, val apiCode: Int? = null, val ioCode: Int? = null) :
+    IllegalStateException("Aether startup stage=${stage.name}, exitCode=${exitCode ?: "timeout"}, failure=${failure.name}, httpStatus=$httpStatus, apiCode=$apiCode, ioCode=$ioCode")
