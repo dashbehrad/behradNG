@@ -1,4 +1,4 @@
-# Build behradNG 1.5.0 locally on Windows
+# Build behradNG 2.5.0 locally on Windows
 
 Open a normal PowerShell window in this folder and run:
 
@@ -20,9 +20,9 @@ APK. It uses the existing private signing files in
 After a successful build, it verifies the signature, package name, version, and
 all native libraries. The output is:
 
-`local-apks/behradNG-1.5.0-local.apk`
+`local-apks/behradNG-2.5.0-local.apk`
 
-Package: `com.v2ray.ang.behradng`. Version code: `753`.
+Package: `com.v2ray.ang.behradng`. Version code: `754`.
 It installs alongside v2rayNG. Updating an existing behradNG installation also
 requires that installation to use the same signing key and a compatible version
 code. No GitHub publishing, commit, release, or workflow is performed.

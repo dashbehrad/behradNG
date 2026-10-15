@@ -127,11 +127,11 @@ object AppConfig {
     const val GITHUB_RAW_URL = "https://raw.githubusercontent.com"
     const val GITHUB_DOWNLOAD_URL = "$GITHUB_URL/%s/releases/latest/download"
     const val ANDROID_PACKAGE_NAME_LIST_URL = "$GITHUB_RAW_URL/2dust/androidpackagenamelist/master/proxy.txt"
-    const val APP_URL = "$GITHUB_URL/dashbehrad/behradNG"
-    const val APP_API_URL = "https://api.github.com/repos/dashbehrad/behradNG/releases"
+    const val APP_URL = "$GITHUB_URL/2dust/v2rayNG"
+    const val APP_API_URL = "https://api.github.com/repos/2dust/v2rayNG/releases"
     const val APP_ISSUES_URL = "$APP_URL/issues"
     const val APP_WIKI_MODE = "$APP_URL/wiki/Mode"
-    const val APP_PRIVACY_POLICY = "$GITHUB_RAW_URL/dashbehrad/behradNG/master/CR.md"
+    const val APP_PRIVACY_POLICY = "$GITHUB_RAW_URL/2dust/v2rayNG/master/CR.md"
     const val APP_PROMOTION_URL = "aHR0cHM6Ly85LjIzNDQ1Ni54eXovYWJjLmh0bWw="
     const val TG_CHANNEL_URL = "https://t.me/github_2dust"
     const val DELAY_TEST_URL = "https://www.gstatic.com/generate_204"
@@ -147,7 +147,8 @@ object AppConfig {
 
     /** DNS server addresses. */
     const val DNS_PROXY = "https://cloudflare-dns.com/dns-query"
-    const val DNS_DIRECT = "223.5.5.5"
+    // Direct Iran/private destinations use the network resolver; proxy DNS remains encrypted.
+    const val DNS_DIRECT = "localhost"
     const val DNS_VPN = "1.1.1.1"
     const val GEOSITE_PRIVATE = "geosite:private"
     const val GEOSITE_CN = "geosite:cn"
@@ -341,9 +342,9 @@ object AppConfig {
     )
 
     val GEO_FILES_SOURCES = arrayListOf(
+        "Chocolate4U/Iran-v2ray-rules",
         "Loyalsoldier/v2ray-rules-dat",
-        "runetfreedom/russia-v2ray-rules-dat",
-        "Chocolate4U/Iran-v2ray-rules"
+        "runetfreedom/russia-v2ray-rules-dat"
     )
 
     val BUILTIN_OUTBOUND_TAGS = setOf(

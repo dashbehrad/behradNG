@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="aether_chain_invalid">Ən azı iki fərqli profil seçin. Aether yalnız bir dəfə, ilk keçid kimi istifadə edilə bilər.</string>
+    <string name="aether_chain_hint">Aether zənciri: Aether → Xray → İnternet. Root rejimi dəstəklənmir.</string>
+    <string name="chain_hop_number">%1$d</string>
+</resources>
