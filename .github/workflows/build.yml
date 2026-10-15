@@ -164,19 +164,30 @@ jobs:
           ./gradlew :app:testDebugUnitTest :app:compileDebugKotlin :app:assembleRelease --stacktrace
         fi
 
-    - name: Verify installable APK
+    - name: Select APK artifact
       shell: bash
       run: |
-        APK_FILE=$(find V2rayNG/app/build/outputs/apk -name "*.apk" | head -n 1)
-        test -n "$APK_FILE"
+        if [ "${{ github.event_name }}" = "pull_request" ]; then
+          echo "APK_FILE=V2rayNG/app/build/outputs/apk/debug/app-debug.apk" >> "$GITHUB_ENV"
+          echo "APK_PACKAGE=com.v2ray.ang.behradng.debug" >> "$GITHUB_ENV"
+          echo "APK_ARTIFACT=behradNG-${{ env.RELEASE_TAG }}-debug" >> "$GITHUB_ENV"
+        else
+          echo "APK_FILE=V2rayNG/app/build/outputs/apk/release/app-release.apk" >> "$GITHUB_ENV"
+          echo "APK_PACKAGE=com.v2ray.ang.behradng" >> "$GITHUB_ENV"
+          echo "APK_ARTIFACT=behradNG-${{ env.RELEASE_TAG }}" >> "$GITHUB_ENV"
+        fi
+
+    - name: Verify APK signature and package
+      shell: bash
+      run: |
+        test -s "$APK_FILE"
         "$ANDROID_HOME/build-tools/36.0.0/apksigner" verify --verbose --min-sdk-version 24 "$APK_FILE"
-        "$ANDROID_HOME/build-tools/36.0.0/aapt" dump badging "$APK_FILE" | grep -F "package: name='com.v2ray.ang.behradng'"
+        "$ANDROID_HOME/build-tools/36.0.0/aapt" dump badging "$APK_FILE" | grep -F "package: name='$APK_PACKAGE'"
 
     - name: Verify APK native libraries
       shell: bash
       run: |
-        APK_FILE=$(find V2rayNG/app/build/outputs/apk -name "*.apk" | head -n 1)
-        test -n "$APK_FILE"
+        test -s "$APK_FILE"
         for ABI in armeabi-v7a arm64-v8a x86 x86_64; do
           for LIBRARY in libhev-socks5-tunnel.so libhevsockstun.so libgojni.so; do
             unzip -l "$APK_FILE" "lib/$ABI/$LIBRARY" | grep -F "lib/$ABI/$LIBRARY"
@@ -192,8 +203,7 @@ jobs:
     - name: Verify bundled Iran datasets
       shell: bash
       run: |
-        APK_FILE=$(find V2rayNG/app/build/outputs/apk -name "*.apk" | head -n 1)
-        test -n "$APK_FILE"
+        test -s "$APK_FILE"
         for FILE in geoip.dat geosite.dat; do
           EXPECTED=$(jq -r --arg file "$FILE" '.files[$file]' iran-rules.lock.json)
           ACTUAL=$(unzip -p "$APK_FILE" "assets/$FILE" | sha256sum | cut -d ' ' -f 1)
@@ -206,9 +216,8 @@ jobs:
     - name: Prepare Release APK Artifact
       run: |
         mkdir -p release-apks
-        APK_FILE=$(find V2rayNG/app/build/outputs/apk -name "*.apk" | head -n 1)
         if [ -f "$APK_FILE" ]; then
-          cp "$APK_FILE" "release-apks/behradNG-${{ env.RELEASE_TAG }}.apk"
+          cp "$APK_FILE" "release-apks/${{ env.APK_ARTIFACT }}.apk"
         else
           echo "No APK found in app/build/outputs/apk!"
           exit 1
@@ -218,7 +227,7 @@ jobs:
     - name: Upload APK Artifact
       uses: actions/upload-artifact@v4
       with:
-        name: behradNG-${{ env.RELEASE_TAG }}
+        name: ${{ env.APK_ARTIFACT }}
         path: release-apks/*.apk
 
     - name: Publish to GitHub Releases
