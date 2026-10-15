@@ -1,6 +1,9 @@
 package com.v2ray.ang.ui.server
 
 import android.os.Bundle
+import androidx.activity.viewModels
+import androidx.compose.runtime.LaunchedEffect
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
@@ -37,14 +40,7 @@ import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import com.v2ray.ang.R
-import com.v2ray.ang.dto.entities.ProfileItem
 import com.v2ray.ang.enums.EConfigType
-import com.v2ray.ang.extension.isComplexType
-import com.v2ray.ang.extension.moveItem
-import com.v2ray.ang.extension.toast
-import com.v2ray.ang.extension.toastSuccess
-import com.v2ray.ang.handler.MmkvManager
-import com.v2ray.ang.handler.SettingsManager
 import com.v2ray.ang.ui.base.BaseComponentActivity
 import com.v2ray.ang.ui.compose.AppTopBar
 import com.v2ray.ang.ui.compose.DeleteConfirmDialog
@@ -54,171 +50,57 @@ import com.v2ray.ang.ui.compose.reorderableDragHandle
 import com.v2ray.ang.ui.compose.verticalScrollbar
 import sh.calvin.reorderable.ReorderableItem
 import sh.calvin.reorderable.rememberReorderableLazyListState
-import java.util.UUID
 
 class ServerProxyChainActivity : BaseComponentActivity() {
-
-    private val editGuid by lazy { intent.getStringExtra("guid").orEmpty() }
-    private val isRunning by lazy {
-        intent.getBooleanExtra("isRunning", false)
-                && editGuid.isNotEmpty()
-                && editGuid == MmkvManager.getSelectServer()
-    }
-    private val subscriptionId by lazy { intent.getStringExtra("subscriptionId") }
-
-    private lateinit var allRemarks: List<String>
-    private lateinit var initialRemarks: String
-    private lateinit var initialMembers: List<String>
+    private val viewModel: ProxyChainEditorViewModel by viewModels()
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-
-        allRemarks = SettingsManager.getProfileRemarks(
-            excludeConfigTypes = setOf(EConfigType.CUSTOM, EConfigType.POLICYGROUP, EConfigType.PROXYCHAIN)
-        )
-        val config = MmkvManager.decodeServerConfig(editGuid)
-        initialRemarks = config?.remarks ?: ""
-        initialMembers = config?.proxyChainProfiles?.split(",")?.map { it.trim() }?.filter { it.isNotEmpty() } ?: listOf("", "")
+        viewModel.initialize(intent.getStringExtra("guid").orEmpty(),
+            intent.getStringExtra("subscriptionId").orEmpty(), intent.getBooleanExtra("isRunning", false))
     }
 
     @Composable
     override fun ScreenContent() {
+        val state by viewModel.state.collectAsStateWithLifecycle()
+        LaunchedEffect(state.savedGuid, state.deleted) {
+            state.savedGuid?.let { with(ProfileEditorResult) { finishSaved(it, restartService = state.running) } }
+            if (state.deleted) with(ProfileEditorResult) { finishDeleted(intent.getStringExtra("guid").orEmpty()) }
+        }
         ProxyChainScreen(
-            editGuid = editGuid,
-            isRunning = isRunning,
-            initialRemarks = initialRemarks,
-            initialMembers = initialMembers,
-            allRemarks = allRemarks,
-            onBackClick = { finish() },
-            onSave = { remarks, members -> saveServer(remarks, members) },
-            onDelete = { deleteServer() }
+            editGuid = intent.getStringExtra("guid").orEmpty(), state = state,
+            onBackClick = { finish() }, onSave = viewModel::save, onDelete = viewModel::delete,
+            onRemarksChange = viewModel::changeRemarks, onSelectMember = viewModel::selectMember,
+            onAddMember = viewModel::addMember, onRemoveMember = viewModel::removeMember,
+            onMoveMember = viewModel::moveMember,
         )
-    }
-
-    private fun saveServer(
-        remarks: String,
-        members: List<String>
-    ): Boolean {
-        if (remarks.isBlank()) {
-            return false
-        }
-
-        val chainMembers = members
-            .map { it.trim() }
-            .filter { it.isNotEmpty() }
-
-        if (chainMembers.size != members.size) {
-            toast(R.string.server_proxy_chain_members_unselected)
-            return false
-        }
-
-        if (chainMembers.size < 2) {
-            toast(R.string.server_proxy_chain_members_insufficient)
-            return false
-        }
-
-        val invalidMembers = chainMembers.filter { member ->
-            val profile = SettingsManager.getServerViaRemarks(member)
-            profile == null || profile.configType.isComplexType()
-        }
-
-        if (invalidMembers.isNotEmpty()) {
-            toast(
-                getString(
-                    R.string.server_proxy_chain_members_invalid,
-                    invalidMembers.joinToString(", ")
-                )
-            )
-            return false
-        }
-
-        val config =
-            MmkvManager.decodeServerConfig(editGuid)
-                ?: ProfileItem.create(EConfigType.PROXYCHAIN)
-
-        config.remarks = remarks.trim()
-        config.proxyChainProfiles =
-            chainMembers.joinToString(",")
-
-        config.description =
-            chainMembers.joinToString(" -> ")
-
-        if (
-            config.subscriptionId.isEmpty() &&
-            !subscriptionId.isNullOrEmpty()
-        ) {
-            config.subscriptionId = subscriptionId.orEmpty()
-        }
-
-        val savedGuid = MmkvManager.encodeServerConfig(
-            editGuid,
-            config
-        )
-
-        toastSuccess(R.string.toast_success)
-
-        ProfileEditorResult.run {
-            finishSaved(
-                guid = savedGuid,
-                restartService = isRunning
-            )
-        }
-
-        return true
-    }
-
-    private fun deleteServer(): Boolean {
-        if (editGuid.isEmpty()) {
-            return false
-        }
-
-        if (editGuid == MmkvManager.getSelectServer()) {
-            toast(R.string.toast_action_not_allowed)
-            return false
-        }
-
-        MmkvManager.removeServer(editGuid)
-
-        ProfileEditorResult.run {
-            finishDeleted(editGuid)
-        }
-
-        return true
     }
 }
 
 @Composable
 fun ProxyChainScreen(
     editGuid: String,
-    isRunning: Boolean,
-    initialRemarks: String,
-    initialMembers: List<String>,
-    allRemarks: List<String>,
+    state: ProxyChainEditorState,
     onBackClick: () -> Unit,
-    onSave: (String, List<String>) -> Boolean,
-    onDelete: () -> Unit
+    onSave: () -> Unit,
+    onDelete: () -> Unit,
+    onRemarksChange: (String) -> Unit,
+    onSelectMember: (String, String) -> Unit,
+    onAddMember: () -> Unit,
+    onRemoveMember: (String) -> Unit,
+    onMoveMember: (String, String) -> Unit,
 ) {
-    var remarks by rememberSaveable { mutableStateOf(initialRemarks) }
-    var isRemarksError by rememberSaveable { mutableStateOf(false) }
-    var members by rememberSaveable { mutableStateOf(initialMembers) }
-    var memberKeys by rememberSaveable { mutableStateOf(List(initialMembers.size) { UUID.randomUUID().toString() }) }
+    val remarks = state.remarks
+    val members = state.members
+    val memberKeys = state.memberKeys
+    val isRemarksError = state.errorRes != null && remarks.isBlank()
     var showProfileDeleteConfirm by remember { mutableStateOf(false) }
     var memberToDeleteKey by rememberSaveable { mutableStateOf<String?>(null) }
-    val showDelete = editGuid.isNotEmpty() && !isRunning
+    val showDelete = editGuid.isNotEmpty() && !state.running
 
     val lazyListState = rememberLazyListState()
     val reorderableState = rememberReorderableLazyListState(lazyListState) { from, to ->
-        val fromIndex = memberKeys.indexOf(from.key)
-        val toIndex = memberKeys.indexOf(to.key)
-        if (fromIndex != -1 && toIndex != -1) {
-            val reordered = members.toMutableList()
-            val reorderedKeys = memberKeys.toMutableList()
-            if (reordered.moveItem(fromIndex, toIndex)) {
-                reorderedKeys.moveItem(fromIndex, toIndex)
-                members = reordered
-                memberKeys = reorderedKeys
-            }
-        }
+        onMoveMember(from.key.toString(), to.key.toString())
     }
 
     Scaffold(
@@ -233,15 +115,7 @@ fun ProxyChainScreen(
                             Icon(painterResource(R.drawable.ic_delete_24dp), contentDescription = stringResource(R.string.acc_delete))
                         }
                     }
-                    IconButton(onClick = {
-                        val remarksErr = remarks.isBlank()
-                        isRemarksError = remarksErr
-
-                        val hasError = remarksErr
-                        if (!hasError) {
-                            onSave(remarks, members)
-                        }
-                    }) {
+                    IconButton(onClick = onSave, enabled = state.editable) {
                         Icon(painterResource(R.drawable.ic_fab_check), contentDescription = stringResource(R.string.acc_save))
                     }
                 }
@@ -250,8 +124,7 @@ fun ProxyChainScreen(
         floatingActionButton = {
             FloatingActionButton(
                 onClick = {
-                    members = members + ""
-                    memberKeys = memberKeys + UUID.randomUUID().toString()
+                    if (state.editable) onAddMember()
                 },
                 modifier = Modifier
                     .offset(y = -20.dp)
@@ -276,11 +149,17 @@ fun ProxyChainScreen(
                 bottom = 36.dp + WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding()
             )
         ) {
+            item(key = "chain_status") {
+                if (state.loading) Text(stringResource(R.string.aether_loading))
+                state.errorRes?.let { Text(stringResource(it), color = MaterialTheme.colorScheme.error) }
+                Text(stringResource(R.string.aether_chain_hint))
+            }
             item(key = "remarks_field") {
                 FormTextField(
                     label = stringResource(R.string.server_lab_remarks),
                     value = remarks,
-                    onValueChange = { remarks = it },
+                    onValueChange = onRemarksChange,
+                    enabled = state.editable,
                     isError = isRemarksError
                 )
             }
@@ -306,7 +185,7 @@ fun ProxyChainScreen(
                             verticalAlignment = Alignment.CenterVertically
                         ) {
                             Text(
-                                "${index + 1}",
+                                stringResource(R.string.chain_hop_number, index + 1),
                                 modifier = Modifier
                                     .padding(start = 16.dp)
                                     .width(10.dp)
@@ -315,18 +194,16 @@ fun ProxyChainScreen(
                                 label = stringResource(R.string.server_lab_remarks),
                                 placeholder = stringResource(R.string.server_proxy_chain_member_unselected),
                                 value = member,
-                                options = allRemarks,
-                                onValueChange = { newVal ->
-                                    members = members.toMutableList().also { it[index] = newVal }
-                                },
-                                editable = true,
+                                options = state.options.keys.toList(),
+                                optionLabel = { state.options[it].orEmpty() },
+                                onValueChange = { newVal -> onSelectMember(memberKey, newVal) },
+                                enabled = state.editable,
+                                editable = false,
                                 modifier = Modifier.weight(1f)
                             )
                             IconButton(onClick = {
                                 if (member.isBlank()) {
-                                    val (remainingMembers, remainingKeys) = withoutProxyChainMember(members, memberKeys, memberKey)
-                                    members = remainingMembers
-                                    memberKeys = remainingKeys
+                                    onRemoveMember(memberKey)
                                 } else {
                                     memberToDeleteKey = memberKey
                                 }
@@ -346,7 +223,7 @@ fun ProxyChainScreen(
     if (showProfileDeleteConfirm) {
         DeleteConfirmDialog(
             message = stringResource(R.string.confirm_delete_profile),
-            itemName = initialRemarks,
+            itemName = remarks,
             onConfirm = { showProfileDeleteConfirm = false; onDelete() },
             onDismiss = { showProfileDeleteConfirm = false }
         )
@@ -354,11 +231,9 @@ fun ProxyChainScreen(
     memberToDeleteKey?.let { memberKey ->
         DeleteConfirmDialog(
             message = stringResource(R.string.confirm_delete_proxy_chain_member),
-            itemName = members.getOrNull(memberKeys.indexOf(memberKey)).orEmpty(),
+            itemName = state.options[members.getOrNull(memberKeys.indexOf(memberKey))].orEmpty(),
             onConfirm = {
-                val (remainingMembers, remainingKeys) = withoutProxyChainMember(members, memberKeys, memberKey)
-                members = remainingMembers
-                memberKeys = remainingKeys
+                onRemoveMember(memberKey)
                 memberToDeleteKey = null
             },
             onDismiss = { memberToDeleteKey = null }

@@ -106,7 +106,13 @@ object LauncherManager {
             context.toast(R.string.toast_services_start)
         }
 
-        if (config.configType == com.v2ray.ang.enums.EConfigType.AETHER && SettingsManager.isRootMode()) {
+        val usesAether = try {
+            SettingsManager.getAetherProfile(guid) != null
+        } catch (e: Exception) {
+            LogUtil.e(AppConfig.TAG, "LauncherManager: chain validation failed guid=$guid", e)
+            error(context.getString(R.string.aether_chain_invalid))
+        }
+        if (usesAether && SettingsManager.isRootMode()) {
             error(context.getString(R.string.aether_root_unsupported))
         }
         val isRootMode = SettingsManager.isRootMode()
@@ -115,7 +121,7 @@ object LauncherManager {
             error(context.getString(R.string.toast_root_required))
         }
 
-        val intent = if (config.configType == com.v2ray.ang.enums.EConfigType.AETHER) {
+        val intent = if (usesAether) {
             Intent(context.applicationContext, com.v2ray.ang.service.AetherService::class.java)
         } else if (isRootMode) {
             LogUtil.i(AppConfig.TAG, "LauncherManager: Starting Root service")

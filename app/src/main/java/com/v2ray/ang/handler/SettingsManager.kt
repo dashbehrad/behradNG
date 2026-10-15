@@ -63,7 +63,7 @@ object SettingsManager {
      * @param type The routing preset type.
      * @return A mutable list of RulesetItem.
      */
-    private fun getPresetRoutingRulesets(context: Context, type: RoutingType = RoutingType.WHITE): MutableList<RulesetItem>? {
+    private fun getPresetRoutingRulesets(context: Context, type: RoutingType = RoutingType.WHITE_IRAN): MutableList<RulesetItem>? {
         val assets = Utils.readTextFromAssets(context, type.fileName)
         if (TextUtils.isEmpty(assets)) {
             return null
@@ -199,6 +199,23 @@ object SettingsManager {
             it.domain?.contains(GEOSITE_PRIVATE) == true || it.ip?.contains(GEOIP_PRIVATE) == true
         }
         return exist == true
+    }
+
+    /** Resolve explicit chains once by GUID; legacy chains require unambiguous remarks. */
+    fun getProxyChainMembers(config: ProfileItem): List<Pair<String, ProfileItem>> {
+        val candidates = config.proxyChainProfileGuids ?: decodeAllServerList()
+        val profiles = candidates.mapNotNull { id -> decodeServerConfig(id)?.let { id to it } }.toMap()
+        return config.chainMemberGuids(profiles).map { id -> id to profiles.getValue(id) }
+    }
+
+    /** Aether can be the device-side entry of an explicit chain, with Xray as its exit. */
+    fun getAetherProfile(selectedGuid: String): Pair<String, ProfileItem>? {
+        val profile = decodeServerConfig(selectedGuid) ?: return null
+        if (profile.configType == EConfigType.AETHER) return selectedGuid to profile
+        if (profile.configType != EConfigType.PROXYCHAIN) return null
+        val members = getProxyChainMembers(profile)
+        val profiles = members.toMap()
+        return profile.aetherEntryGuid(profiles)?.let { id -> id to profiles.getValue(id) }
     }
 
     /**

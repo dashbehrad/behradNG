@@ -147,7 +147,8 @@ object AppConfig {
 
     /** DNS server addresses. */
     const val DNS_PROXY = "https://cloudflare-dns.com/dns-query"
-    const val DNS_DIRECT = "223.5.5.5"
+    // Direct Iran/private destinations use the network resolver; proxy DNS remains encrypted.
+    const val DNS_DIRECT = "localhost"
     const val DNS_VPN = "1.1.1.1"
     const val GEOSITE_PRIVATE = "geosite:private"
     const val GEOSITE_CN = "geosite:cn"
@@ -341,9 +342,9 @@ object AppConfig {
     )
 
     val GEO_FILES_SOURCES = arrayListOf(
+        "Chocolate4U/Iran-v2ray-rules",
         "Loyalsoldier/v2ray-rules-dat",
-        "runetfreedom/russia-v2ray-rules-dat",
-        "Chocolate4U/Iran-v2ray-rules"
+        "runetfreedom/russia-v2ray-rules-dat"
     )
 
     val BUILTIN_OUTBOUND_TAGS = setOf(

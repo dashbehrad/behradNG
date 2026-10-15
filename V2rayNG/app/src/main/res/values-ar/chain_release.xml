@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="aether_chain_invalid">اختر ملفين مختلفين على الأقل. يُسمح بـ Aether مرة واحدة كأول مرحلة.</string>
+    <string name="aether_chain_hint">سلسلة Aether: ‏Aether → Xray → الإنترنت. وضع الجذر غير مدعوم.</string>
+    <string name="chain_hop_number">%1$d</string>
+</resources>

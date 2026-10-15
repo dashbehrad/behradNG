@@ -1,6 +1,8 @@
 name: Build and Release behradNG
 
 on:
+  pull_request:
+    branches: [main]
   push:
     branches:
       - master
@@ -12,7 +14,7 @@ on:
   workflow_dispatch:
     inputs:
       release_tag:
-        description: 'Release Tag (e.g. v2.3.11)'
+        description: 'Release Tag (e.g. v2.5.0)'
         required: false
         type: string
 
@@ -24,9 +26,9 @@ jobs:
     runs-on: ubuntu-latest
 
     env:
-      APP_KEYSTORE_PASSWORD: ${{ secrets.APP_KEYSTORE_PASSWORD }}
-      APP_KEYSTORE_ALIAS: ${{ secrets.APP_KEYSTORE_ALIAS }}
-      APP_KEY_PASSWORD: ${{ secrets.APP_KEY_PASSWORD }}
+      APP_KEYSTORE_PASSWORD: ${{ github.event_name != 'pull_request' && secrets.APP_KEYSTORE_PASSWORD || '' }}
+      APP_KEYSTORE_ALIAS: ${{ github.event_name != 'pull_request' && secrets.APP_KEYSTORE_ALIAS || '' }}
+      APP_KEY_PASSWORD: ${{ github.event_name != 'pull_request' && secrets.APP_KEY_PASSWORD || '' }}
 
     steps:
     - name: Checkout code
@@ -36,6 +38,7 @@ jobs:
         fetch-depth: 0
 
     - name: Restore persistent release signing key
+      if: github.event_name != 'pull_request'
       shell: bash
       env:
         APP_KEYSTORE_BASE64: ${{ secrets.APP_KEYSTORE_BASE64 }}
@@ -139,6 +142,9 @@ jobs:
         NDK_HOME: ${{ env.ANDROID_HOME }}/ndk/30.0.16248370
       run: bash prepare-aether.sh
 
+    - name: Prepare pinned Iran routing datasets
+      run: bash prepare-iran-rules.sh
+
     - name: Prepare behradNG project
       shell: bash
       run: |
@@ -152,9 +158,13 @@ jobs:
       working-directory: V2rayNG
       run: |
         chmod +x gradlew
-        ./gradlew :app:testDebugUnitTest :app:compileDebugKotlin :app:assembleRelease --stacktrace
+        if [ "${{ github.event_name }}" = "pull_request" ]; then
+          ./gradlew :app:testDebugUnitTest :app:compileDebugKotlin :app:assembleDebug --stacktrace
+        else
+          ./gradlew :app:testDebugUnitTest :app:compileDebugKotlin :app:assembleRelease --stacktrace
+        fi
 
-    - name: Verify installable release APK
+    - name: Verify installable APK
       shell: bash
       run: |
         APK_FILE=$(find V2rayNG/app/build/outputs/apk -name "*.apk" | head -n 1)
@@ -179,6 +189,20 @@ jobs:
         done
         unzip -l "$APK_FILE" assets/third_party/AETHER_LICENSE.txt | grep -F assets/third_party/AETHER_LICENSE.txt
 
+    - name: Verify bundled Iran datasets
+      shell: bash
+      run: |
+        APK_FILE=$(find V2rayNG/app/build/outputs/apk -name "*.apk" | head -n 1)
+        test -n "$APK_FILE"
+        for FILE in geoip.dat geosite.dat; do
+          EXPECTED=$(jq -r --arg file "$FILE" '.files[$file]' iran-rules.lock.json)
+          ACTUAL=$(unzip -p "$APK_FILE" "assets/$FILE" | sha256sum | cut -d ' ' -f 1)
+          test "$ACTUAL" = "$EXPECTED"
+        done
+        EXPECTED=$(jq -r .licenseSha256 iran-rules.lock.json)
+        ACTUAL=$(unzip -p "$APK_FILE" assets/third_party/IRAN_RULES_LICENSE.txt | sha256sum | cut -d ' ' -f 1)
+        test "$ACTUAL" = "$EXPECTED"
+
     - name: Prepare Release APK Artifact
       run: |
         mkdir -p release-apks
@@ -198,6 +222,7 @@ jobs:
         path: release-apks/*.apk
 
     - name: Publish to GitHub Releases
+      if: github.event_name != 'pull_request'
       uses: softprops/action-gh-release@v2
       with:
         tag_name: ${{ env.RELEASE_TAG }}

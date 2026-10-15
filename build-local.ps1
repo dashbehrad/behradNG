@@ -118,6 +118,7 @@ try {
     Write-Output 'Preparing the current local behradNG source...'
     Copy-Item -Path "$repoPath/V2rayNG/*" -Destination $projectPath -Recurse -Force
     Copy-Item -Path "$repoPath/app/*" -Destination (Join-Path $projectPath 'app') -Recurse -Force
+    & (Join-Path $repoPath 'prepare-iran-rules.ps1') -AppPath (Join-Path $projectPath 'app')
     Write-Text (Join-Path $projectPath 'local.properties') ('sdk.dir=' + $sdkPath.Replace('\', '/'))
     if (!(Test-Path -LiteralPath $wrapperJar)) {
         Download-File "https://raw.githubusercontent.com/gradle/gradle/v$gradleVersion/gradle/wrapper/gradle-wrapper.jar" $wrapperJar
@@ -184,7 +185,7 @@ try {
     if (!(Test-Path -LiteralPath $apkPath)) { throw 'Expected release APK was not produced.' }
     Run-Native (Join-Path $sdkPath "build-tools/$buildToolsVersion/apksigner.bat") @('verify', '--verbose', '--min-sdk-version', '24', $apkPath)
     $badging = & (Join-Path $sdkPath "build-tools/$buildToolsVersion/aapt.exe") dump badging $apkPath
-    if ($LASTEXITCODE -ne 0 -or !($badging -match "package: name='com.v2ray.ang.behradng'.*versionCode='753'.*versionName='1.5.0'")) { throw 'APK package or version does not match behradNG 1.5.0.' }
+    if ($LASTEXITCODE -ne 0 -or !($badging -match "package: name='com.v2ray.ang.behradng'.*versionCode='754'.*versionName='2.5.0'")) { throw 'APK package or version does not match behradNG 2.5.0.' }
     Add-Type -AssemblyName System.IO.Compression.FileSystem
     $zip = [IO.Compression.ZipFile]::OpenRead($apkPath)
     try {
@@ -206,7 +207,7 @@ try {
     } finally { $zip.Dispose() }
     $outputPath = Join-Path $repoPath 'local-apks'
     New-Item -ItemType Directory -Path $outputPath -Force | Out-Null
-    $outputApk = Join-Path $outputPath 'behradNG-1.5.0-local.apk'
+    $outputApk = Join-Path $outputPath 'behradNG-2.5.0-local.apk'
     Copy-Item -LiteralPath $apkPath -Destination $outputApk -Force
     Write-Output "Local APK built and checked: $outputApk"
     Get-FileHash -LiteralPath $outputApk -Algorithm SHA256 | Select-Object Hash

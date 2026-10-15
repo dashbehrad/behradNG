@@ -456,6 +456,36 @@ object MmkvManager {
         }
     }
 
+    /** Atomic editor deletion; keep the legacy deletion entry points unchanged. */
+    fun removeServerConfigTransactional(guid: String) {
+        require(guid.isNotBlank())
+        withProfileIndexLock {
+            check(getSelectServer() != guid)
+            val profile = requireNotNull(decodeServerConfig(guid))
+            val subId = getSubscriptionId(profile.subscriptionId)
+            val indexKey = serverListKey(subId)
+            val records = listOf(profileFullStorage to guid, serverAffStorage to guid,
+                serverRawStorage to guid, mainStorage to indexKey)
+            val before = records.map { (storage, key) -> storage.decodeString(key) }
+            val restorations = records.mapIndexed { index, (storage, key) ->
+                {
+                    val value = before[index]
+                    if (value == null) storage.removeValueForKey(key)
+                    else requireStorageWrite(storage.encode(key, value), "Restore deleted profile record failed")
+                }
+            }
+            writeProfileWithRollback(restorations) {
+                listOf(profileFullStorage, serverAffStorage, serverRawStorage).forEach { storage ->
+                    storage.removeValueForKey(guid)
+                    check(!storage.containsKey(guid))
+                }
+                val serverList = decodeServerList(subId)
+                serverList.remove(guid)
+                requireStorageWrite(persistServerList(serverList, subId), "Delete profile index failed")
+            }
+        }
+    }
+
     /**
      * Removes the server configuration.
      *

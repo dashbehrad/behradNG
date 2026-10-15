@@ -64,6 +64,7 @@ class AetherService : VpnService(), ServiceControl {
     @Volatile
     private var ownsCore = false
     private var guid = ""
+    private var aetherGuid = ""
     private var mode = ""
     @Volatile
     private var startupSettings: com.v2ray.ang.dto.entities.AetherSettings? = null
@@ -117,15 +118,17 @@ class AetherService : VpnService(), ServiceControl {
                     failure = R.string.aether_unavailable
                     error("Aether core is not packaged for this ABI")
                 }
-                val profile = MmkvManager.decodeServerConfig(guid)
-                    ?.takeIf { it.configType == EConfigType.AETHER } ?: error("Invalid selected profile")
-                val settings = profile.aetherSettings ?: com.v2ray.ang.dto.entities.AetherSettings()
+                val profile = MmkvManager.decodeServerConfig(guid) ?: error("Invalid selected profile")
+                failure = R.string.aether_chain_invalid
+                val aetherProfile = SettingsManager.getAetherProfile(guid) ?: error("No Aether entry profile")
+                aetherGuid = aetherProfile.first
+                val settings = aetherProfile.second.aetherSettings ?: com.v2ray.ang.dto.entities.AetherSettings()
                 failure = R.string.aether_invalid_settings
                 check(settings.isValid())
                 CoreServiceManager.serviceControl = SoftReference(this@AetherService)
                 session = AetherSession()
                 failure = R.string.aether_start_error
-                internalProxyPort = session!!.start(this@AetherService, guid, settings,
+                internalProxyPort = session!!.start(this@AetherService, aetherGuid, settings,
                     setOf(SettingsManager.getSocksPort(), SettingsManager.getHttpPort()), serviceScope, mode)
                 startupSettings = settings
                 if (SettingsManager.isVpnMode()) {
@@ -219,12 +222,12 @@ class AetherService : VpnService(), ServiceControl {
     }
 
     fun hasReadyProfile(profileGuid: String, settings: com.v2ray.ang.dto.entities.AetherSettings?): Boolean =
-        Build.VERSION.SDK_INT >= Build.VERSION_CODES.O && !lifecycle.isStopping() && profileGuid == guid &&
+        Build.VERSION.SDK_INT >= Build.VERSION_CODES.O && !lifecycle.isStopping() && profileGuid == aetherGuid &&
             (settings ?: com.v2ray.ang.dto.entities.AetherSettings()) == startupSettings && session?.isAlive() == true
 
     override fun aetherProxyPort(guid: String): Int? =
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O)
-            lifecycle.readyPort(guid, this.guid, session?.isAlive() == true, internalProxyPort) else null
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O && guid == this.guid)
+            lifecycle.readyPort(aetherGuid, this.aetherGuid, session?.isAlive() == true, internalProxyPort) else null
 
     override fun restartOwnedService(): Boolean {
         if (!lifecycle.beginRestart()) return true
@@ -239,7 +242,7 @@ class AetherService : VpnService(), ServiceControl {
             if (isActive) {
                 try {
                     val restarted = lifecycle.completeRestart { LauncherManager.startService(this@AetherService) }
-                    if (!restarted || MmkvManager.decodeServerConfig(MmkvManager.getSelectServer().orEmpty())?.configType != EConfigType.AETHER) stopSelf()
+                    if (!restarted || SettingsManager.getAetherProfile(MmkvManager.getSelectServer().orEmpty()) == null) stopSelf()
                 } catch (e: Exception) {
                     LogUtil.e(AppConfig.TAG, "Aether: mode=$mode guid=$guid restart dispatch failed", e)
                     stopSelf()

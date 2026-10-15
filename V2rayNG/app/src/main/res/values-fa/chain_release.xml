@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="aether_chain_invalid">حداقل دو پروفایل متفاوت انتخاب کنید. Aether فقط یک بار و در اولین گام مجاز است.</string>
+    <string name="aether_chain_hint">زنجیره Aether: ‏Aether → Xray → اینترنت. حالت روت پشتیبانی نمی‌شود.</string>
+    <string name="chain_hop_number">%1$d</string>
+</resources>

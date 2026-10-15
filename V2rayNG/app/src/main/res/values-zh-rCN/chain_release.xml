@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="aether_chain_invalid">请选择至少两个不同的配置。Aether 只能出现一次，并且必须作为第一跳。</string>
+    <string name="aether_chain_hint">Aether 链：Aether → Xray → 互联网。不支持 Root 模式。</string>
+    <string name="chain_hop_number">%1$d</string>
+</resources>

@@ -41,10 +41,12 @@ Integration is restricted to Android 8 or later, arm64-v8a, armeabi-v7a and x86_
 and devices with 4 KiB memory pages. There is no upstream Android x86 release binary.
 Support for 16 KiB devices has not been established and is explicitly disabled.
 
-Aether runs as a standalone profile through a local SOCKS listener and Xray.
-VPN and proxy-only modes are implemented; root mode, routing/group/chain membership
-and Android always-on recovery are unsupported. Settings changes take effect after
-reconnecting. These restrictions are surfaced through application resources.
+Aether runs through a local SOCKS listener and Xray, either standalone or as the first
+(device-side) member of an explicit proxy chain: Aether → Xray → destination. One Aether
+member is supported per chain; later-hop Aether, nested chains, policy groups, routing
+targets, root mode and Android always-on recovery remain unsupported. Chain members
+are stored by GUID, with a compatibility reader for preceding remark-based chains.
+Settings changes take effect after reconnecting. Restrictions are shown in the editor.
 
 ## Validation status
 
@@ -94,3 +96,18 @@ checks do not establish that the native connection works on a phone.
 Publishing these source changes does not produce an APK. The commit uses `[skip ci]`
 and no workflow is dispatched. No local Git pull or merge is performed. Instruction
 files, signing files, generated binaries and temporary test artifacts are excluded.
+
+## Version 2.5.0 preparation
+
+New installs select the Iran routing preset and Chocolate4U geo asset provider. Builds
+prepare checksum-pinned geoip/geosite files using iran-rules.lock.json. Existing routing,
+asset files and explicit provider choices are preserved. The Iran preset no longer
+unconditionally blocks UDP/443. No carrier-wide speed increase has been measured.
+
+Mixed chains retain daemon ownership of the Aether child and its runtime port. Profile
+GUIDs bind new chain members across renames; ambiguous legacy remarks and missing
+members are rejected rather than silently dropping a hop.
+
+New-install domestic DNS uses the system resolver for directly routed Iran/private names,
+instead of a China-specific public resolver. Proxy DNS remains on the existing encrypted
+remote resolver; saved DNS preferences are not overwritten.

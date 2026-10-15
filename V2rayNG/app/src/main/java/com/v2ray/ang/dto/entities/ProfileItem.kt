@@ -72,6 +72,8 @@ data class ProfileItem(
     var policyGroupTestOutbounds: Boolean? = null,
     var policyGroupFallbackTag: String? = null,
     var proxyChainProfiles: String? = null,
+    // GUIDs are authoritative; the preceding remark-based field remains readable/exportable.
+    var proxyChainProfileGuids: List<String>? = null,
 
     var browserDialerMode: String? = null,
     var aetherSettings: AetherSettings? = null,
@@ -80,6 +82,27 @@ data class ProfileItem(
     companion object {
         fun create(configType: EConfigType): ProfileItem =
             ProfileItem(configType = configType)
+    }
+
+    /** Read preceding releases by remark, but bind new chains to stable profile identities. */
+    fun chainMemberGuids(profiles: Map<String, ProfileItem>): List<String> {
+        proxyChainProfileGuids?.let { ids ->
+            require(ids.size >= 2 && ids.distinct().size == ids.size && ids.all { it in profiles })
+            return ids
+        }
+        val names = proxyChainProfiles.orEmpty().split(",").map { it.trim() }.filter { it.isNotEmpty() }
+        require(names.size >= 2)
+        val ids = names.map { name -> profiles.filterValues { it.remarks == name }.keys.single() }
+        require(ids.distinct().size == ids.size)
+        return ids
+    }
+
+    fun aetherEntryGuid(profiles: Map<String, ProfileItem>): String? {
+        val ids = chainMemberGuids(profiles)
+        require(ids.all { profiles.getValue(it).configType !in setOf(EConfigType.CUSTOM, EConfigType.POLICYGROUP, EConfigType.PROXYCHAIN, EConfigType.HYSTERIA) })
+        val entries = ids.filter { profiles.getValue(it).configType == EConfigType.AETHER }
+        require(entries.size <= 1 && (entries.isEmpty() || ids.first() == entries.single()))
+        return entries.singleOrNull()
     }
 
     fun getServerAddressAndPort(): String {

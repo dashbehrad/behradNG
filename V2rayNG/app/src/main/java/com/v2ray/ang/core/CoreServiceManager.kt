@@ -130,8 +130,9 @@ object CoreServiceManager {
         val guid = MmkvManager.getSelectServer() ?: error("No server selected")
         val config = MmkvManager.decodeServerConfig(guid) ?: error("Failed to decode server config")
 
-        if (config.configType == com.v2ray.ang.enums.EConfigType.AETHER) {
-            require(service is com.v2ray.ang.service.AetherService && service.hasReadyProfile(guid, config.aetherSettings)) {
+        val aetherProfile = SettingsManager.getAetherProfile(guid)
+        if (aetherProfile != null) {
+            require(service is com.v2ray.ang.service.AetherService && service.hasReadyProfile(aetherProfile.first, aetherProfile.second.aetherSettings)) {
                 service.getString(com.v2ray.ang.R.string.aether_start_error)
             }
         }

@@ -45,26 +45,45 @@ object CoreConfigContextBuilder {
         }
 
         // Step 1: Resolve the main outbound (always tag = TAG_PROXY).
-        val primaryResolvedOutbound = resolveOutbound(AppConfig.TAG_PROXY, config) ?: run {
+        val primary = resolveOutbound(AppConfig.TAG_PROXY, config) ?: run {
             LogUtil.e(AppConfig.TAG, "Failed to resolve main outbound for '${config.remarks}'")
             return null
         }
 
         // Step 2: Resolve all non-builtin routing outbound tags.
         val routingResolvedOutbounds = resolveRoutingOutbounds()
-        val resolvedOutbounds = listOf(primaryResolvedOutbound) + routingResolvedOutbounds
+        val resolvedOutbounds = listOf(primary) + routingResolvedOutbounds
         val fallbackResolvedOutbounds = resolveFallbackOutbounds(resolvedOutbounds)
         val routingDomainRules = collectRoutingDomainRulesForDns()
-        require((routingResolvedOutbounds + fallbackResolvedOutbounds + if (config.configType == EConfigType.AETHER) emptyList() else listOf(primaryResolvedOutbound)).none { spec ->
+        require((routingResolvedOutbounds + fallbackResolvedOutbounds).none { spec ->
             spec.resolvedProfiles.any { it.configType == EConfigType.AETHER }
-        }) { context.getString(com.v2ray.ang.R.string.aether_standalone_only) }
+        }) { context.getString(com.v2ray.ang.R.string.aether_chain_invalid) }
+        val primaryResolvedOutbound = primary.copy(resolvedProfiles = try {
+            runtimeProfiles(config.configType, primary.resolvedProfiles, aetherProxyPort)
+        } catch (e: IllegalArgumentException) {
+            LogUtil.e(AppConfig.TAG, "Aether chain runtime validation failed guid=$guid", e)
+            error(context.getString(com.v2ray.ang.R.string.aether_chain_invalid))
+        })
 
         return CoreConfigContext(
             context = context,
             guid = guid,
-            resolvedOutbounds = resolvedOutbounds + fallbackResolvedOutbounds,
+            resolvedOutbounds = listOf(primaryResolvedOutbound) + routingResolvedOutbounds + fallbackResolvedOutbounds,
             routingDomainRules = routingDomainRules,
         )
+    }
+
+    internal fun runtimeProfiles(type: EConfigType, profiles: List<ProfileItem>, port: Int?): List<ProfileItem> {
+        val aether = profiles.filter { it.configType == EConfigType.AETHER }
+        require(aether.isEmpty() || (type in setOf(EConfigType.AETHER, EConfigType.PROXYCHAIN) &&
+            aether.size == 1 && profiles.last().configType == EConfigType.AETHER))
+        if (aether.isEmpty()) return profiles
+        require(port != null && port in 1024..65535)
+        return profiles.map { profile ->
+            if (profile.configType != EConfigType.AETHER) profile else profile.copy(
+                server = "127.0.0.1", serverPort = port.toString(),
+                aetherSettings = (profile.aetherSettings ?: com.v2ray.ang.dto.entities.AetherSettings()).copy(socksPort = port.toString()))
+        }
     }
 
     /**
@@ -190,23 +209,11 @@ object CoreConfigContextBuilder {
     }
 
     private fun resolveProxyChainProfiles(config: ProfileItem): List<ProfileItem> {
-        if (config.proxyChainProfiles.isNullOrBlank()) {
-            return listOf(config)
-        }
-
-        try {
-            return config.proxyChainProfiles.orEmpty().split(",")
-                .asSequence()
-                .mapNotNull { remark -> SettingsManager.getServerViaRemarks(remark) }
-                .filter { it.server.isNotNullEmpty() }
-                .filter { Utils.isPureIpAddress(it.server!!) || Utils.isValidUrl(it.server!!) }
-                .filter { !it.configType.isComplexType() }
-                .toList()
-                .reversed()
-        } catch (e: Exception) {
-            LogUtil.e(AppConfig.TAG, "Failed to resolve proxy chain profiles for '${config.remarks}'", e)
-            return listOf(config)
-        }
+        val members = SettingsManager.getProxyChainMembers(config)
+        require(members.all { (_, profile) -> profile.configType == EConfigType.AETHER ||
+            (!profile.configType.isComplexType() && profile.server.isNotNullEmpty() &&
+                (Utils.isPureIpAddress(profile.server!!) || Utils.isValidUrl(profile.server!!))) })
+        return members.map { it.second }.reversed()
     }
 
     /**
