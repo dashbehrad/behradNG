@@ -223,7 +223,7 @@ class SaturnService : VpnService(), ServiceControl {
                 return true
             } catch (e: Exception) {
                 released = false
-                LogUtil.e(AppConfig.TAG, "Saturn: mode=$mode guid=$guid cleanup $operation failed", IllegalStateException(e.javaClass.simpleName))
+                LogUtil.e(AppConfig.TAG, "Saturn: mode=$mode guid=$guid cleanup $operation failed", e)
                 return false
             }
         }
@@ -252,7 +252,7 @@ class SaturnService : VpnService(), ServiceControl {
         try {
             runBlocking { withTimeout(5_000) { withContext(Dispatchers.IO) { setupJob?.join(); cleanupJob?.join(); cleanup() } } }
         } catch (e: Exception) {
-            LogUtil.e(AppConfig.TAG, "Saturn: mode=$mode guid=$guid destroy cleanup failed", IllegalStateException(e.javaClass.simpleName))
+            LogUtil.e(AppConfig.TAG, "Saturn: mode=$mode guid=$guid destroy cleanup failed", e)
         } finally {
             serviceScope.cancel()
             if (receiverRegistered) {
