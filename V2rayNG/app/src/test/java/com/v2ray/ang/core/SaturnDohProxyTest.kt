@@ -14,8 +14,132 @@ import java.io.DataInputStream
 import java.net.InetAddress
 import java.net.ServerSocket
 import java.net.Socket
+import java.net.UnknownHostException
+import java.io.IOException
+import java.util.Collections
+import java.util.concurrent.atomic.AtomicInteger
+import okhttp3.Dns
+import okhttp3.OkHttpClient
+import okhttp3.Protocol
+import okhttp3.Request
+import okhttp3.Response
+import okhttp3.MediaType.Companion.toMediaType
+import okhttp3.ResponseBody.Companion.toResponseBody
+import okio.Buffer
+import okio.ByteString.Companion.decodeBase64
 
 class SaturnDohProxyTest {
+    @Test fun forbiddenDohPostRetriesGetAndRemembersTheWorkingMethod() {
+        val requests = Collections.synchronizedList(mutableListOf<Request>())
+        val client = fakeDohClient { request ->
+            requests.add(request)
+            if (request.method == "POST") 403 else 200
+        }
+        try {
+            val settings = SaturnSettings(dohUrl = "https://custom.example/dns-query", bootstrapIps = "192.0.2.1")
+            val resolvers = SaturnDohProxy.createResolvers(settings, client) { _, _ -> }
+            val preferred = AtomicInteger()
+            assertEquals(1, resolvers.size)
+            assertEquals("192.0.2.7", SaturnDohProxy.lookupWithFallback("bridge.example", resolvers,
+                preferred, { false }) { _, _ -> }.single().hostAddress)
+            assertTrue(requests.any { it.method == "POST" })
+            assertTrue(requests.any { it.method == "GET" && it.url.queryParameter("dns") != null })
+            assertTrue(requests.all { it.header("Accept") == "application/dns-message" })
+            requests.clear()
+            SaturnDohProxy.lookupWithFallback("other.example", resolvers, preferred, { false }) { _, _ -> }
+            assertTrue(requests.isNotEmpty())
+            assertTrue(requests.all { it.method == "GET" && it.url.host == "custom.example" })
+        } finally { client.dispatcher.executorService.shutdown(); client.connectionPool.evictAll() }
+    }
+
+    @Test fun blockedDefaultFallsBackToGoogleAndReusesTheWorkingProvider() {
+        val requests = Collections.synchronizedList(mutableListOf<Request>())
+        val client = fakeDohClient { request ->
+            requests.add(request)
+            if (request.url.host == "cloudflare-dns.com") 403 else 200
+        }
+        try {
+            val resolvers = SaturnDohProxy.createResolvers(SaturnSettings(), client) { _, _ -> }
+            val preferred = AtomicInteger()
+            assertEquals(2, resolvers.size)
+            assertEquals("192.0.2.7", SaturnDohProxy.lookupWithFallback("bridge.example", resolvers,
+                preferred, { false }) { _, _ -> }.single().hostAddress)
+            assertTrue(requests.any { it.url.host == "cloudflare-dns.com" && it.method == "GET" })
+            assertEquals(1, preferred.get())
+            requests.clear()
+            SaturnDohProxy.lookupWithFallback("other.example", resolvers, preferred, { false }) { _, _ -> }
+            assertTrue(requests.isNotEmpty())
+            assertTrue(requests.all { it.url.host == "dns.google" })
+        } finally { client.dispatcher.executorService.shutdown(); client.connectionPool.evictAll() }
+    }
+
+    @Test fun customDohFailureNeverContactsAnotherProviderAndPreservesTheCause() {
+        val requests = Collections.synchronizedList(mutableListOf<Request>())
+        val client = fakeDohClient { request -> requests.add(request); 403 }
+        try {
+            val settings = SaturnSettings(dohUrl = "https://custom.example/dns-query", bootstrapIps = "192.0.2.1")
+            val resolvers = SaturnDohProxy.createResolvers(settings, client) { _, _ -> }
+            val error = assertThrows(UnknownHostException::class.java) {
+                SaturnDohProxy.lookupWithFallback("bridge.example", resolvers, AtomicInteger(), { false }) { _, _ -> }
+            }
+            assertEquals(1, error.suppressed.size)
+            assertTrue(requests.isNotEmpty())
+            assertTrue(requests.all { it.url.host == "custom.example" && it.url.isHttps })
+        } finally { client.dispatcher.executorService.shutdown(); client.connectionPool.evictAll() }
+    }
+
+    @Test fun stoppedSessionDoesNotTryAnotherResolver() {
+        var stopped = false
+        var attempts = 0
+        val dns = object : Dns {
+            override fun lookup(hostname: String): List<InetAddress> {
+                attempts++
+                stopped = true
+                throw UnknownHostException("Stopped")
+            }
+        }
+        assertThrows(IOException::class.java) {
+            SaturnDohProxy.lookupWithFallback("bridge.example", listOf(dns, dns), AtomicInteger(), { stopped }) { _, _ -> }
+        }
+        assertEquals(1, attempts)
+    }
+
+    @Test fun rateLimitedCustomProviderDoesNotRetryWithGet() {
+        val requests = Collections.synchronizedList(mutableListOf<Request>())
+        val client = fakeDohClient { request -> requests.add(request); 429 }
+        try {
+            val settings = SaturnSettings(dohUrl = "https://custom.example/dns-query", bootstrapIps = "192.0.2.1")
+            val resolvers = SaturnDohProxy.createResolvers(settings, client) { _, _ -> }
+            assertThrows(UnknownHostException::class.java) {
+                SaturnDohProxy.lookupWithFallback("bridge.example", resolvers, AtomicInteger(), { false }) { _, _ -> }
+            }
+            assertTrue(requests.isNotEmpty())
+            assertTrue(requests.all { it.method == "POST" })
+        } finally { client.dispatcher.executorService.shutdown(); client.connectionPool.evictAll() }
+    }
+
+    /** Exercise real OkHttp DoH encoding/decoding without external DNS or network calls. */
+    private fun fakeDohClient(status: (Request) -> Int): OkHttpClient = OkHttpClient.Builder()
+        .addInterceptor { chain ->
+            val request = chain.request()
+            val code = status(request)
+            val body = if (code == 200) {
+                val query = if (request.method == "GET") requireNotNull(request.url.queryParameter("dns")
+                    ?.decodeBase64()).toByteArray() else Buffer().also { requireNotNull(request.body).writeTo(it) }.readByteArray()
+                var questionEnd = 12
+                while (query[questionEnd] != 0.toByte()) questionEnd += 1 + (query[questionEnd].toInt() and 255)
+                val ipv4 = query[questionEnd + 1] == 0.toByte() && query[questionEnd + 2] == 1.toByte()
+                val reply = query.copyOf(questionEnd + 5)
+                reply[2] = 0x81.toByte(); reply[3] = 0x80.toByte()
+                reply[6] = 0; reply[7] = if (ipv4) 1 else 0
+                reply[8] = 0; reply[9] = 0; reply[10] = 0; reply[11] = 0
+                if (ipv4) reply + byteArrayOf(0xC0.toByte(), 12, 0, 1, 0, 1, 0, 0, 0, 60, 0, 4,
+                    192.toByte(), 0, 2, 7) else reply
+            } else byteArrayOf()
+            Response.Builder().request(request).protocol(Protocol.HTTP_2).code(code).message("Test response")
+                .body(body.toResponseBody("application/dns-message".toMediaType())).build()
+        }.build()
+
     @Test fun localSocksConnectRelaysOnlyTheConfiguredBridgeAndStopClosesListeners(): Unit = runBlocking {
         val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
         val echo = ServerSocket(0, 1, InetAddress.getByName("127.0.0.1"))

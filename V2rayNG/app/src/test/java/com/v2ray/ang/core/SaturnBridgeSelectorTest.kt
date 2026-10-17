@@ -5,8 +5,6 @@ import kotlinx.coroutines.runBlocking
 import org.junit.jupiter.api.Assertions.*
 import org.junit.jupiter.api.Test
 import java.net.InetAddress
-import java.util.concurrent.atomic.AtomicInteger
-import kotlinx.coroutines.delay
 import com.google.gson.Gson
 import com.v2ray.ang.dto.entities.SaturnSettings
 
@@ -26,35 +24,17 @@ class SaturnBridgeSelectorTest {
         assertTrue(result.single().startsWith("obfs4 192.0.2.10:443 "))
     }
 
-    @Test fun bestSpeedPolicyTestsPoolConcurrentlyAndRanksReachableResults(): Unit = runBlocking {
-        val checked = mutableListOf<String>()
-        val active = AtomicInteger()
-        val maxActive = AtomicInteger()
-        val picked = SaturnBridgeSelector.selectBestSpeed((1..30).map { "bridge-$it" }) { line, timeout ->
-            assertEquals(1800, timeout); synchronized(checked) { checked.add(line) }
-            val nowActive = active.incrementAndGet()
-            maxActive.updateAndGet { maxOf(it, nowActive) }
-            delay(10)
-            active.decrementAndGet()
-            if (line == "bridge-1") null else 100L - line.substringAfter('-').toLong()
-        }
-        assertEquals(30, checked.size)
-        assertTrue(maxActive.get() in 2..12)
-        assertEquals((30 downTo 28).map { "bridge-$it" }, picked)
-    }
-    @Test fun bestSpeedPolicyBoundsCandidatesAndNeverInventsAWorkingBridge() = runBlocking {
-        val checked = AtomicInteger()
-        val picked = SaturnBridgeSelector.selectBestSpeed((1..80).map { "bridge-$it" }) { _, timeout ->
-            assertEquals(1800, timeout); checked.incrementAndGet(); null
-        }
-        assertEquals(64, checked.get())
-        assertEquals(emptyList<String>(), picked)
-        assertEquals(emptyList<String>(), SaturnBridgeSelector.selectBestSpeed(emptyList()) { _, _ -> error("not called") })
-    }
-    @Test fun cancellationPropagatesInsteadOfChoosingAFallback() {
+    @Test fun cancelledDohLookupStopsBridgeResolution() {
+        val bridge = "obfs4 bridge.example:443 " + "A".repeat(40) + " cert=" + "B".repeat(70) + " iat-mode=0"
         assertThrows(CancellationException::class.java) {
-            runBlocking { SaturnBridgeSelector.selectBestSpeed(listOf("bridge")) { _, _ -> throw CancellationException("stop") } }
+            runBlocking { SaturnBridgeSelector.resolveCandidates(listOf(bridge)) { throw CancellationException("stop") } }
         }
+    }
+
+    @Test fun fullIpBridgePoolIsPassedThroughWithoutNetworkProbes(): Unit = runBlocking {
+        val bridges = (1..64).map { "obfs4 192.0.2.$it:443 " + "A".repeat(40) + " cert=" + "B".repeat(70) + " iat-mode=0" }
+        val resolved = SaturnBridgeSelector.resolveCandidates(bridges) { error("Literal bridges require no DNS or TCP probes") }
+        assertEquals(bridges, resolved)
     }
 
     @Test fun automaticPoolValidatesDeduplicatesAndRetainsBundledFallback() {

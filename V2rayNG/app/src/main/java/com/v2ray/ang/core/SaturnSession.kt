@@ -21,9 +21,7 @@ import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.ensureActive
 import java.io.File
 import java.net.InetAddress
-import java.net.InetSocketAddress
 import java.net.ServerSocket
-import java.net.Socket
 import java.util.concurrent.TimeUnit
 
 /** saturn-core: one daemon-owned DoH proxy, Tor process and managed obfs4 transport. */
@@ -66,7 +64,7 @@ class SaturnSession {
                 } finally { pending.delete() }
             }
         }
-        val proxy = SaturnDohProxy(settings, owner, reservedPorts)
+        val proxy = SaturnDohProxy(settings, owner, reservedPorts, guid)
         doh = proxy
         stage = Stage.DNS
         LogUtil.i(AppConfig.TAG, "Saturn: mode=transport guid=$guid startup stage=DNS operation=initialize DoH resolver")
@@ -86,30 +84,19 @@ class SaturnSession {
             emptyList()
         } else emptyList()
         currentCoroutineContext().ensureActive()
-        val lines = SaturnBridgeSelector.resolveCandidates(SaturnBridgeSelector.candidates(settings, bundled, refreshed), proxy::resolve)
-        proxy.start(lines)
-        val selected = SaturnBridgeSelector.selectBestSpeed(lines) { line, timeout ->
-            withContext(Dispatchers.IO) {
-                try {
-                    val endpoint = line.split(' ')[1]
-                    val started = System.nanoTime()
-                    Socket().use { socket ->
-                        socket.connect(InetSocketAddress(endpoint.substringBeforeLast(':').removeSurrounding("[", "]"),
-                            endpoint.substringAfterLast(':').toInt()), timeout)
-                    }
-                    (System.nanoTime() - started) / 1_000_000
-                } catch (_: java.io.IOException) { null }
-            }
-        }
-        LogUtil.i(AppConfig.TAG, "Saturn: mode=transport guid=$guid startup stage=BRIDGES operation=bridge scan complete candidates=${lines.size} reachable=${selected.size}")
-        check(selected.isNotEmpty()) { "No Saturn bridge is reachable" }
+        val bridges = SaturnBridgeSelector.resolveCandidates(SaturnBridgeSelector.candidates(settings, bundled, refreshed), proxy::resolve)
+        // Let Tor authenticate every candidate. TCP probe latency cannot establish obfs4
+        // usability or bandwidth, and pre-filtering can discard the only working bridge.
+        check(bridges.isNotEmpty()) { "No Saturn bridge could be resolved" }
+        proxy.start(bridges)
+        LogUtil.i(AppConfig.TAG, "Saturn: mode=transport guid=$guid startup stage=BRIDGES operation=bridge pool ready candidates=${bridges.size}")
         stage = Stage.NATIVE
         val obfs4Proxy = startObfs4Transport(obfs4, directory, proxy.port, guid, owner)
         val port = (1..16).asSequence().map {
             ServerSocket(0, 1, InetAddress.getByName("127.0.0.1")).use { it.localPort }
         }.first { it in 1024..65535 && it !in reservedPorts && it != proxy.port }
         val torrc = File(directory, "torrc")
-        torrc.writeText(configuration(settings, directory, geoip, obfs4Proxy, port, selected, Process.myPid()))
+        torrc.writeText(configuration(settings, directory, geoip, obfs4Proxy, port, bridges, Process.myPid()))
         currentCoroutineContext().ensureActive()
         val command = listOf(launcher.absolutePath, tor.absolutePath, "-f", torrc.absolutePath)
         val builder = ProcessBuilder(command).directory(directory).redirectErrorStream(true)

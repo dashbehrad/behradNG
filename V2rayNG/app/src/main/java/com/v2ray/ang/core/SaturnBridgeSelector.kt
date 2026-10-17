@@ -10,7 +10,7 @@ import kotlinx.coroutines.sync.Semaphore
 import kotlinx.coroutines.sync.withPermit
 import java.net.InetAddress
 
-/** Rank a bounded, trusted bridge pool; TCP reachability is not an obfs4 handshake. */
+/** Resolve a bounded, trusted bridge pool; Tor owns transport handshakes and selection. */
 internal object SaturnBridgeSelector {
     fun parseBuiltins(json: String): List<String> {
         require(json.length <= 65536)
@@ -51,14 +51,5 @@ internal object SaturnBridgeSelector {
             } }.awaitAll().flatten()
         }
 
-    /** Probe concurrently with one fixed best-speed policy; TCP latency ranks candidates, it does not predict throughput. */
-    suspend fun selectBestSpeed(lines: List<String>, probe: suspend (String, Int) -> Long?): List<String> = coroutineScope {
-        val candidates = lines.distinct().take(64)
-        val permits = Semaphore(12)
-        candidates.map { bridge -> async {
-            permits.withPermit { probe(bridge, 1800)?.let { bridge to it } }
-        } }.awaitAll().filterNotNull().sortedBy { it.second }
-            .take(3).map { it.first }
-    }
 }
 

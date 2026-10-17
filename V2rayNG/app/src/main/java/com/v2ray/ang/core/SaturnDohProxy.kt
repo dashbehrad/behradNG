@@ -1,6 +1,8 @@
 package com.v2ray.ang.core
 
 import com.v2ray.ang.dto.entities.SaturnSettings
+import com.v2ray.ang.AppConfig
+import com.v2ray.ang.util.LogUtil
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -12,28 +14,34 @@ import kotlin.coroutines.resumeWithException
 import okhttp3.Call
 import okhttp3.Callback
 import okhttp3.Dns
+import okhttp3.Interceptor
 import okhttp3.Request
 import okhttp3.Response
 import okhttp3.OkHttpClient
 import okhttp3.HttpUrl.Companion.toHttpUrl
 import okhttp3.dnsoverhttps.DnsOverHttps
+import okio.Buffer
 import java.io.DataInputStream
+import java.io.IOException
 import java.net.InetAddress
 import java.net.InetSocketAddress
 import java.net.ServerSocket
 import java.net.Socket
+import java.net.UnknownHostException
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.TimeUnit
 import java.util.concurrent.atomic.AtomicInteger
+import java.util.concurrent.atomic.AtomicBoolean
 
 /** Daemon-session-owned, loopback-only SOCKS5 CONNECT bridge. DoH never carries TCP payloads. */
-internal class SaturnDohProxy(settings: SaturnSettings, private val owner: CoroutineScope, reservedPorts: Set<Int> = emptySet()) {
+internal class SaturnDohProxy(settings: SaturnSettings, private val owner: CoroutineScope, reservedPorts: Set<Int> = emptySet(),
+    private val profileGuid: String? = null) {
     private val client = OkHttpClient.Builder().connectTimeout(8, TimeUnit.SECONDS)
         .readTimeout(8, TimeUnit.SECONDS).callTimeout(12, TimeUnit.SECONDS)
         .followRedirects(false).followSslRedirects(false).proxy(java.net.Proxy.NO_PROXY).build()
-    private val resolver = DnsOverHttps.Builder().client(client).url(settings.dohUrl.toHttpUrl())
-        .bootstrapDnsHosts(settings.bootstrapIps.split(',').map { InetAddress.getByName(it.trim()) })
-        .resolvePrivateAddresses(true).post(true).build()
+    private val resolvers = createResolvers(settings, client, ::reportDnsFailure)
+    private val preferredResolver = AtomicInteger()
+    private val stopped = AtomicBoolean()
     private val sockets = ConcurrentHashMap.newKeySet<Socket>()
     private val active = AtomicInteger()
     private val listener = (1..16).asSequence().map {
@@ -46,13 +54,17 @@ internal class SaturnDohProxy(settings: SaturnSettings, private val owner: Corou
     val port: Int get() = listener.localPort
 
     fun resolve(host: String): List<InetAddress> = if (SaturnSettings.isIpLiteral(host))
-        listOf(InetAddress.getByName(host)) else resolver.lookup(host)
+        listOf(InetAddress.getByName(host)) else lookupWithFallback(host, resolvers, preferredResolver, stopped::get, ::reportDnsFailure)
+
+    private fun reportDnsFailure(index: Int, e: IOException) {
+        LogUtil.w(AppConfig.TAG, "Saturn: mode=transport component=DoH guid=$profileGuid operation=encrypted DNS request failed resolver=$index", e)
+    }
 
     /** Session-owned refresh using the configured DoH resolver; cancellation closes the HTTP call. */
     suspend fun discoverBridges(): List<String> = suspendCancellableCoroutine { continuation ->
         val refreshClient = client.newBuilder().dns(object : Dns {
             override fun lookup(hostname: String): List<InetAddress> = resolve(hostname)
-        }).callTimeout(4, TimeUnit.SECONDS).build()
+        }).callTimeout(20, TimeUnit.SECONDS).build()
         val call = refreshClient.newCall(Request.Builder()
             .url("https://bridges.torproject.org/moat/circumvention/builtin").build())
         continuation.invokeOnCancellation { call.cancel() }
@@ -152,6 +164,7 @@ internal class SaturnDohProxy(settings: SaturnSettings, private val owner: Corou
     }
 
     suspend fun stop() {
+        stopped.set(true)
         listener.close()
         client.dispatcher.cancelAll()
         sockets.forEach { runCatching { it.close() } }
@@ -159,5 +172,67 @@ internal class SaturnDohProxy(settings: SaturnSettings, private val owner: Corou
         acceptJob?.cancelAndJoin()
         client.connectionPool.evictAll()
         client.dispatcher.executorService.shutdown()
+    }
+
+    companion object {
+        /** Retry wire-format POST as GET. Only the built-in default may fail over to Google;
+         * custom providers stay confined to the configured endpoint. Never use system DNS. */
+        internal fun createResolvers(settings: SaturnSettings, client: OkHttpClient,
+            onFailure: (Int, IOException) -> Unit): List<Dns> {
+            val endpoints = mutableListOf(settings.dohUrl to settings.bootstrapIps.split(',').map { it.trim() })
+            val defaults = SaturnSettings()
+            if (settings.dohUrl == defaults.dohUrl && settings.bootstrapIps == defaults.bootstrapIps) {
+                endpoints += "https://dns.google/dns-query" to listOf("8.8.8.8", "8.8.4.4")
+            }
+            return endpoints.mapIndexed { index, (url, ips) ->
+                val preferGet = AtomicBoolean()
+                val dnsClient = client.newBuilder().connectTimeout(5, TimeUnit.SECONDS)
+                    .readTimeout(5, TimeUnit.SECONDS).callTimeout(6, TimeUnit.SECONDS).apply {
+                        interceptors().add(0, Interceptor { chain ->
+                            fun getRequest(request: Request): Request {
+                                val buffer = Buffer()
+                                requireNotNull(request.body).writeTo(buffer)
+                                val dns = buffer.readByteString().base64Url().trimEnd('=')
+                                return request.newBuilder().url(request.url.newBuilder()
+                                    .setQueryParameter("dns", dns).build()).get().removeHeader("Content-Type").build()
+                            }
+                            val post = chain.request()
+                            val request = if (preferGet.get()) getRequest(post) else post
+                            val response = chain.proceed(request)
+                            if (request.method == "POST" && response.code in setOf(403, 405, 415)) {
+                                onFailure(index, IOException("DoH HTTP ${response.code}; retrying with GET"))
+                                response.close()
+                                chain.proceed(getRequest(post)).also { if (it.isSuccessful) preferGet.set(true) }
+                            } else response
+                        })
+                    }.build()
+                DnsOverHttps.Builder().client(dnsClient).url(url.toHttpUrl())
+                    .bootstrapDnsHosts(ips.map(InetAddress::getByName))
+                    .resolvePrivateAddresses(true).post(true).build()
+            }
+        }
+
+        /** Remember the working encrypted resolver for this session to avoid repeated failed round trips. */
+        internal fun lookupWithFallback(host: String, resolvers: List<Dns>, preferred: AtomicInteger,
+            isStopped: () -> Boolean, onFailure: (Int, IOException) -> Unit): List<InetAddress> {
+            val first = preferred.get()
+            val order = resolvers.indices.sortedBy { if (it == first) 0 else 1 }
+            val failures = mutableListOf<IOException>()
+            for (index in order) {
+                if (isStopped()) throw IOException("Saturn encrypted resolver stopped")
+                try {
+                    val addresses = resolvers[index].lookup(host)
+                    if (addresses.isEmpty()) throw UnknownHostException("Empty encrypted DNS response")
+                    preferred.set(index)
+                    return addresses
+                } catch (e: IOException) {
+                    failures += e
+                    if (!isStopped()) onFailure(index, e)
+                }
+            }
+            throw UnknownHostException("Saturn encrypted DNS lookup failed").apply {
+                failures.forEach { addSuppressed(it) }
+            }
+        }
     }
 }
