@@ -7,6 +7,7 @@ import com.v2ray.ang.dto.entities.SaturnSettings
 import com.v2ray.ang.AppConfig
 import com.v2ray.ang.util.LogUtil
 import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -14,6 +15,7 @@ import kotlinx.coroutines.cancelAndJoin
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import kotlinx.coroutines.withTimeout
 import kotlinx.coroutines.withTimeoutOrNull
 import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.ensureActive
@@ -33,6 +35,8 @@ class SaturnSession {
     @Volatile var nativeExitCode: Int? = null
         private set
     private var child: java.lang.Process? = null
+    private var obfs4Process: java.lang.Process? = null
+    private var obfs4OutputJob: Job? = null
     private var outputJob: Job? = null
     private var doh: SaturnDohProxy? = null
     @Volatile private var bootstrapped = false
@@ -100,15 +104,15 @@ class SaturnSession {
         LogUtil.i(AppConfig.TAG, "Saturn: mode=transport guid=$guid startup stage=BRIDGES operation=bridge scan complete candidates=${lines.size} reachable=${selected.size}")
         check(selected.isNotEmpty()) { "No Saturn bridge is reachable" }
         stage = Stage.NATIVE
+        val obfs4Proxy = startObfs4Transport(obfs4, directory, proxy.port, guid, owner)
         val port = (1..16).asSequence().map {
             ServerSocket(0, 1, InetAddress.getByName("127.0.0.1")).use { it.localPort }
         }.first { it in 1024..65535 && it !in reservedPorts && it != proxy.port }
         val torrc = File(directory, "torrc")
-        torrc.writeText(configuration(settings, directory, geoip, obfs4, port, proxy.port, selected, Process.myPid()))
+        torrc.writeText(configuration(settings, directory, geoip, obfs4Proxy, port, selected, Process.myPid()))
         currentCoroutineContext().ensureActive()
         val command = listOf(launcher.absolutePath, tor.absolutePath, "-f", torrc.absolutePath)
         val builder = ProcessBuilder(command).directory(directory).redirectErrorStream(true)
-        builder.environment()["TOR_PT_PROXY"] = "socks5://127.0.0.1:${proxy.port}"
         bootstrapped = false
         bootstrapProgress = -1
         val process = builder.start()
@@ -157,7 +161,70 @@ class SaturnSession {
         port
     }
 
-    fun isAlive(): Boolean = bootstrapped && child?.isAlive == true
+    private suspend fun startObfs4Transport(binary: File, directory: File, proxyPort: Int, guid: String,
+        owner: CoroutineScope): String {
+        val stateDirectory = File(directory, "pt_state")
+        check(stateDirectory.isDirectory || stateDirectory.mkdirs())
+        val process = ProcessBuilder(binary.absolutePath).directory(directory).redirectErrorStream(true).apply {
+            environment()["TOR_PT_MANAGED_TRANSPORT_VER"] = "1"
+            environment()["TOR_PT_CLIENT_TRANSPORTS"] = "obfs4"
+            environment()["TOR_PT_STATE_LOCATION"] = stateDirectory.absolutePath + File.separator
+            environment()["TOR_PT_EXIT_ON_STDIN_CLOSE"] = "1"
+            environment()["TOR_PT_PROXY"] = "socks5://127.0.0.1:$proxyPort"
+        }.start()
+        obfs4Process = process
+        val methodAddress = CompletableDeferred<String>()
+        obfs4OutputJob = owner.launch(Dispatchers.IO) {
+            try {
+                process.inputStream.bufferedReader().useLines { lines ->
+                    for (line in lines) {
+                        when {
+                            line.startsWith("CMETHOD ") -> parseObfs4Cmethod(line)?.let(methodAddress::complete)
+                            line == "CMETHODS DONE" -> if (!methodAddress.isCompleted) {
+                                methodAddress.completeExceptionally(IllegalStateException("Lyrebird did not register obfs4"))
+                            }
+                            line.startsWith("CMETHOD-ERROR obfs4 ") || line.startsWith("ENV-ERROR ") ||
+                                line.startsWith("VERSION-ERROR ") -> if (!methodAddress.isCompleted) {
+                                methodAddress.completeExceptionally(IllegalStateException("Lyrebird managed transport setup failed"))
+                            }
+                        }
+                    }
+                }
+                if (!methodAddress.isCompleted) {
+                    methodAddress.completeExceptionally(IllegalStateException("Lyrebird exited before registering obfs4"))
+                }
+            } catch (e: Exception) {
+                methodAddress.completeExceptionally(e)
+            }
+        }
+        return try {
+            withTimeout(10_000) { methodAddress.await() }.also {
+                check(process.isAlive) { "Lyrebird exited during managed transport setup" }
+                LogUtil.i(AppConfig.TAG, "Saturn: mode=transport guid=$guid startup stage=NATIVE operation=managed obfs4 transport ready")
+            }
+        } catch (e: Exception) {
+            stopObfs4Transport()
+            throw e
+        }
+    }
+
+    private suspend fun stopObfs4Transport() = withContext(Dispatchers.IO) {
+        val process = obfs4Process
+        try {
+            if (process != null) {
+                runCatching { process.outputStream.close() }
+                if (!process.waitFor(2, TimeUnit.SECONDS)) process.destroy()
+                if (!process.waitFor(1, TimeUnit.SECONDS)) process.destroyForcibly()
+                check(process.waitFor(1, TimeUnit.SECONDS)) { "Lyrebird process did not exit" }
+            }
+        } finally {
+            obfs4Process = null
+            obfs4OutputJob?.cancelAndJoin()
+            obfs4OutputJob = null
+        }
+    }
+
+    fun isAlive(): Boolean = bootstrapped && child?.isAlive == true && obfs4Process?.isAlive == true
 
     suspend fun stop() = withContext(Dispatchers.IO) {
         bootstrapped = false
@@ -169,6 +236,7 @@ class SaturnSession {
             }
             child = null
         } finally {
+            stopObfs4Transport()
             doh?.stop()
             doh = null
             outputJob?.cancelAndJoin()
@@ -177,6 +245,15 @@ class SaturnSession {
     }
 
     companion object {
+        internal fun parseObfs4Cmethod(line: String): String? {
+            val fields = line.trim().split(Regex("\\s+"))
+            if (fields.size != 4 || fields[0] != "CMETHOD" || fields[1] != "obfs4" || fields[2] != "socks5") return null
+            val endpoint = fields[3]
+            val host = endpoint.substringBeforeLast(':', "")
+            val port = endpoint.substringAfterLast(':').toIntOrNull() ?: return null
+            return endpoint.takeIf { host in setOf("127.0.0.1", "localhost") && port in 1024..65535 }
+        }
+
         internal fun parseBootstrapProgress(line: String): Int? =
             Regex("(?:^|\\s)Bootstrapped\\s+(\\d{1,3})%")
                 .find(line)?.groupValues?.get(1)?.toIntOrNull()?.takeIf { it in 0..100 }
@@ -191,9 +268,9 @@ class SaturnSession {
                 true
             } == true
 
-        internal fun configuration(settings: SaturnSettings, directory: File, geoip: File, obfs4: File,
-            port: Int, dohPort: Int, bridges: List<String>, ownerPid: Int): String {
-            require(settings.isValid() && port in 1024..65535 && dohPort in 1024..65535 && bridges.isNotEmpty())
+        internal fun configuration(settings: SaturnSettings, directory: File, geoip: File, obfs4Proxy: String,
+            port: Int, bridges: List<String>, ownerPid: Int): String {
+            require(settings.isValid() && port in 1024..65535 && parseObfs4Cmethod("CMETHOD obfs4 socks5 $obfs4Proxy") != null && bridges.isNotEmpty())
             require(bridges.all(SaturnSettings::validBridge))
             require(ownerPid > 0)
             fun quoted(file: File): String = "\"" + file.absolutePath.replace("\\", "\\\\").replace("\"", "\\\"") + "\""
@@ -202,10 +279,11 @@ class SaturnSession {
                 appendLine("GeoIPFile ${quoted(geoip)}")
                 appendLine("GeoIPv6File ${quoted(File(geoip.parentFile, "geoip6"))}")
                 appendLine("SocksPort 127.0.0.1:$port")
-                appendLine("Socks5Proxy 127.0.0.1:$dohPort")
                 appendLine("ClientOnly 1")
                 appendLine("UseBridges 1")
-                appendLine("ClientTransportPlugin obfs4 exec ${quoted(obfs4)}")
+                // Tor rejects Socks5Proxy alongside ClientTransportPlugin. Lyrebird owns the upstream
+                // SOCKS proxy via TOR_PT_PROXY; Tor connects to Lyrebird's managed local SOCKS endpoint.
+                appendLine("ClientTransportPlugin obfs4 socks5 $obfs4Proxy")
                 appendLine("RunAsDaemon 0")
                 appendLine("SafeLogging 1")
                 appendLine("Log notice stdout")
@@ -216,4 +294,3 @@ class SaturnSession {
         }
     }
 }
-
