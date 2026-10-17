@@ -88,7 +88,7 @@ class SaturnSession {
         currentCoroutineContext().ensureActive()
         val lines = SaturnBridgeSelector.resolveCandidates(SaturnBridgeSelector.candidates(settings, bundled, refreshed), proxy::resolve)
         proxy.start(lines)
-        val selected = SaturnBridgeSelector.select(lines, settings.scanMode) { line, timeout ->
+        val selected = SaturnBridgeSelector.selectBestSpeed(lines) { line, timeout ->
             withContext(Dispatchers.IO) {
                 try {
                     val endpoint = line.split(' ')[1]
@@ -146,7 +146,7 @@ class SaturnSession {
             }
         }
         try {
-            check(awaitBootstrap(if (settings.scanMode == "deep") 300_000 else 180_000,
+            check(awaitBootstrap(180_000,
                 { bootstrapped }, { process.isAlive })) { "Saturn bootstrap timed out" }
         } catch (e: CancellationException) {
             throw e
@@ -292,6 +292,8 @@ class SaturnSession {
                 appendLine("ClientTransportPlugin obfs4 socks5 $obfs4Proxy")
                 appendLine("RunAsDaemon 0")
                 appendLine("SafeLogging 1")
+                // Start Tor's consensus fetch immediately; Tor otherwise waits before contacting authorities.
+                appendLine("ClientBootstrapConsensusAuthorityDownloadInitialDelay 0")
                 appendLine("Log notice stdout")
                 appendLine("__OwningControllerProcess $ownerPid")
                 if (settings.country != "auto") appendLine("ExitNodes {${settings.country}}")
@@ -300,3 +302,4 @@ class SaturnSession {
         }
     }
 }
+

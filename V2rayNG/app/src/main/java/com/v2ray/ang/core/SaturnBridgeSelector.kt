@@ -28,33 +28,37 @@ internal object SaturnBridgeSelector {
 
     suspend fun resolveCandidates(lines: List<String>, resolve: suspend (String) -> List<InetAddress>): List<String> =
         coroutineScope {
-            lines.distinct().take(64).flatMap { bridge ->
-                val parts = bridge.split(Regex("\\s+"))
-                val endpoint = parts[1]
-                val host = endpoint.substringBeforeLast(':').removeSurrounding("[", "]")
-                val port = endpoint.substringAfterLast(':')
-                val addresses = try {
-                    if (SaturnSettings.isIpLiteral(host)) listOf(InetAddress.getByName(host)) else resolve(host).take(2)
-                } catch (e: CancellationException) {
-                    throw e
-                } catch (_: Exception) {
-                    emptyList()
+            val permits = Semaphore(12)
+            lines.distinct().take(64).map { bridge -> async {
+                permits.withPermit {
+                    val parts = bridge.split(Regex("\\s+"))
+                    val endpoint = parts[1]
+                    val host = endpoint.substringBeforeLast(':').removeSurrounding("[", "]")
+                    val port = endpoint.substringAfterLast(':')
+                    val addresses = try {
+                        if (SaturnSettings.isIpLiteral(host)) listOf(InetAddress.getByName(host)) else resolve(host).take(2)
+                    } catch (e: CancellationException) {
+                        throw e
+                    } catch (_: Exception) {
+                        emptyList()
+                    }
+                    addresses.map { address ->
+                        val ip = address.hostAddress!!.substringBefore('%')
+                        listOf(parts[0], (if (ip.contains(':')) "[$ip]" else ip) + ":$port")
+                            .plus(parts.drop(2)).joinToString(" ")
+                    }
                 }
-                addresses.map { address ->
-                    val ip = address.hostAddress!!.substringBefore('%')
-                    listOf(parts[0], (if (ip.contains(':')) "[$ip]" else ip) + ":$port")
-                        .plus(parts.drop(2)).joinToString(" ")
-                }
-            }
+            } }.awaitAll().flatten()
         }
 
-    suspend fun select(lines: List<String>, mode: String, probe: suspend (String, Int) -> Long?): List<String> = coroutineScope {
-        require(mode in setOf("turbo", "deep"))
+    /** Probe concurrently with one fixed best-speed policy; TCP latency ranks candidates, it does not predict throughput. */
+    suspend fun selectBestSpeed(lines: List<String>, probe: suspend (String, Int) -> Long?): List<String> = coroutineScope {
         val candidates = lines.distinct().take(64)
-        val permits = Semaphore(if (mode == "turbo") 3 else 4)
+        val permits = Semaphore(12)
         candidates.map { bridge -> async {
-            permits.withPermit { probe(bridge, if (mode == "turbo") 1500 else 5000)?.let { bridge to it } }
+            permits.withPermit { probe(bridge, 1800)?.let { bridge to it } }
         } }.awaitAll().filterNotNull().sortedBy { it.second }
-            .map { it.first }
+            .take(3).map { it.first }
     }
 }
+

@@ -43,8 +43,6 @@ class ServerSaturnActivity : BaseComponentActivity() {
             state.savedGuid?.let { with(ProfileEditorResult) { finishSaved(it, restartService = false) } }
         }
         val settings = state.settings
-        val turbo = stringResource(R.string.saturn_turbo)
-        val deep = stringResource(R.string.saturn_deep)
         val automatic = stringResource(R.string.saturn_automatic)
         val custom = stringResource(R.string.saturn_custom)
         val countryCodes = stringArrayResource(R.array.saturn_country_codes).toList()
@@ -70,9 +68,6 @@ class ServerSaturnActivity : BaseComponentActivity() {
                     FormTextField(stringResource(R.string.saturn_bridges), settings.bridges,
                         { value -> viewModel.changeSettings { it.copy(bridges = value) } }, enabled = state.editable, maxLines = 10)
                 }
-                FormDropdownField(stringResource(R.string.saturn_scan), settings.scanMode, listOf("turbo", "deep"),
-                    { value -> viewModel.changeSettings { it.copy(scanMode = value) } }, enabled = state.editable,
-                    optionLabel = { if (it == "deep") deep else turbo })
                 FormDropdownField(stringResource(R.string.saturn_country_list), settings.country, countryOptions,
                     { value -> viewModel.changeSettings { it.copy(country = value) } }, enabled = state.editable,
                     optionLabel = { if (it == "auto") automatic else countries[it] ?: it.uppercase() })
@@ -85,3 +80,4 @@ class ServerSaturnActivity : BaseComponentActivity() {
         }
     }
 }
+

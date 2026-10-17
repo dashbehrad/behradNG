@@ -5,6 +5,8 @@ import kotlinx.coroutines.runBlocking
 import org.junit.jupiter.api.Assertions.*
 import org.junit.jupiter.api.Test
 import java.net.InetAddress
+import java.util.concurrent.atomic.AtomicInteger
+import kotlinx.coroutines.delay
 import com.google.gson.Gson
 import com.v2ray.ang.dto.entities.SaturnSettings
 
@@ -24,27 +26,34 @@ class SaturnBridgeSelectorTest {
         assertTrue(result.single().startsWith("obfs4 192.0.2.10:443 "))
     }
 
-    @Test fun turboTestsTheWholePoolAndRanksOnlyReachableResults(): Unit = runBlocking {
+    @Test fun bestSpeedPolicyTestsPoolConcurrentlyAndRanksReachableResults(): Unit = runBlocking {
         val checked = mutableListOf<String>()
-        val picked = SaturnBridgeSelector.select((1..30).map { "bridge-$it" }, "turbo") { line, timeout ->
-            assertEquals(1500, timeout); checked.add(line)
+        val active = AtomicInteger()
+        val maxActive = AtomicInteger()
+        val picked = SaturnBridgeSelector.selectBestSpeed((1..30).map { "bridge-$it" }) { line, timeout ->
+            assertEquals(1800, timeout); synchronized(checked) { checked.add(line) }
+            val nowActive = active.incrementAndGet()
+            maxActive.updateAndGet { maxOf(it, nowActive) }
+            delay(10)
+            active.decrementAndGet()
             if (line == "bridge-1") null else 100L - line.substringAfter('-').toLong()
         }
         assertEquals(30, checked.size)
-        assertEquals((30 downTo 2).map { "bridge-$it" }, picked)
+        assertTrue(maxActive.get() in 2..12)
+        assertEquals((30 downTo 28).map { "bridge-$it" }, picked)
     }
-    @Test fun deepTestsMoreCandidatesButNeverInventsAWorkingBridge() = runBlocking {
-        var checked = 0
-        val picked = SaturnBridgeSelector.select((1..80).map { "bridge-$it" }, "deep") { _, timeout ->
-            assertEquals(5000, timeout); checked++; null
+    @Test fun bestSpeedPolicyBoundsCandidatesAndNeverInventsAWorkingBridge() = runBlocking {
+        val checked = AtomicInteger()
+        val picked = SaturnBridgeSelector.selectBestSpeed((1..80).map { "bridge-$it" }) { _, timeout ->
+            assertEquals(1800, timeout); checked.incrementAndGet(); null
         }
-        assertEquals(64, checked)
+        assertEquals(64, checked.get())
         assertEquals(emptyList<String>(), picked)
-        assertEquals(emptyList<String>(), SaturnBridgeSelector.select(emptyList(), "turbo") { _, _ -> error("not called") })
+        assertEquals(emptyList<String>(), SaturnBridgeSelector.selectBestSpeed(emptyList()) { _, _ -> error("not called") })
     }
     @Test fun cancellationPropagatesInsteadOfChoosingAFallback() {
         assertThrows(CancellationException::class.java) {
-            runBlocking { SaturnBridgeSelector.select(listOf("bridge"), "turbo") { _, _ -> throw CancellationException("stop") } }
+            runBlocking { SaturnBridgeSelector.selectBestSpeed(listOf("bridge")) { _, _ -> throw CancellationException("stop") } }
         }
     }
 
@@ -65,3 +74,4 @@ class SaturnBridgeSelectorTest {
         assertEquals(listOf(bundled), SaturnBridgeSelector.candidates(custom, emptyList(), listOf(fresh)))
     }
 }
+

@@ -17,6 +17,7 @@ class SaturnConfigurationTest {
         assertFalse(config.contains("ClientTransportPlugin obfs4 exec"))
         assertTrue(config.contains("ExitNodes {de}\n"))
         assertTrue(config.contains("UseBridges 1\n"))
+        assertTrue(config.contains("ClientBootstrapConsensusAuthorityDownloadInitialDelay 0\n"))
         assertTrue(config.contains("__OwningControllerProcess 1234\n"))
         assertTrue(config.contains("Bridge $bridge\n"))
         assertThrows(IllegalArgumentException::class.java) {
@@ -36,3 +37,4 @@ class SaturnConfigurationTest {
         assertNull(SaturnSession.parseObfs4Cmethod("CMETHOD obfs4 socks5 127.0.0.1:80"))
     }
 }
+
