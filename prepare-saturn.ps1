@@ -40,7 +40,12 @@ foreach ($geoFile in @('geoip', 'geoip6')) {
 function Copy-Notices([string]$Source, [string]$Destination) {
     New-Item -ItemType Directory -Path $Destination -Force | Out-Null
     Get-ChildItem -LiteralPath $Source -File | Where-Object { $_.Name -match 'LICENSE|COPYING|COPYRIGHT' } |
-        ForEach-Object { Copy-Item -LiteralPath $_.FullName -Destination $Destination -Force }
+        ForEach-Object {
+            $noticeFile = Join-Path $Destination $_.Name
+            Copy-Item -LiteralPath $_.FullName -Destination $noticeFile -Force
+            # Do not retain the Go module cache's read-only attribute in generated assets.
+            (Get-Item -LiteralPath $noticeFile).IsReadOnly = $false
+        }
 }
 Copy-Notices $torSource (Join-Path $noticePath 'tor-android')
 Copy-Notices $obfsSource (Join-Path $noticePath 'lyrebird')

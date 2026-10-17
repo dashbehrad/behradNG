@@ -14,6 +14,17 @@ checkout() {
     test "$(git -C "$destination" rev-parse HEAD)" = "$revision"
 }
 
+copy_notices() {
+    local source="$1" destination="$2"
+    mkdir -p "$destination"
+    # Go's module cache is read-only. Install writable copies so later ABIs and reruns can replace them.
+    # pipefail also makes any failed notice copy stop preparation instead of silently omitting licenses.
+    find "$source" -maxdepth 1 -type f \( -iname '*license*' -o -iname 'copying*' -o -iname '*copyright*' \) -print0 |
+        while IFS= read -r -d '' notice; do
+            install -m 0644 "$notice" "$destination/"
+        done
+}
+
 tor_revision="$(jq -r .tor.sourceRevision "$lock")"
 checkout https://github.com/guardianproject/tor-android.git "$tor_revision" "$work/tor-android"
 git -C "$work/tor-android" submodule update --init --recursive
@@ -33,9 +44,7 @@ licenses="$app_dir/src/main/assets/third_party/saturn"
 for source in "$work/tor-android" "$work/tor-android"/external/* "$work/lyrebird"; do
     [ -d "$source" ] || continue
     destination="$licenses/$(basename "$source")"
-    mkdir -p "$destination"
-    find "$source" -maxdepth 1 -type f \( -iname '*license*' -o -iname 'copying*' -o -iname '*copyright*' \) \
-        -exec cp '{}' "$destination/" \;
+    copy_notices "$source" "$destination"
 done
 
 ndk="${NDK_HOME:?Set NDK_HOME to the workflow NDK}"
@@ -60,9 +69,7 @@ while IFS=$'\t' read -r abi arch arm target; do
         # Retain notices for the Go dependency closure in the APK.
         go list -m -json all | jq -r 'select(.Dir != null) | .Dir' | while IFS= read -r module; do
             notice_dir="$licenses/go/$(printf '%s' "$module" | sha256sum | cut -c1-16)"
-            mkdir -p "$notice_dir"
-            find "$module" -maxdepth 1 -type f \( -iname '*license*' -o -iname 'copying*' -o -iname '*copyright*' \) \
-                -exec cp '{}' "$notice_dir/" \;
+            copy_notices "$module" "$notice_dir"
         done
     )
     "$toolchain/${target}26-clang" -O2 -fPIE -pie -Wl,-z,max-page-size=16384 \
