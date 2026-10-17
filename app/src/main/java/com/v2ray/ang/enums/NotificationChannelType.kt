@@ -12,6 +12,7 @@ enum class NotificationChannelType(
     @StringRes val channelNameRes: Int,
     val notificationId: Int
 ) {
+    SATURN(channelId = "saturn_core_channel", channelNameRes = R.string.saturn_title, notificationId = 15),
     AETHER(
         channelId = "aether_core_channel",
         channelNameRes = R.string.aether_title,

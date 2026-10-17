@@ -130,6 +130,11 @@ object CoreServiceManager {
         val guid = MmkvManager.getSelectServer() ?: error("No server selected")
         val config = MmkvManager.decodeServerConfig(guid) ?: error("Failed to decode server config")
 
+        if (config.configType == com.v2ray.ang.enums.EConfigType.SATURN) {
+            require(service is com.v2ray.ang.service.SaturnService && service.hasReadyProfile(guid, config.saturnSettings)) {
+                service.getString(com.v2ray.ang.R.string.saturn_start_error)
+            }
+        }
         val aetherProfile = SettingsManager.getAetherProfile(guid)
         if (aetherProfile != null) {
             require(service is com.v2ray.ang.service.AetherService && service.hasReadyProfile(aetherProfile.first, aetherProfile.second.aetherSettings)) {
@@ -137,7 +142,7 @@ object CoreServiceManager {
             }
         }
         LogUtil.i(AppConfig.TAG, "StartCore-Manager: Starting core loop for guid=$guid")
-        val result = CoreConfigManager.getV2rayConfig(service, guid, serviceControl?.get()?.aetherProxyPort(guid))
+        val result = CoreConfigManager.getV2rayConfig(service, guid, serviceControl?.get()?.aetherProxyPort(guid), serviceControl?.get()?.saturnProxyPort(guid))
         // Generated configuration can contain credentials; never log it.
         if (!result.status) {
             error(result.errorMessage.ifBlank { "Failed to get V2Ray config" })

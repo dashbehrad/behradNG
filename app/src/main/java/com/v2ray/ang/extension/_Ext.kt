@@ -75,7 +75,7 @@ fun EConfigType.isGroupType(): Boolean {
  * @return True if the config type is Custom, PolicyGroup, or ProxyChain, false otherwise.
  */
 fun EConfigType.isComplexType(): Boolean {
-    return this == EConfigType.CUSTOM || this == EConfigType.POLICYGROUP || this == EConfigType.PROXYCHAIN || this == EConfigType.AETHER
+    return this == EConfigType.CUSTOM || this == EConfigType.POLICYGROUP || this == EConfigType.PROXYCHAIN || this == EConfigType.AETHER || this == EConfigType.SATURN
 }
 
 /**

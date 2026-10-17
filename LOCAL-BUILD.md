@@ -1,4 +1,4 @@
-# Build behradNG 2.5.0 locally on Windows
+# Build behradNG 3.0.0 locally on Windows
 
 Open a normal PowerShell window in this folder and run:
 
@@ -20,9 +20,9 @@ APK. It uses the existing private signing files in
 After a successful build, it verifies the signature, package name, version, and
 all native libraries. The output is:
 
-`local-apks/behradNG-2.5.0-local.apk`
+`local-apks/behradNG-3.0.0-local.apk`
 
-Package: `com.v2ray.ang.behradng`. Version code: `754`.
+Package: `com.v2ray.ang.behradng`. Version code: `755`.
 It installs alongside v2rayNG. Updating an existing behradNG installation also
 requires that installation to use the same signing key and a compatible version
 code. No GitHub publishing, commit, release, or workflow is performed.
@@ -44,3 +44,7 @@ the SDK tools failed with curl exit code 7. No APK was produced.
 project preparation. APK signature/package/native-library checks and physical
 phone performance checks also remain unrun. The native Windows build steps have
 not been exercised end to end.
+
+Saturn native inputs are prepared with `prepare-saturn.sh` on Linux/macOS or
+`prepare-saturn.ps1` on Windows. Both use `saturn-core.lock.json`.
+Saturn supports Android 8+ on ARMv7, ARM64 and x86_64; the rest of the client retains its declared support.

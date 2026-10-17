@@ -198,6 +198,7 @@ class MainActivity : HelperBaseComponentActivity() {
         val intent = when (createConfigType) {
             EConfigType.POLICYGROUP.value -> Intent(this, ServerGroupActivity::class.java)
             EConfigType.PROXYCHAIN.value -> Intent(this, ServerProxyChainActivity::class.java)
+            EConfigType.SATURN.value -> Intent(this, com.v2ray.ang.ui.server.ServerSaturnActivity::class.java)
             EConfigType.AETHER.value -> Intent(this, ServerAetherActivity::class.java)
             EConfigType.VMESS.value -> Intent(this, ServerVmessActivity::class.java)
             EConfigType.VLESS.value -> Intent(this, ServerVlessActivity::class.java)
@@ -251,6 +252,7 @@ class MainActivity : HelperBaseComponentActivity() {
             EConfigType.CUSTOM -> ServerCustomConfigActivity::class.java
             EConfigType.POLICYGROUP -> ServerGroupActivity::class.java
             EConfigType.PROXYCHAIN -> ServerProxyChainActivity::class.java
+            EConfigType.SATURN -> com.v2ray.ang.ui.server.ServerSaturnActivity::class.java
             EConfigType.AETHER -> ServerAetherActivity::class.java
             EConfigType.VMESS -> ServerVmessActivity::class.java
             EConfigType.VLESS -> ServerVlessActivity::class.java

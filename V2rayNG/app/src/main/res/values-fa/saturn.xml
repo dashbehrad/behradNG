@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="saturn_title">Saturn</string>
+    <string name="saturn_doh">نشانی DNS روی HTTPS</string>
+    <string name="saturn_bootstrap">آی‌پی‌های راه‌انداز DoH (با ویرگول)</string>
+    <string name="saturn_bridges">پل‌های سفارشی obfs4 (هر خط یک پل)</string>
+    <string name="saturn_scan">روش بررسی پل‌ها</string>
+    <string name="saturn_turbo">جست‌وجوی سریع</string>
+    <string name="saturn_deep">جست‌وجوی عمیق</string>
+    <string name="saturn_country">کشور خروجی (auto یا کد دوحرفی)</string>
+    <string name="saturn_hint">DoH فقط برای DNS است؛ سپس به پل‌های obfs4 واردشده و Tor متصل می‌شود. فقط TCP. پس از تغییر تنظیمات دوباره متصل شوید.</string>
+    <string name="saturn_loading">در حال بارگذاری Saturn…</string>
+    <string name="saturn_starting">در حال راه‌اندازی Saturn…</string>
+    <string name="saturn_start_error">اتصال Saturn برقرار نشد. DoH، پل‌ها و کشور خروجی را بررسی کنید.</string>
+    <string name="saturn_invalid_settings">نام، نشانی HTTPS، آی‌پی‌ها، پل‌های obfs4 و کد کشور را بررسی کنید.</string>
+    <string name="saturn_load_error">بارگذاری نمایه Saturn انجام نشد.</string>
+    <string name="saturn_save_error">ذخیره نمایه Saturn انجام نشد.</string>
+    <string name="saturn_unavailable">Saturn به اندروید ۸ یا جدیدتر و هسته سازگار با دستگاه نیاز دارد.</string>
+    <string name="saturn_root_unsupported">Saturn در حالت روت در دسترس نیست.</string>
+    <string name="saturn_permission_error">ابتدا اجازه VPN را بدهید.</string>
+    <string name="saturn_vpn_error">ساخت رابط VPN انجام نشد.</string>
+    <string name="saturn_routing_error">راه‌اندازی مسیریابی Saturn انجام نشد.</string>
+    <string name="saturn_tunnel_error">راه‌اندازی تونل VPN انجام نشد.</string>
+</resources>

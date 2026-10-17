@@ -13,8 +13,8 @@ android {
         applicationId = "com.v2ray.ang"
         minSdk = 24
         targetSdk = 37
-        versionCode = 754
-        versionName = "2.5.0"
+        versionCode = 755
+        versionName = "3.0.0"
 
         val abiFilterList = (properties["ABI_FILTERS"] as? String)?.split(';')
         splits {
@@ -189,6 +189,7 @@ dependencies {
     implementation(libs.mmkv.static)
     implementation(libs.gson)
     implementation(libs.okhttp)
+    implementation(libs.okhttp.dnsoverhttps)
 
     // Reactive and Utility Libraries
     implementation(libs.kotlinx.coroutines.android)

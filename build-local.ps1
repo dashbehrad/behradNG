@@ -153,6 +153,7 @@ try {
     } finally { Pop-Location }
 
     & (Join-Path $repoPath 'prepare-aether.ps1') -NdkPath (Join-Path $sdkPath ($ndkPackages[1].Replace(';', '/'))) -AppPath (Join-Path $projectPath 'app')
+    & (Join-Path $repoPath 'prepare-saturn.ps1') -NdkPath (Join-Path $sdkPath ($ndkPackages[1].Replace(';', '/'))) -AppPath (Join-Path $projectPath 'app')
     Write-Output 'Building HEV libraries for all four ABIs...'
     $ndkBuild = Join-Path $sdkPath ($ndkPackages[1].Replace(';', '/') + '/ndk-build.cmd')
     $hevBuildPath = Join-Path $buildPath 'hev-build'
@@ -185,7 +186,7 @@ try {
     if (!(Test-Path -LiteralPath $apkPath)) { throw 'Expected release APK was not produced.' }
     Run-Native (Join-Path $sdkPath "build-tools/$buildToolsVersion/apksigner.bat") @('verify', '--verbose', '--min-sdk-version', '24', $apkPath)
     $badging = & (Join-Path $sdkPath "build-tools/$buildToolsVersion/aapt.exe") dump badging $apkPath
-    if ($LASTEXITCODE -ne 0 -or !($badging -match "package: name='com.v2ray.ang.behradng'.*versionCode='754'.*versionName='2.5.0'")) { throw 'APK package or version does not match behradNG 2.5.0.' }
+    if ($LASTEXITCODE -ne 0 -or !($badging -match "package: name='com.v2ray.ang.behradng'.*versionCode='755'.*versionName='3.0.0'")) { throw 'APK package or version does not match behradNG 3.0.0.' }
     Add-Type -AssemblyName System.IO.Compression.FileSystem
     $zip = [IO.Compression.ZipFile]::OpenRead($apkPath)
     try {
@@ -202,12 +203,23 @@ try {
                 if ($null -eq $entry -or $entry.Length -eq 0) { throw "APK missing Aether library: $($asset.abi)/$lib" }
             }
         }
+        $saturnLock = Get-Content (Join-Path $repoPath 'saturn-core.lock.json') -Raw | ConvertFrom-Json
+        foreach ($abi in $saturnLock.abis) {
+            foreach ($lib in @('libsaturn-core.so', 'libsaturn-tor.so', 'libsaturn-obfs4.so')) {
+                $entry = $zip.GetEntry("lib/$($abi.abi)/$lib")
+                if ($null -eq $entry -or $entry.Length -eq 0) { throw "APK missing Saturn library: $($abi.abi)/$lib" }
+            }
+        }
+        foreach ($asset in @('assets/saturn/geoip', 'assets/saturn/geoip6', 'assets/third_party/saturn/source-pins.json')) {
+            $entry = $zip.GetEntry($asset)
+            if ($null -eq $entry -or $entry.Length -eq 0) { throw "APK missing Saturn asset: $asset" }
+        }
         $licenseEntry = $zip.GetEntry('assets/third_party/AETHER_LICENSE.txt')
         if ($null -eq $licenseEntry -or $licenseEntry.Length -eq 0) { throw 'APK missing Aether license.' }
     } finally { $zip.Dispose() }
     $outputPath = Join-Path $repoPath 'local-apks'
     New-Item -ItemType Directory -Path $outputPath -Force | Out-Null
-    $outputApk = Join-Path $outputPath 'behradNG-2.5.0-local.apk'
+    $outputApk = Join-Path $outputPath 'behradNG-3.0.0-local.apk'
     Copy-Item -LiteralPath $apkPath -Destination $outputApk -Force
     Write-Output "Local APK built and checked: $outputApk"
     Get-FileHash -LiteralPath $outputApk -Algorithm SHA256 | Select-Object Hash

@@ -112,6 +112,9 @@ object LauncherManager {
             LogUtil.e(AppConfig.TAG, "LauncherManager: chain validation failed guid=$guid", e)
             error(context.getString(R.string.aether_chain_invalid))
         }
+        if (config.configType == com.v2ray.ang.enums.EConfigType.SATURN && SettingsManager.isRootMode()) {
+            error(context.getString(R.string.saturn_root_unsupported))
+        }
         if (usesAether && SettingsManager.isRootMode()) {
             error(context.getString(R.string.aether_root_unsupported))
         }
@@ -121,7 +124,9 @@ object LauncherManager {
             error(context.getString(R.string.toast_root_required))
         }
 
-        val intent = if (usesAether) {
+        val intent = if (config.configType == com.v2ray.ang.enums.EConfigType.SATURN) {
+            Intent(context.applicationContext, com.v2ray.ang.service.SaturnService::class.java)
+        } else if (usesAether) {
             Intent(context.applicationContext, com.v2ray.ang.service.AetherService::class.java)
         } else if (isRootMode) {
             LogUtil.i(AppConfig.TAG, "LauncherManager: Starting Root service")

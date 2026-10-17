@@ -369,4 +369,56 @@ class CoreVpnService : VpnService(), ServiceControl {
         isStartingLock.set(false)
         LogUtil.w(AppConfig.TAG, "StartCore-VPN: unlockStart")
     }
+
+    /**
+     * VPN/tunnel owner for a transport that bootstraps before establishing the interface.
+     * Its lifetime belongs to the calling daemon service, separate from this service instance's
+     * Android callback-owned interface; all acquisition and release happen on that owner's IO scope.
+     */
+    class OwnedTransportVpn(private val context: Context, private val builderFactory: () -> Builder) {
+        var descriptor: ParcelFileDescriptor? = null
+            private set
+        private var tunnel: TProxyService? = null
+        fun establish(name: String) {
+            val address = SettingsManager.getCurrentVpnInterfaceAddressConfig()
+            val builder = builderFactory().setSession(name).setMtu(SettingsManager.getVpnMtu())
+                .addAddress(address.ipv4Client, 30)
+            if (SettingsManager.routingRulesetsBypassLan()) {
+                AppConfig.ROUTED_IP_LIST.forEach { route ->
+                    val pieces = route.split('/')
+                    builder.addRoute(pieces[0], pieces[1].toInt())
+                }
+            } else builder.addRoute("0.0.0.0", 0)
+            if (MmkvManager.decodeSettingsBool(AppConfig.PREF_IPV6_ENABLED)) {
+                builder.addAddress(address.ipv6Client, 126)
+                if (SettingsManager.routingRulesetsBypassLan()) {
+                    builder.addRoute("2000::", 3).addRoute("fc00::", 18)
+                } else builder.addRoute("::", 0)
+            }
+            SettingsManager.getVpnDnsServers().forEach { builder.addDnsServer(it) }
+            val selected = if (MmkvManager.decodeSettingsBool(AppConfig.PREF_PER_APP_PROXY))
+                MmkvManager.decodeSettingsStringSet(AppConfig.PREF_PER_APP_PROXY_SET).orEmpty().toSet() else emptySet()
+            if (selected.isEmpty() || MmkvManager.decodeSettingsBool(AppConfig.PREF_BYPASS_APPS)) {
+                (selected + context.packageName).forEach { builder.addDisallowedApplication(it) }
+            } else {
+                val allowed = selected - context.packageName
+                check(allowed.isNotEmpty()) { "No applications selected for VPN" }
+                allowed.forEach { builder.addAllowedApplication(it) }
+            }
+            check(descriptor == null)
+            descriptor = builder.establish() ?: error("VPN interface unavailable")
+        }
+
+        fun startTunnel() {
+            if (!SettingsManager.isUsingHevTun()) return
+            check(tunnel == null)
+            tunnel = TProxyService(context, checkNotNull(descriptor), { CoreServiceManager.isRunning() }, {})
+            tunnel!!.startTun2Socks()
+            check(tunnel!!.isTunnelRunning()) { "Transport tunnel failed" }
+        }
+
+        fun stopTunnel() { tunnel?.stopTun2Socks(); tunnel = null }
+        fun close() { descriptor?.close(); descriptor = null }
+    }
+
 }

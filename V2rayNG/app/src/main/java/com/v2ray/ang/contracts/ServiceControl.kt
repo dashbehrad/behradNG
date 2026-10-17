@@ -21,6 +21,9 @@ interface ServiceControl {
     /** Returns the ready Aether child's internal port only for the service-owned profile GUID. */
     fun aetherProxyPort(guid: String): Int? = null
 
+    /** Ready Saturn child port, bound to the daemon-owned selected profile. */
+    fun saturnProxyPort(guid: String): Int? = null
+
     /**
      * Stops the service.
      */

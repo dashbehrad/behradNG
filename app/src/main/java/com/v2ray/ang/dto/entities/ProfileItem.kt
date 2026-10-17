@@ -77,6 +77,7 @@ data class ProfileItem(
 
     var browserDialerMode: String? = null,
     var aetherSettings: AetherSettings? = null,
+    var saturnSettings: SaturnSettings? = null,
 ) {
 
     companion object {
@@ -99,7 +100,7 @@ data class ProfileItem(
 
     fun aetherEntryGuid(profiles: Map<String, ProfileItem>): String? {
         val ids = chainMemberGuids(profiles)
-        require(ids.all { profiles.getValue(it).configType !in setOf(EConfigType.CUSTOM, EConfigType.POLICYGROUP, EConfigType.PROXYCHAIN, EConfigType.HYSTERIA) })
+        require(ids.all { profiles.getValue(it).configType !in setOf(EConfigType.CUSTOM, EConfigType.POLICYGROUP, EConfigType.PROXYCHAIN, EConfigType.HYSTERIA, EConfigType.SATURN) })
         val entries = ids.filter { profiles.getValue(it).configType == EConfigType.AETHER }
         require(entries.size <= 1 && (entries.isEmpty() || ids.first() == entries.single()))
         return entries.singleOrNull()

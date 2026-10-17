@@ -67,6 +67,12 @@
             <property android:name="android.app.PROPERTY_SPECIAL_USE_FGS_SUBTYPE" android:value="VPN proxy tunnel" />
         </service>
         <activity android:name=".ui.server.ServerAetherActivity" android:exported="false" />
+        <service android:name=".service.SaturnService" android:exported="false"
+            android:permission="android.permission.BIND_VPN_SERVICE"
+            android:process=":RunSoLibV2RayDaemon" android:foregroundServiceType="specialUse">
+            <property android:name="android.app.PROPERTY_SPECIAL_USE_FGS_SUBTYPE" android:value="VPN proxy tunnel" />
+        </service>
+        <activity android:name=".ui.server.ServerSaturnActivity" android:exported="false" />
         <activity
             android:name=".ui.main.MainActivity"
             android:exported="true"

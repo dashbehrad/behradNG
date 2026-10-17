@@ -28,7 +28,7 @@ object CoreConfigContextBuilder {
      *
      * Null is returned only when the selected profile cannot be loaded.
      */
-    fun build(context: Context, guid: String, aetherProxyPort: Int? = null): CoreConfigContext? {
+    fun build(context: Context, guid: String, aetherProxyPort: Int? = null, saturnProxyPort: Int? = null): CoreConfigContext? {
         val stored = MmkvManager.decodeServerConfig(guid) ?: return null
         val config = if (stored.configType == EConfigType.AETHER) {
             val port = aetherProxyPort
@@ -37,6 +37,9 @@ object CoreConfigContextBuilder {
                 server = "127.0.0.1", serverPort = port.toString(),
                 aetherSettings = (stored.aetherSettings ?: com.v2ray.ang.dto.entities.AetherSettings()).copy(socksPort = port.toString()),
             )
+        } else if (stored.configType == EConfigType.SATURN) {
+            require(saturnProxyPort != null && saturnProxyPort in 1024..65535) { context.getString(com.v2ray.ang.R.string.saturn_start_error) }
+            stored.copy(server = "127.0.0.1", serverPort = saturnProxyPort.toString())
         } else stored
 
         // CUSTOM: return immediately — CoreConfigManager handles this path on its own.
@@ -56,7 +59,7 @@ object CoreConfigContextBuilder {
         val fallbackResolvedOutbounds = resolveFallbackOutbounds(resolvedOutbounds)
         val routingDomainRules = collectRoutingDomainRulesForDns()
         require((routingResolvedOutbounds + fallbackResolvedOutbounds).none { spec ->
-            spec.resolvedProfiles.any { it.configType == EConfigType.AETHER }
+            spec.resolvedProfiles.any { it.configType in setOf(EConfigType.AETHER, EConfigType.SATURN) }
         }) { context.getString(com.v2ray.ang.R.string.aether_chain_invalid) }
         val primaryResolvedOutbound = primary.copy(resolvedProfiles = try {
             runtimeProfiles(config.configType, primary.resolvedProfiles, aetherProxyPort)
@@ -97,7 +100,7 @@ object CoreConfigContextBuilder {
         }
 
         val (resolvedProfiles, resolvedType) = when (profile.configType) {
-            EConfigType.AETHER -> Pair(listOf(profile), CoreResolvedType.NORMAL)
+            EConfigType.SATURN, EConfigType.AETHER -> Pair(listOf(profile), CoreResolvedType.NORMAL)
             EConfigType.POLICYGROUP -> Pair(
                 resolvePolicyGroupProfiles(profile),
                 CoreResolvedType.POLICYGROUP,

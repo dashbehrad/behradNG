@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="saturn_title">Saturn</string>
+    <string name="saturn_doh">عنوان DNS عبر HTTPS</string>
+    <string name="saturn_bootstrap">عناوين IP لبدء DoH (مفصولة بفواصل)</string>
+    <string name="saturn_bridges">جسور obfs4 مخصصة (جسر لكل سطر)</string>
+    <string name="saturn_scan">وضع اختبار الجسور</string>
+    <string name="saturn_turbo">فحص سريع</string>
+    <string name="saturn_deep">فحص عميق</string>
+    <string name="saturn_country">بلد الخروج (auto أو رمز من حرفين)</string>
+    <string name="saturn_hint">يستخدم DoH لنظام DNS ثم جسور obfs4 وTor. لا ينقل DoH البيانات. يدعم TCP فقط. أعد الاتصال بعد تغيير الإعدادات.</string>
+    <string name="saturn_loading">جار تحميل Saturn…</string>
+    <string name="saturn_starting">جار بدء Saturn…</string>
+    <string name="saturn_start_error">تعذر اتصال Saturn. تحقق من DoH والجسور وبلد الخروج.</string>
+    <string name="saturn_invalid_settings">تحقق من الاسم وعنوان HTTPS وعناوين IP والجسور ورمز البلد.</string>
+    <string name="saturn_load_error">تعذر تحميل ملف Saturn.</string>
+    <string name="saturn_save_error">تعذر حفظ ملف Saturn.</string>
+    <string name="saturn_unavailable">يتطلب Saturn أندرويد 8 أو أحدث ونواة متوافقة مع الجهاز.</string>
+    <string name="saturn_root_unsupported">لا يتوفر Saturn في وضع الروت.</string>
+    <string name="saturn_permission_error">امنح إذن VPN أولاً.</string>
+    <string name="saturn_vpn_error">تعذر إنشاء واجهة VPN.</string>
+    <string name="saturn_routing_error">تعذر بدء توجيه Saturn.</string>
+    <string name="saturn_tunnel_error">تعذر بدء نفق VPN.</string>
+</resources>

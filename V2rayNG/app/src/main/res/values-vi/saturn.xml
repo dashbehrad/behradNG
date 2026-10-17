@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="saturn_title">Saturn</string>
+    <string name="saturn_doh">Địa chỉ DNS qua HTTPS</string>
+    <string name="saturn_bootstrap">IP khởi tạo DoH (phân cách bằng dấu phẩy)</string>
+    <string name="saturn_bridges">Cầu obfs4 tùy chỉnh (mỗi dòng một cầu)</string>
+    <string name="saturn_scan">Chế độ kiểm tra cầu</string>
+    <string name="saturn_turbo">Quét nhanh</string>
+    <string name="saturn_deep">Quét sâu</string>
+    <string name="saturn_country">Quốc gia đầu ra (auto hoặc mã hai chữ)</string>
+    <string name="saturn_hint">DoH dùng cho DNS, sau đó kết nối qua các cầu obfs4 đã nhập và Tor. Chỉ hỗ trợ TCP. Kết nối lại sau khi đổi cài đặt.</string>
+    <string name="saturn_loading">Đang tải Saturn…</string>
+    <string name="saturn_starting">Đang khởi động Saturn…</string>
+    <string name="saturn_start_error">Saturn không thể kết nối. Kiểm tra DoH, cầu và quốc gia đầu ra.</string>
+    <string name="saturn_invalid_settings">Kiểm tra tên, địa chỉ HTTPS, IP khởi tạo, cầu obfs4 và mã quốc gia.</string>
+    <string name="saturn_load_error">Không thể tải cấu hình Saturn.</string>
+    <string name="saturn_save_error">Không thể lưu cấu hình Saturn.</string>
+    <string name="saturn_unavailable">Saturn cần Android 8+ và lõi tương thích với thiết bị.</string>
+    <string name="saturn_root_unsupported">Saturn không hỗ trợ chế độ root.</string>
+    <string name="saturn_permission_error">Hãy cấp quyền VPN trước.</string>
+    <string name="saturn_vpn_error">Không thể tạo giao diện VPN.</string>
+    <string name="saturn_routing_error">Không thể khởi động định tuyến Saturn.</string>
+    <string name="saturn_tunnel_error">Không thể khởi động đường hầm VPN.</string>
+</resources>

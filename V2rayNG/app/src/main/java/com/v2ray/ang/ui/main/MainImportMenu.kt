@@ -24,7 +24,8 @@ private enum class ImportMenuAction(@StringRes val labelRes: Int, val action: Ma
     Trojan(R.string.menu_item_import_config_manually_trojan, MainAction.ImportManually(EConfigType.TROJAN.value)),
     WireGuard(R.string.menu_item_import_config_manually_wireguard, MainAction.ImportManually(EConfigType.WIREGUARD.value)),
     Hysteria2(R.string.menu_item_import_config_manually_hysteria2, MainAction.ImportManually(EConfigType.HYSTERIA2.value)),
-    Aether(R.string.aether_title, MainAction.ImportManually(EConfigType.AETHER.value))
+    Aether(R.string.aether_title, MainAction.ImportManually(EConfigType.AETHER.value)),
+    Saturn(R.string.saturn_title, MainAction.ImportManually(EConfigType.SATURN.value))
 }
 
 enum class MainMoreMenuAction(@StringRes val labelRes: Int) {

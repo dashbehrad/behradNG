@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="saturn_title">Saturn</string>
+    <string name="saturn_doh">DNS over HTTPS URL</string>
+    <string name="saturn_bootstrap">DoH bootstrap IPs (comma separated)</string>
+    <string name="saturn_bridges">Custom obfs4 bridges (one per line)</string>
+    <string name="saturn_scan">Bridge testing mode</string>
+    <string name="saturn_turbo">Turbo scan</string>
+    <string name="saturn_deep">Deep scan</string>
+    <string name="saturn_country">Exit country (auto or two-letter code)</string>
+    <string name="saturn_hint">Uses DoH for DNS, then connects to supplied obfs4 bridges through Tor. DoH does not tunnel traffic. TCP only. Changing settings requires reconnecting.</string>
+    <string name="saturn_loading">Loading Saturn…</string>
+    <string name="saturn_starting">Starting Saturn…</string>
+    <string name="saturn_start_error">Saturn could not connect. Check DoH, bridges and exit country.</string>
+    <string name="saturn_invalid_settings">Check the name, HTTPS DoH URL, bootstrap IPs, obfs4 bridge lines and country code.</string>
+    <string name="saturn_load_error">Could not load the Saturn profile.</string>
+    <string name="saturn_save_error">Could not save the Saturn profile.</string>
+    <string name="saturn_unavailable">Saturn requires Android 8+ and a supported native core for this device.</string>
+    <string name="saturn_root_unsupported">Saturn is unavailable in root mode.</string>
+    <string name="saturn_permission_error">Grant VPN permission before starting Saturn.</string>
+    <string name="saturn_vpn_error">Could not create the Saturn VPN interface.</string>
+    <string name="saturn_routing_error">Could not start Saturn routing.</string>
+    <string name="saturn_tunnel_error">Could not start the Saturn VPN tunnel.</string>
+</resources>

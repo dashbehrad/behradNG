@@ -14,7 +14,7 @@ on:
   workflow_dispatch:
     inputs:
       release_tag:
-        description: 'Release Tag (e.g. v2.5.0)'
+        description: 'Release Tag (e.g. v3.0.0)'
         required: false
         type: string
 
@@ -142,6 +142,11 @@ jobs:
         NDK_HOME: ${{ env.ANDROID_HOME }}/ndk/30.0.16248370
       run: bash prepare-aether.sh
 
+    - name: Prepare pinned Saturn core
+      env:
+        NDK_HOME: ${{ env.ANDROID_HOME }}/ndk/30.0.16248370
+      run: bash prepare-saturn.sh
+
     - name: Prepare pinned Iran routing datasets
       run: bash prepare-iran-rules.sh
 
@@ -199,6 +204,20 @@ jobs:
           done
         done
         unzip -l "$APK_FILE" assets/third_party/AETHER_LICENSE.txt | grep -F assets/third_party/AETHER_LICENSE.txt
+
+    - name: Verify Saturn packaging
+      shell: bash
+      run: |
+        for ABI in $(jq -r '.abis[].abi' saturn-core.lock.json); do
+          for LIBRARY in libsaturn-core.so libsaturn-tor.so libsaturn-obfs4.so; do
+            unzip -l "$APK_FILE" "lib/$ABI/$LIBRARY" | grep -F "lib/$ABI/$LIBRARY"
+          done
+        done
+        for GEO_FILE in geoip geoip6; do
+          unzip -p "$APK_FILE" "assets/saturn/$GEO_FILE" > "$RUNNER_TEMP/saturn-$GEO_FILE"
+          test -s "$RUNNER_TEMP/saturn-$GEO_FILE"
+        done
+        unzip -l "$APK_FILE" assets/third_party/saturn/source-pins.json | grep -F source-pins.json
 
     - name: Verify bundled Iran datasets
       shell: bash

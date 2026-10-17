@@ -73,3 +73,5 @@ Thumbs.db
 
 /.aether-native-downloads/
 /app/libs/
+
+.saturn-native/
