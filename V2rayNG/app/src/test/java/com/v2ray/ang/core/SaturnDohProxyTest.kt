@@ -16,7 +16,7 @@ import java.net.ServerSocket
 import java.net.Socket
 
 class SaturnDohProxyTest {
-    @Test fun localSocksConnectRelaysOnlyTheConfiguredBridgeAndStopClosesListeners() = runBlocking {
+    @Test fun localSocksConnectRelaysOnlyTheConfiguredBridgeAndStopClosesListeners(): Unit = runBlocking {
         val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
         val echo = ServerSocket(0, 1, InetAddress.getByName("127.0.0.1"))
         val bridge = "obfs4 127.0.0.1:${echo.localPort} " + "A".repeat(40) + " cert=" + "B".repeat(70) + " iat-mode=0"
