@@ -236,11 +236,17 @@ class SaturnSession {
             }
             child = null
         } finally {
-            stopObfs4Transport()
-            doh?.stop()
-            doh = null
-            outputJob?.cancelAndJoin()
-            outputJob = null
+            try {
+                stopObfs4Transport()
+            } finally {
+                try {
+                    doh?.stop()
+                } finally {
+                    doh = null
+                    outputJob?.cancelAndJoin()
+                    outputJob = null
+                }
+            }
         }
     }
 
