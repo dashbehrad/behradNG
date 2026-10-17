@@ -11,254 +11,57 @@
     <string name="saturn_core_exit">هسته Saturn هنگام راه‌اندازی Tor متوقف شد (کد خروج %1$d).</string>
     <string name="saturn_native_error">هسته بومی Saturn اجرا نشد. گزارش برنامه را بررسی کنید.</string>
     <string-array name="saturn_country_names">
-        <item>آندورا</item>
         <item>امارات متحدهٔ عربی</item>
-        <item>افغانستان</item>
-        <item>آنتیگوا و باربودا</item>
-        <item>آنگویلا</item>
-        <item>آلبانی</item>
-        <item>ارمنستان</item>
-        <item>آنگولا</item>
-        <item>جنوبگان</item>
-        <item>آرژانتین</item>
-        <item>ساموآی امریکا</item>
         <item>اتریش</item>
         <item>استرالیا</item>
-        <item>آروبا</item>
-        <item>جزایر آلاند</item>
         <item>جمهوری آذربایجان</item>
-        <item>بوسنی و هرزگوین</item>
-        <item>باربادوس</item>
         <item>بنگلادش</item>
         <item>بلژیک</item>
-        <item>بورکینافاسو</item>
         <item>بلغارستان</item>
-        <item>بحرین</item>
-        <item>بوروندی</item>
-        <item>بنین</item>
-        <item>سن بارتلمی</item>
-        <item>برمودا</item>
-        <item>برونئی</item>
-        <item>بولیوی</item>
-        <item>جزایر کارائیب هلند</item>
-        <item>برزیل</item>
-        <item>باهاما</item>
-        <item>بوتان</item>
-        <item>جزیرهٔ بووه</item>
-        <item>بوتسوانا</item>
-        <item>بلاروس</item>
-        <item>بلیز</item>
         <item>کانادا</item>
-        <item>جزایر کوکوس</item>
-        <item>کنگو - کینشاسا</item>
-        <item>جمهوری افریقای مرکزی</item>
-        <item>کنگو - برازویل</item>
         <item>سوئیس</item>
-        <item>ساحل عاج</item>
-        <item>جزایر کوک</item>
         <item>شیلی</item>
-        <item>کامرون</item>
         <item>چین</item>
-        <item>کلمبیا</item>
         <item>کاستاریکا</item>
-        <item>کوبا</item>
-        <item>کیپ‌ورد</item>
-        <item>کوراسائو</item>
-        <item>جزیرهٔ کریسمس</item>
         <item>قبرس</item>
         <item>چک</item>
         <item>آلمان</item>
-        <item>جیبوتی</item>
         <item>دانمارک</item>
-        <item>دومینیکا</item>
-        <item>جمهوری دومینیکن</item>
-        <item>الجزایر</item>
-        <item>اکوادور</item>
-        <item>استونی</item>
-        <item>مصر</item>
-        <item>صحرای غربی</item>
-        <item>اریتره</item>
         <item>اسپانیا</item>
-        <item>اتیوپی</item>
         <item>فنلاند</item>
-        <item>فیجی</item>
-        <item>جزایر فالکلند</item>
-        <item>میکرونزی</item>
-        <item>جزایر فارو</item>
         <item>فرانسه</item>
-        <item>گابن</item>
         <item>بریتانیا</item>
-        <item>گرنادا</item>
-        <item>گرجستان</item>
-        <item>گویان فرانسه</item>
-        <item>گرنزی</item>
-        <item>غنا</item>
-        <item>جبل‌الطارق</item>
-        <item>گرینلند</item>
-        <item>گامبیا</item>
-        <item>گینه</item>
-        <item>گوادلوپ</item>
-        <item>گینهٔ استوایی</item>
         <item>یونان</item>
-        <item>جورجیای جنوبی و جزایر ساندویچ جنوبی</item>
-        <item>گواتمالا</item>
-        <item>گوام</item>
-        <item>گینهٔ بیسائو</item>
-        <item>گویان</item>
         <item>هنگ‌کنگ، منطقهٔ ویژهٔ اداری چین</item>
-        <item>هرد و جزایر مک‌دونالد</item>
-        <item>هندوراس</item>
         <item>کرواسی</item>
-        <item>هائیتی</item>
         <item>مجارستان</item>
         <item>اندونزی</item>
-        <item>ایرلند</item>
         <item>اسرائیل</item>
-        <item>جزیرهٔ من</item>
-        <item>هند</item>
-        <item>قلمرو بریتانیا در اقیانوس هند</item>
-        <item>عراق</item>
-        <item>ایران</item>
         <item>ایسلند</item>
         <item>ایتالیا</item>
-        <item>جرزی</item>
-        <item>جامائیکا</item>
-        <item>اردن</item>
         <item>ژاپن</item>
-        <item>کنیا</item>
-        <item>قرقیزستان</item>
-        <item>کامبوج</item>
-        <item>کیریباتی</item>
-        <item>کومور</item>
-        <item>سنت کیتس و نویس</item>
-        <item>کرهٔ شمالی</item>
         <item>کرهٔ جنوبی</item>
-        <item>کویت</item>
-        <item>جزایر کِیمن</item>
-        <item>قزاقستان</item>
-        <item>لائوس</item>
-        <item>لبنان</item>
-        <item>سنت لوسیا</item>
-        <item>لیختن‌اشتاین</item>
-        <item>سری‌لانکا</item>
-        <item>لیبریا</item>
-        <item>لسوتو</item>
-        <item>لیتوانی</item>
         <item>لوکزامبورگ</item>
-        <item>لتونی</item>
-        <item>لیبی</item>
-        <item>مراکش</item>
-        <item>موناکو</item>
         <item>مولداوی</item>
-        <item>مونته‌نگرو</item>
-        <item>سنت مارتین</item>
-        <item>ماداگاسکار</item>
-        <item>جزایر مارشال</item>
-        <item>مقدونیهٔ شمالی</item>
-        <item>مالی</item>
-        <item>میانمار (برمه)</item>
-        <item>مغولستان</item>
-        <item>ماکائو، منطقهٔ ویژهٔ اداری چین</item>
-        <item>جزایر ماریانای شمالی</item>
-        <item>مارتینیک</item>
-        <item>موریتانی</item>
-        <item>مونت‌سرات</item>
-        <item>مالت</item>
-        <item>موریس</item>
-        <item>مالدیو</item>
-        <item>مالاوی</item>
         <item>مکزیک</item>
         <item>مالزی</item>
-        <item>موزامبیک</item>
-        <item>نامیبیا</item>
-        <item>کالدونیای جدید</item>
-        <item>نیجر</item>
-        <item>جزیرهٔ نورفولک</item>
-        <item>نیجریه</item>
-        <item>نیکاراگوئه</item>
         <item>هلند</item>
         <item>نروژ</item>
-        <item>نپال</item>
-        <item>نائورو</item>
-        <item>نیوئه</item>
         <item>نیوزیلند</item>
-        <item>عمان</item>
-        <item>پاناما</item>
         <item>پرو</item>
-        <item>پلی‌نزی فرانسه</item>
-        <item>پاپوا گینهٔ نو</item>
-        <item>فیلیپین</item>
         <item>پاکستان</item>
         <item>لهستان</item>
-        <item>سن پیر و میکلن</item>
-        <item>جزایر پیت‌کرن</item>
-        <item>پورتوریکو</item>
-        <item>سرزمین‌های فلسطینی</item>
         <item>پرتغال</item>
-        <item>پالائو</item>
-        <item>پاراگوئه</item>
-        <item>قطر</item>
-        <item>رئونیون</item>
         <item>رومانی</item>
         <item>صربستان</item>
-        <item>روسیه</item>
-        <item>رواندا</item>
         <item>عربستان سعودی</item>
-        <item>جزایر سلیمان</item>
         <item>سیشل</item>
-        <item>سودان</item>
         <item>سوئد</item>
         <item>سنگاپور</item>
-        <item>سنت هلن</item>
-        <item>اسلوونی</item>
-        <item>سوالبارد و یان ماین</item>
-        <item>اسلواکی</item>
-        <item>سیرالئون</item>
-        <item>سان‌مارینو</item>
-        <item>سنگال</item>
-        <item>سومالی</item>
-        <item>سورینام</item>
-        <item>سودان جنوبی</item>
-        <item>سائوتومه و پرینسیپ</item>
-        <item>السالوادور</item>
-        <item>سنت مارتن</item>
-        <item>سوریه</item>
-        <item>اسواتینی</item>
-        <item>جزایر تورکس و کایکوس</item>
-        <item>چاد</item>
-        <item>سرزمین‌های جنوبی فرانسه</item>
-        <item>توگو</item>
-        <item>تایلند</item>
-        <item>تاجیکستان</item>
-        <item>توکلائو</item>
-        <item>تیمور-لسته</item>
-        <item>ترکمنستان</item>
-        <item>تونس</item>
-        <item>تونگا</item>
         <item>ترکیه</item>
-        <item>ترینیداد و توباگو</item>
-        <item>تووالو</item>
         <item>تایوان</item>
-        <item>تانزانیا</item>
         <item>اوکراین</item>
-        <item>اوگاندا</item>
-        <item>جزایر دورافتادهٔ ایالات متحده</item>
         <item>ایالات متحده</item>
-        <item>اروگوئه</item>
-        <item>ازبکستان</item>
-        <item>واتیکان</item>
-        <item>سنت وینسنت و گرنادین</item>
-        <item>ونزوئلا</item>
-        <item>جزایر ویرجین بریتانیا</item>
-        <item>جزایر ویرجین ایالات متحده</item>
-        <item>ویتنام</item>
-        <item>وانواتو</item>
-        <item>والیس و فوتونا</item>
-        <item>ساموآ</item>
-        <item>یمن</item>
-        <item>مایوت</item>
         <item>افریقای جنوبی</item>
-        <item>زامبیا</item>
-        <item>زیمبابوه</item>
     </string-array>
 </resources>
