@@ -160,7 +160,7 @@ class MainActivity : HelperBaseComponentActivity() {
     }
 
     private fun handleFabAction() {
-        if (mainViewModel.uiState.value.isRunning) {
+        if (mainViewModel.uiState.value.isRunning || mainViewModel.uiState.value.isConnecting) {
             LauncherManager.stopService(this)
         } else {
             requestServiceStart()

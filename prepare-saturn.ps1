@@ -70,7 +70,8 @@ try {
             $mainPackage = if (Test-Path -LiteralPath 'cmd/lyrebird') { './cmd/lyrebird' } else { './' }
             $packageName = (& go.exe list -f '{{.Name}}' $mainPackage).Trim()
             if ($LASTEXITCODE -ne 0 -or $packageName -ne 'main') { throw 'Lyrebird entry point unavailable.' }
-            Invoke-Native 'go.exe' @('build', '-trimpath', '-buildmode=pie', '-ldflags=-s -w -buildid= -extldflags=-Wl,-z,max-page-size=16384', '-o', (Join-Path $destination 'libsaturn-obfs4.so'), $mainPackage)
+            # Go 1.23+ rejects anet private net.zoneCache linkname; remove the flag when the pinned dependency stops using it.
+            Invoke-Native 'go.exe' @('build', '-trimpath', '-buildmode=pie', '-ldflags=-s -w -buildid= -checklinkname=0 -extldflags=-Wl,-z,max-page-size=16384', '-o', (Join-Path $destination 'libsaturn-obfs4.so'), $mainPackage)
             $moduleDirs = @(& go.exe list -m -f '{{.Dir}}' all)
             if ($LASTEXITCODE -ne 0) { throw 'Cannot enumerate Lyrebird dependency notices.' }
             $index = 0

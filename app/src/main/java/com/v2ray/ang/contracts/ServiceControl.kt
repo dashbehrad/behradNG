@@ -18,6 +18,9 @@ interface ServiceControl {
     /** Returns true when this service owns an asynchronous, ordered restart. */
     fun restartOwnedService(): Boolean = false
 
+    /** Daemon-owned setup state; this is not proof that a connection is ready. */
+    fun isConnecting(): Boolean = false
+
     /** Returns the ready Aether child's internal port only for the service-owned profile GUID. */
     fun aetherProxyPort(guid: String): Int? = null
 

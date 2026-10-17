@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="connection_connecting">در حال وصل بووەن…</string>
+    <string name="connection_status_connected">وصل بو</string>
+    <string name="connection_connecting_hint">اتصال برقرار ابوه. سی لغو ضربه بزنین.</string>
+    <string name="connection_connected_hint">اتصال برقرار بو.</string>
+    <string name="connection_start_hint">سی اتصال دکمە زیر ن بزنین.</string>
+    <string name="connection_cancel">لغو اتصال</string>
+    <string name="connection_stop">قطع VPN</string>
+    <string name="connection_start">وصل VPN</string>
+</resources>

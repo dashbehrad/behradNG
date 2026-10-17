@@ -54,7 +54,8 @@ while IFS=$'\t' read -r abi arch arm target; do
         main_package=./cmd/lyrebird
         if [ ! -d cmd/lyrebird ]; then main_package=./; fi
         test "$(go list -f '{{.Name}}' "$main_package")" = main
-        go build -trimpath -buildmode=pie -ldflags='-s -w -buildid= -extldflags=-Wl,-z,max-page-size=16384' \
+        # Go 1.23+ rejects anet's private net.zoneCache linkname; remove this flag when the pinned dependency stops using it.
+        go build -trimpath -buildmode=pie -ldflags='-s -w -buildid= -checklinkname=0 -extldflags=-Wl,-z,max-page-size=16384' \
             -o "$app_dir/libs/$abi/libsaturn-obfs4.so" "$main_package"
         # Retain notices for the Go dependency closure in the APK.
         go list -m -json all | jq -r 'select(.Dir != null) | .Dir' | while IFS= read -r module; do

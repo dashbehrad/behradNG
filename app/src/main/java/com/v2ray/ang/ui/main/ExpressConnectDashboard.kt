@@ -45,7 +45,9 @@ import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalHapticFeedback
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
@@ -62,6 +64,7 @@ import com.v2ray.ang.extension.isComplexType
 @Composable
 fun ExpressConnectDashboard(
     isRunning: Boolean,
+    isConnecting: Boolean,
     statusText: String,
     selectedGuid: String?,
     selectedProfile: ProfileItem?,
@@ -101,6 +104,18 @@ fun ExpressConnectDashboard(
     val activeEmerald = Color(0xFF05A870)
     val activeEmeraldDark = Color(0xFF007E54)
     val inactiveRed = Color(0xFFD9383A)
+    val connectingYellow = if (com.v2ray.ang.ui.compose.LocalDarkTheme.current) Color(0xFFFFD54F) else Color(0xFF8A6500)
+    val statusColor = when { isConnecting -> connectingYellow; isRunning -> activeEmerald; else -> inactiveRed }
+    val connectionLabel = stringResource(when {
+        isConnecting -> R.string.connection_connecting
+        isRunning -> R.string.connection_status_connected
+        else -> R.string.connection_not_connected
+    })
+    val toggleLabel = stringResource(when {
+        isConnecting -> R.string.connection_cancel
+        isRunning -> R.string.connection_stop
+        else -> R.string.connection_start
+    })
     val darkSurfaceBorder = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.35f)
 
     Column(
@@ -120,10 +135,10 @@ fun ExpressConnectDashboard(
         ) {
             Surface(
                 shape = RoundedCornerShape(24.dp),
-                color = if (isRunning) activeEmerald.copy(alpha = 0.15f) else inactiveRed.copy(alpha = 0.12f),
+                color = statusColor.copy(alpha = 0.15f),
                 border = BorderStroke(
                     1.dp,
-                    if (isRunning) activeEmerald.copy(alpha = 0.4f) else inactiveRed.copy(alpha = 0.35f)
+                    statusColor.copy(alpha = 0.4f)
                 ),
                 modifier = Modifier.padding(bottom = 10.dp)
             ) {
@@ -135,37 +150,37 @@ fun ExpressConnectDashboard(
                         modifier = Modifier
                             .size(10.dp)
                             .clip(CircleShape)
-                            .background(if (isRunning) activeEmerald else inactiveRed)
+                            .background(statusColor)
                     )
                     Spacer(modifier = Modifier.width(8.dp))
                     Text(
-                        text = if (isRunning) "VPN IS ON" else "VPN IS OFF",
+                        text = connectionLabel,
                         style = MaterialTheme.typography.labelMedium.copy(
                             fontWeight = FontWeight.Bold,
                             letterSpacing = 1.2.sp
                         ),
-                        color = if (isRunning) activeEmerald else inactiveRed
+                        color = statusColor
                     )
                 }
             }
 
             Text(
-                text = if (isRunning) "CONNECTED" else "NOT CONNECTED",
+                text = connectionLabel,
                 style = MaterialTheme.typography.headlineMedium.copy(
                     fontWeight = FontWeight.Black,
                     letterSpacing = 0.5.sp
                 ),
-                color = if (isRunning) activeEmerald else MaterialTheme.colorScheme.onSurface
+                color = if (isRunning || isConnecting) statusColor else MaterialTheme.colorScheme.onSurface
             )
 
             Spacer(modifier = Modifier.height(4.dp))
 
             Text(
-                text = if (isRunning) {
-                    "Protected by behradNG • Safe & Encrypted"
-                } else {
-                    "Tap button below to secure your connection"
-                },
+                text = stringResource(when {
+                    isConnecting -> R.string.connection_connecting_hint
+                    isRunning -> R.string.connection_connected_hint
+                    else -> R.string.connection_start_hint
+                }),
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
@@ -178,18 +193,15 @@ fun ExpressConnectDashboard(
             contentAlignment = Alignment.Center,
             modifier = Modifier
                 .size(190.dp)
-                .semantics {
-                    contentDescription = if (isRunning) "Disconnect behradNG VPN" else "Connect behradNG VPN"
-                }
         ) {
             // Pulsing Aura Ring (when connected)
-            if (isRunning) {
+            if (isRunning || isConnecting) {
                 Box(
                     modifier = Modifier
                         .size(180.dp)
                         .scale(pulseScale)
                         .clip(CircleShape)
-                        .background(activeEmerald.copy(alpha = pulseAlpha))
+                        .background(statusColor.copy(alpha = pulseAlpha))
                 )
             }
 
@@ -200,7 +212,7 @@ fun ExpressConnectDashboard(
                     .clip(CircleShape)
                     .border(
                         width = 4.dp,
-                        color = if (isRunning) activeEmerald else MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f),
+                        color = if (isRunning || isConnecting) statusColor else MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f),
                         shape = CircleShape
                     )
             )
@@ -211,13 +223,15 @@ fun ExpressConnectDashboard(
                 modifier = Modifier
                     .size(136.dp)
                     .shadow(
-                        elevation = if (isRunning) 14.dp else 4.dp,
+                        elevation = if (isRunning || isConnecting) 14.dp else 4.dp,
                         shape = CircleShape,
-                        spotColor = if (isRunning) activeEmerald else Color.Black
+                        spotColor = if (isRunning || isConnecting) statusColor else Color.Black
                     )
                     .clip(CircleShape)
                     .background(
-                        brush = if (isRunning) {
+                        brush = if (isConnecting) {
+                            Brush.verticalGradient(listOf(Color(0xFFFFE082), Color(0xFFFBC02D)))
+                        } else if (isRunning) {
                             Brush.verticalGradient(listOf(Color(0xFF07C182), activeEmeraldDark))
                         } else {
                             Brush.verticalGradient(
@@ -232,11 +246,12 @@ fun ExpressConnectDashboard(
                         haptic.performHapticFeedback(androidx.compose.ui.hapticfeedback.HapticFeedbackType.LongPress)
                         onToggleService()
                     }
+                    .semantics { contentDescription = toggleLabel; stateDescription = connectionLabel }
             ) {
                 Icon(
                     painter = painterResource(R.drawable.ic_power_24dp),
-                    contentDescription = "Power",
-                    tint = if (isRunning) Color.White else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.75f),
+                    contentDescription = null,
+                    tint = if (isConnecting) Color(0xFF332800) else if (isRunning) Color.White else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.75f),
                     modifier = Modifier.size(56.dp)
                 )
             }

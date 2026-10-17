@@ -76,6 +76,10 @@ class AetherService : VpnService(), ServiceControl {
             // Once Xray owns the command receiver, it delegates Aether commands back here.
             if (ownsCore) return
             when (intent?.getIntExtra("key", 0)) {
+                AppConfig.MSG_REGISTER_CLIENT -> {
+                    if (!lifecycle.isStopping()) MessageHelper.sendMsg2UI(this@AetherService,
+                        if (isConnecting()) AppConfig.MSG_STATE_CONNECTING else AppConfig.MSG_STATE_NOT_RUNNING, "")
+                }
                 AppConfig.MSG_STATE_STOP -> stopService()
                 AppConfig.MSG_STATE_RESTART -> {
                     restartOwnedService()
@@ -94,6 +98,7 @@ class AetherService : VpnService(), ServiceControl {
         }
         if (!lifecycle.canStart(setupJob?.isActive == true, ownsCore)) return START_NOT_STICKY
         setupJob = serviceScope.launch(start = CoroutineStart.LAZY) {
+            MessageHelper.sendMsg2UI(this@AetherService, AppConfig.MSG_STATE_CONNECTING, "")
             var failure = R.string.aether_start_error
             try {
                 // API 26 adds the process APIs used to guarantee bounded child-process cleanup.
@@ -212,11 +217,14 @@ class AetherService : VpnService(), ServiceControl {
         return builder.establish() ?: error("VPN interface unavailable")
     }
 
+    override fun isConnecting(): Boolean = lifecycle.isPreparing(setupJob?.isActive == true, ownsCore)
+
     override fun stopService() {
         if (!lifecycle.beginStop()) return
         cleanupJob = serviceScope.launch {
             setupJob?.cancelAndJoin()
-            withContext(NonCancellable) { cleanup() }
+            val released = withContext(NonCancellable) { cleanup() }
+            if (released) MessageHelper.sendMsg2UI(this@AetherService, AppConfig.MSG_STATE_STOP_SUCCESS, "")
             stopSelf()
         }
     }

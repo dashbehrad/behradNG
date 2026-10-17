@@ -127,6 +127,10 @@ class MainViewModel(
 
     private fun handleServiceEvent(event: MainServiceEvent) {
         when (event) {
+            MainServiceEvent.StateConnecting -> {
+                testRequests.invalidateCurrent()
+                _uiState.update { it.connectionState(running = false, connecting = true).copy(isTesting = false) }
+            }
             MainServiceEvent.StateRunning -> updateRunningState(true, clearTestingText = false)
             MainServiceEvent.StateNotRunning -> updateRunningState(false, clearTestingText = false)
             MainServiceEvent.StateStartSuccess -> {
@@ -219,6 +223,7 @@ class MainViewModel(
     }
 
     internal fun formatStatus(status: MainStatus): String = when (status) {
+        MainStatus.Connecting -> dataSource.getString(R.string.connection_connecting)
         MainStatus.Disconnected -> dataSource.getString(R.string.connection_not_connected)
         MainStatus.Connected -> dataSource.getString(R.string.connection_connected)
         MainStatus.Testing -> dataSource.getString(R.string.connection_test_testing)
@@ -821,7 +826,8 @@ class MainViewModel(
         _uiState.update {
             it.copy(
                 isTesting = testRequests.isTesting,
-                status = if (testRequests.isTesting) MainStatus.Testing
+                status = if (it.isConnecting) MainStatus.Connecting
+                else if (testRequests.isTesting) MainStatus.Testing
                 else if (it.isRunning) MainStatus.Connected else MainStatus.Disconnected
             )
         }
@@ -924,12 +930,7 @@ class MainViewModel(
     private fun updateRunningState(running: Boolean, clearTestingText: Boolean = true) {
         if (!running || clearTestingText) testRequests.invalidateCurrent()
         _uiState.update { state ->
-            state.copy(
-                isRunning = running,
-                isTesting = testRequests.isTesting,
-                status = if (!clearTestingText && state.isRunning == running) state.status
-                else if (running) MainStatus.Connected else MainStatus.Disconnected
-            )
+            state.connectionState(running, preserveStatus = !clearTestingText).copy(isTesting = testRequests.isTesting)
         }
     }
 

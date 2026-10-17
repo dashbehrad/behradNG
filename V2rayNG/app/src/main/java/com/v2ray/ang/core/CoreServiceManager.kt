@@ -57,6 +57,9 @@ object CoreServiceManager {
     @Volatile
     private var isReloading = false
 
+    @Volatile
+    private var startingCore = false
+
     /** Tun descriptor the core was started with, null in the proxy only and root run modes. */
     private var currentVpnInterface: ParcelFileDescriptor? = null
 
@@ -121,7 +124,10 @@ object CoreServiceManager {
         ContextCompat.registerReceiver(service, mMsgReceive, mFilter, Utils.receiverFlags())
 
         currentVpnInterface = vpnInterface
-        launchCore(service, vpnInterface, notifyStarted = notifyStarted)
+        startingCore = true
+        MessageHelper.sendMsg2UI(service, AppConfig.MSG_STATE_CONNECTING, "")
+        try { launchCore(service, vpnInterface, notifyStarted = notifyStarted) }
+        finally { startingCore = false }
         startNetworkMonitor(service)
     }
 
@@ -478,7 +484,7 @@ object CoreServiceManager {
                     if (isRunning()) {
                         MessageHelper.sendMsg2UI(serviceControl.getService(), AppConfig.MSG_STATE_RUNNING, "")
                     } else {
-                        MessageHelper.sendMsg2UI(serviceControl.getService(), AppConfig.MSG_STATE_NOT_RUNNING, "")
+                        MessageHelper.sendMsg2UI(serviceControl.getService(), if (startingCore || serviceControl.isConnecting()) AppConfig.MSG_STATE_CONNECTING else AppConfig.MSG_STATE_NOT_RUNNING, "")
                     }
                 }
 

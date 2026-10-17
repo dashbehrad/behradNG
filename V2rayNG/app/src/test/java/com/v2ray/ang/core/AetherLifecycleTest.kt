@@ -8,6 +8,16 @@ import org.junit.jupiter.api.Test
 
 class AetherLifecycleTest {
     @Test
+    fun preparingStateBelongsToActiveSetupAndClearsOnStopOrOwnership() {
+        val lifecycle = AetherLifecycle()
+        assertFalse(lifecycle.isPreparing(false, false))
+        assertTrue(lifecycle.isPreparing(true, false))
+        assertFalse(lifecycle.isPreparing(true, true))
+        lifecycle.beginStop()
+        assertFalse(lifecycle.isPreparing(true, false))
+    }
+
+    @Test
     fun runtimePortBelongsOnlyToTheReadyServiceProfile() {
         val lifecycle = AetherLifecycle()
         assertEquals(45123, lifecycle.readyPort("owned-guid", "owned-guid", true, 45123))

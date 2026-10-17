@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="connection_connecting">সংযোগ হচ্ছে…</string>
+    <string name="connection_status_connected">সংযুক্ত</string>
+    <string name="connection_connecting_hint">সংযোগ স্থাপন হচ্ছে। বাতিল করতে চাপুন।</string>
+    <string name="connection_connected_hint">সংযোগ স্থাপিত হয়েছে।</string>
+    <string name="connection_start_hint">সংযোগ করতে নিচের বোতামটি চাপুন।</string>
+    <string name="connection_cancel">সংযোগ বাতিল করুন</string>
+    <string name="connection_stop">VPN সংযোগ বিচ্ছিন্ন করুন</string>
+    <string name="connection_start">VPN সংযোগ করুন</string>
+</resources>

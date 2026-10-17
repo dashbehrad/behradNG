@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="connection_connecting">Connecting…</string>
+    <string name="connection_status_connected">Connected</string>
+    <string name="connection_connecting_hint">Establishing the connection. Tap to cancel.</string>
+    <string name="connection_connected_hint">Connection established.</string>
+    <string name="connection_start_hint">Tap the button below to connect.</string>
+    <string name="connection_cancel">Cancel connection</string>
+    <string name="connection_stop">Disconnect VPN</string>
+    <string name="connection_start">Connect VPN</string>
+</resources>

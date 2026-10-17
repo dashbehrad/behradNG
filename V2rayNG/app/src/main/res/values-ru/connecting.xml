@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="connection_connecting">Подключение…</string>
+    <string name="connection_status_connected">Подключено</string>
+    <string name="connection_connecting_hint">Устанавливается соединение. Нажмите для отмены.</string>
+    <string name="connection_connected_hint">Соединение установлено.</string>
+    <string name="connection_start_hint">Нажмите кнопку ниже для подключения.</string>
+    <string name="connection_cancel">Отменить подключение</string>
+    <string name="connection_stop">Отключить VPN</string>
+    <string name="connection_start">Подключить VPN</string>
+</resources>

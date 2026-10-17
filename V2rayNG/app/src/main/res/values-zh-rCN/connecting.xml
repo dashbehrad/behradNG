@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="connection_connecting">正在连接…</string>
+    <string name="connection_status_connected">已连接</string>
+    <string name="connection_connecting_hint">正在建立连接。点击取消。</string>
+    <string name="connection_connected_hint">连接已建立。</string>
+    <string name="connection_start_hint">点击下方按钮连接。</string>
+    <string name="connection_cancel">取消连接</string>
+    <string name="connection_stop">断开 VPN</string>
+    <string name="connection_start">连接 VPN</string>
+</resources>

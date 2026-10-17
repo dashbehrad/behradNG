@@ -6,6 +6,7 @@ import com.v2ray.ang.dto.LocateTarget
 
 /** Locale-neutral state formatted only when it reaches the main UI. */
 sealed interface MainStatus {
+    data object Connecting : MainStatus
     data object Disconnected : MainStatus
     data object Connected : MainStatus
     data object Testing : MainStatus
@@ -21,13 +22,25 @@ data class MainUiState(
     val selectedGroupId: String = "",
     val selectedGuid: String? = null,
     val isRunning: Boolean = false,
+    val isConnecting: Boolean = false,
     val isTesting: Boolean = false,
     val status: MainStatus = MainStatus.Disconnected,
     val locateTarget: LocateTarget? = null,
     val confirmRemove: Boolean = false,
     val doubleColumnDisplay: Boolean = false,
     val shareQRCodeBitmap: android.graphics.Bitmap? = null
-)
+) {
+    /** Apply daemon connection events while preserving an active connection test on running snapshots. */
+    internal fun connectionState(running: Boolean, connecting: Boolean = false, preserveStatus: Boolean = false): MainUiState {
+        require(!running || !connecting)
+        return copy(isRunning = running, isConnecting = connecting, status = when {
+            connecting -> MainStatus.Connecting
+            preserveStatus && isRunning == running && status != MainStatus.Connecting -> status
+            running -> MainStatus.Connected
+            else -> MainStatus.Disconnected
+        })
+    }
+}
 
 /**
  * All possible user interaction intents

@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="connection_connecting">Qoşulur…</string>
+    <string name="connection_status_connected">Qoşuldu</string>
+    <string name="connection_connecting_hint">Əlaqə qurulur. Ləğv etmək üçün toxunun.</string>
+    <string name="connection_connected_hint">Əlaqə quruldu.</string>
+    <string name="connection_start_hint">Qoşulmaq üçün aşağıdakı düyməyə toxunun.</string>
+    <string name="connection_cancel">Qoşulmanı ləğv et</string>
+    <string name="connection_stop">VPN bağlantısını kəs</string>
+    <string name="connection_start">VPN-ə qoşul</string>
+</resources>

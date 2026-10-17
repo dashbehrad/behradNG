@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="connection_connecting">جار الاتصال…</string>
+    <string name="connection_status_connected">متصل</string>
+    <string name="connection_connecting_hint">جار إنشاء الاتصال. اضغط للإلغاء.</string>
+    <string name="connection_connected_hint">تم إنشاء الاتصال.</string>
+    <string name="connection_start_hint">اضغط الزر أدناه للاتصال.</string>
+    <string name="connection_cancel">إلغاء الاتصال</string>
+    <string name="connection_stop">قطع اتصال VPN</string>
+    <string name="connection_start">اتصال VPN</string>
+</resources>

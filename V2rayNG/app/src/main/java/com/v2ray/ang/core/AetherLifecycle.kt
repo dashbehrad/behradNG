@@ -9,6 +9,9 @@ internal class AetherLifecycle {
     fun isStopping(): Boolean = stopping
 
     @Synchronized
+    fun isPreparing(setupActive: Boolean, ownsCore: Boolean): Boolean = !stopping && setupActive && !ownsCore
+
+    @Synchronized
     fun canStart(setupActive: Boolean, ownsCore: Boolean): Boolean =
         !stopping && !setupActive && !ownsCore
 

@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="connection_connecting">در حال اتصال…</string>
+    <string name="connection_status_connected">متصل</string>
+    <string name="connection_connecting_hint">در حال برقراری اتصال. برای لغو ضربه بزنید.</string>
+    <string name="connection_connected_hint">اتصال برقرار شد.</string>
+    <string name="connection_start_hint">برای اتصال دکمه زیر را بزنید.</string>
+    <string name="connection_cancel">لغو اتصال</string>
+    <string name="connection_stop">قطع VPN</string>
+    <string name="connection_start">اتصال VPN</string>
+</resources>
