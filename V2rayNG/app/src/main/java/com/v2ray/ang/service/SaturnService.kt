@@ -154,7 +154,7 @@ class SaturnService : VpnService(), ServiceControl {
                 val stage = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) session?.stage else null
                 val exitCode = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) session?.nativeExitCode else null
                 LogUtil.e(AppConfig.TAG, "Saturn: mode=$mode guid=$guid startup stage=$stage exit=$exitCode failed",
-                    IllegalStateException(e.javaClass.simpleName))
+                    e)
                 val message = if (failure != R.string.saturn_start_error) getString(failure) else when (stage) {
                     SaturnSession.Stage.NATIVE -> getString(R.string.saturn_native_error)
                     SaturnSession.Stage.DNS -> getString(R.string.saturn_dns_error)
