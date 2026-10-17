@@ -4,9 +4,11 @@ import com.google.gson.JsonParser
 import com.v2ray.ang.dto.entities.SaturnSettings
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.sync.Semaphore
 import kotlinx.coroutines.sync.withPermit
+import java.net.InetAddress
 
 /** Rank a bounded, trusted bridge pool; TCP reachability is not an obfs4 handshake. */
 internal object SaturnBridgeSelector {
@@ -23,6 +25,28 @@ internal object SaturnBridgeSelector {
     fun candidates(settings: SaturnSettings, bundled: List<String>, refreshed: List<String>): List<String> =
         if (settings.usesAutomaticBridges()) (refreshed + bundled).filter(SaturnSettings::validBridge).distinct().take(64)
         else settings.bridgeLines()
+
+    suspend fun resolveCandidates(lines: List<String>, resolve: suspend (String) -> List<InetAddress>): List<String> =
+        coroutineScope {
+            lines.distinct().take(64).flatMap { bridge ->
+                val parts = bridge.split(Regex("\\s+"))
+                val endpoint = parts[1]
+                val host = endpoint.substringBeforeLast(':').removeSurrounding("[", "]")
+                val port = endpoint.substringAfterLast(':')
+                val addresses = try {
+                    if (SaturnSettings.isIpLiteral(host)) listOf(InetAddress.getByName(host)) else resolve(host).take(2)
+                } catch (e: CancellationException) {
+                    throw e
+                } catch (_: Exception) {
+                    emptyList()
+                }
+                addresses.map { address ->
+                    val ip = address.hostAddress!!.substringBefore('%')
+                    listOf(parts[0], (if (ip.contains(':')) "[$ip]" else ip) + ":$port")
+                        .plus(parts.drop(2)).joinToString(" ")
+                }
+            }
+        }
 
     suspend fun select(lines: List<String>, mode: String, probe: suspend (String, Int) -> Long?): List<String> = coroutineScope {
         require(mode in setOf("turbo", "deep"))

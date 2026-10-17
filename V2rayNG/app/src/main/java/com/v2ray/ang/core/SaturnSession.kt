@@ -65,9 +65,7 @@ class SaturnSession {
         doh = proxy
         stage = Stage.DNS
         currentCoroutineContext().ensureActive()
-        // Validate the HTTPS resolver before probing bridges. There is no system-DNS fallback.
-        proxy.resolve("torproject.org")
-        currentCoroutineContext().ensureActive()
+        // Do not gate IP-literal bridges on an unrelated DoH lookup; DoH is used only for hostnames.
         stage = Stage.BRIDGES
         val bundled = if (settings.usesAutomaticBridges()) context.assets.open("saturn/builtin-bridges.json")
             .bufferedReader().use { SaturnBridgeSelector.parseBuiltins(it.readText()) } else emptyList()
@@ -80,19 +78,8 @@ class SaturnSession {
                 IllegalStateException(e.javaClass.simpleName))
             emptyList()
         } else emptyList()
-        val lines = SaturnBridgeSelector.candidates(settings, bundled, refreshed).flatMap { bridge ->
-            val parts = bridge.split(Regex("\\s+"))
-            val host = parts[1].substringBeforeLast(':').removeSurrounding("[", "]")
-            val port = parts[1].substringAfterLast(':')
-            try {
-                currentCoroutineContext().ensureActive()
-                proxy.resolve(host).take(2).map { address ->
-                    val ip = address.hostAddress!!.substringBefore('%')
-                    listOf(parts[0], (if (ip.contains(':')) "[$ip]" else ip) + ":$port")
-                        .plus(parts.drop(2)).joinToString(" ")
-                }
-            } catch (e: java.net.UnknownHostException) { emptyList() }
-        }
+        currentCoroutineContext().ensureActive()
+        val lines = SaturnBridgeSelector.resolveCandidates(SaturnBridgeSelector.candidates(settings, bundled, refreshed), proxy::resolve)
         proxy.start(lines)
         val selected = SaturnBridgeSelector.select(lines, settings.scanMode) { line, timeout ->
             withContext(Dispatchers.IO) {

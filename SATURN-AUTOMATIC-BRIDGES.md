@@ -7,12 +7,13 @@ are selected from a read-only dropdown with Automatic and 249 ISO country names,
 localized for the ten app locales. Saved country codes remain unchanged in links.
 Some countries have no usable Tor exits; Automatic gives Tor the widest choice.
 
-At startup, Saturn checks the configured DoH resolver, requests Tor's public
-`/moat/circumvention/builtin` API over HTTPS using that resolver, and combines valid
-obfs4 descriptors with the bundled Orbot pool. The refresh is cancellable, bounded
-to four seconds and 64 KiB, and shares the session's HTTP cleanup. HTTP redirects,
-system DNS fallback and malformed/non-obfs4 descriptors are not used.
-Refresh failure is logged without bridge addresses and falls back to the bundle.
+At startup, Saturn requests Tor's public `/moat/circumvention/builtin` API over
+HTTPS using the configured DoH resolver and combines valid obfs4 descriptors with
+the bundled Orbot pool. The refresh is cancellable, bounded to four seconds and
+64 KiB, and shares the session's HTTP cleanup. HTTP redirects, system DNS fallback
+and malformed/non-obfs4 descriptors are not used. Refresh failure falls back to
+the bundle; an unrelated DNS preflight is not required. DoH is used when resolving
+bridge hostnames, while IP-literal bridges do not depend on DoH resolution.
 Sources and the upstream license are packaged under `assets/third_party/saturn`.
 
 Both scan modes test every candidate (at most 64), rank reachable endpoints by TCP
@@ -24,7 +25,7 @@ bridges can be blocked, and discovery cannot guarantee connectivity in Iran.
 DoH resolves names and does not carry the obfs4 traffic as an HTTPS tunnel.
 
 The screenshot's old generic error does not establish its underlying cause.
-Failures now distinguish resolver access, unavailable bridges, native startup,
+Failures distinguish unavailable bridges, native startup,
 Tor bootstrap and native exit codes, without exposing bridge details. Correct a
 separate timeout bug: an owned bootstrap timeout now becomes a reported startup
 failure and follows cleanup; cancellation by the service continues to propagate.

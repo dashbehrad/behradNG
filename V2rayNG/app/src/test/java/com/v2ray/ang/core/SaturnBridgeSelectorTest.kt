@@ -4,10 +4,26 @@ import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.runBlocking
 import org.junit.jupiter.api.Assertions.*
 import org.junit.jupiter.api.Test
+import java.net.InetAddress
 import com.google.gson.Gson
 import com.v2ray.ang.dto.entities.SaturnSettings
 
 class SaturnBridgeSelectorTest {
+    @Test fun unavailableDohSkipsHostnameBridgeButKeepsIpLiteralBridge(): Unit = runBlocking {
+        val ipBridge = "obfs4 192.0.2.10:443 " + "A".repeat(40) + " cert=" + "B".repeat(70) + " iat-mode=0"
+        val dnsBridge = "obfs4 bridge.example:443 " + "C".repeat(40) + " cert=" + "D".repeat(70) + " iat-mode=0"
+        val resolvedHosts = mutableListOf<String>()
+
+        val result = SaturnBridgeSelector.resolveCandidates(listOf(ipBridge, dnsBridge)) { host ->
+            resolvedHosts += host
+            throw javax.net.ssl.SSLException("DoH TLS unavailable")
+        }
+
+        assertEquals(listOf("bridge.example"), resolvedHosts)
+        assertEquals(1, result.size)
+        assertTrue(result.single().startsWith("obfs4 192.0.2.10:443 "))
+    }
+
     @Test fun turboTestsTheWholePoolAndRanksOnlyReachableResults(): Unit = runBlocking {
         val checked = mutableListOf<String>()
         val picked = SaturnBridgeSelector.select((1..30).map { "bridge-$it" }, "turbo") { line, timeout ->
