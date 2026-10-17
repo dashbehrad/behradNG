@@ -36,6 +36,7 @@ class SaturnSession {
     private var outputJob: Job? = null
     private var doh: SaturnDohProxy? = null
     @Volatile private var bootstrapped = false
+    @Volatile private var bootstrapProgress = -1
 
     suspend fun start(context: Context, guid: String, settings: SaturnSettings, reservedPorts: Set<Int>,
         owner: CoroutineScope): Int = withContext(Dispatchers.IO) {
@@ -64,9 +65,11 @@ class SaturnSession {
         val proxy = SaturnDohProxy(settings, owner, reservedPorts)
         doh = proxy
         stage = Stage.DNS
+        LogUtil.i(AppConfig.TAG, "Saturn: mode=transport guid=$guid startup stage=DNS operation=initialize DoH resolver")
         currentCoroutineContext().ensureActive()
         // Do not gate IP-literal bridges on an unrelated DoH lookup; DoH is used only for hostnames.
         stage = Stage.BRIDGES
+        LogUtil.i(AppConfig.TAG, "Saturn: mode=transport guid=$guid startup stage=BRIDGES operation=discover bridge candidates")
         val bundled = if (settings.usesAutomaticBridges()) context.assets.open("saturn/builtin-bridges.json")
             .bufferedReader().use { SaturnBridgeSelector.parseBuiltins(it.readText()) } else emptyList()
         val refreshed = if (settings.usesAutomaticBridges()) try {
@@ -75,7 +78,7 @@ class SaturnSession {
             throw e
         } catch (e: Exception) {
             LogUtil.w(AppConfig.TAG, "Saturn: mode=transport guid=$guid bridge refresh failed; using bundled pool",
-                IllegalStateException(e.javaClass.simpleName))
+                e)
             emptyList()
         } else emptyList()
         currentCoroutineContext().ensureActive()
@@ -94,6 +97,7 @@ class SaturnSession {
                 } catch (_: java.io.IOException) { null }
             }
         }
+        LogUtil.i(AppConfig.TAG, "Saturn: mode=transport guid=$guid startup stage=BRIDGES operation=bridge scan complete candidates=${lines.size} reachable=${selected.size}")
         check(selected.isNotEmpty()) { "No Saturn bridge is reachable" }
         stage = Stage.NATIVE
         val port = (1..16).asSequence().map {
@@ -106,12 +110,13 @@ class SaturnSession {
         val builder = ProcessBuilder(command).directory(directory).redirectErrorStream(true)
         builder.environment()["TOR_PT_PROXY"] = "socks5://127.0.0.1:${proxy.port}"
         bootstrapped = false
+        bootstrapProgress = -1
         val process = builder.start()
         child = process
         stage = Stage.BOOTSTRAP
         process.outputStream.close()
         outputJob = owner.launch(Dispatchers.IO) {
-            // Native output can contain bridge addresses. Retain only bootstrap success.
+            // Native output can contain bridge addresses. Retain and log only numeric progress.
             try { process.inputStream.bufferedReader().use { reader ->
                 val buffer = CharArray(512)
                 val line = StringBuilder()
@@ -120,7 +125,14 @@ class SaturnSession {
                     if (count < 0) break
                     for (index in 0 until count) {
                         if (buffer[index] == '\n') {
-                            if (line.contains("Bootstrapped 100%")) bootstrapped = true
+                            val progress = parseBootstrapProgress(line.toString())
+                            if (progress != null) {
+                                bootstrapped = progress == 100
+                                if (bootstrapProgress < 0 || progress == 100 || progress / 10 > bootstrapProgress / 10) {
+                                    LogUtil.i(AppConfig.TAG, "Saturn: mode=transport guid=$guid startup stage=BOOTSTRAP progress=$progress%")
+                                }
+                                bootstrapProgress = progress
+                            }
                             line.setLength(0)
                         } else if (line.length < 2048) line.append(buffer[index])
                     }
@@ -132,6 +144,11 @@ class SaturnSession {
         try {
             check(awaitBootstrap(if (settings.scanMode == "deep") 300_000 else 180_000,
                 { bootstrapped }, { process.isAlive })) { "Saturn bootstrap timed out" }
+        } catch (e: CancellationException) {
+            throw e
+        } catch (e: Exception) {
+            LogUtil.e(AppConfig.TAG, "Saturn: mode=transport guid=$guid startup stage=BOOTSTRAP operation=Tor bootstrap failed progress=$bootstrapProgress", e)
+            throw e
         } finally {
             if (!process.isAlive) nativeExitCode = process.exitValue()
         }
@@ -160,6 +177,10 @@ class SaturnSession {
     }
 
     companion object {
+        internal fun parseBootstrapProgress(line: String): Int? =
+            Regex("(?:^|\\s)Bootstrapped\\s+(\\d{1,3})%")
+                .find(line)?.groupValues?.get(1)?.toIntOrNull()?.takeIf { it in 0..100 }
+
         /** An owned bootstrap timeout is failure; cancellation by the service still propagates. */
         internal suspend fun awaitBootstrap(timeoutMillis: Long, ready: () -> Boolean, alive: () -> Boolean): Boolean =
             withTimeoutOrNull(timeoutMillis) {
@@ -195,3 +216,4 @@ class SaturnSession {
         }
     }
 }
+
