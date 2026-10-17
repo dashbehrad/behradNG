@@ -151,8 +151,19 @@ class SaturnService : VpnService(), ServiceControl {
             } catch (e: CancellationException) {
                 throw e
             } catch (e: Exception) {
-                LogUtil.e(AppConfig.TAG, "Saturn: mode=$mode guid=$guid startup failed", IllegalStateException(e.javaClass.simpleName))
-                MessageHelper.sendMsg2UI(this@SaturnService, AppConfig.MSG_STATE_START_FAILURE, getString(failure))
+                val stage = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) session?.stage else null
+                val exitCode = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) session?.nativeExitCode else null
+                LogUtil.e(AppConfig.TAG, "Saturn: mode=$mode guid=$guid startup stage=$stage exit=$exitCode failed",
+                    IllegalStateException(e.javaClass.simpleName))
+                val message = if (failure != R.string.saturn_start_error) getString(failure) else when (stage) {
+                    SaturnSession.Stage.NATIVE -> getString(R.string.saturn_native_error)
+                    SaturnSession.Stage.DNS -> getString(R.string.saturn_dns_error)
+                    SaturnSession.Stage.BRIDGES -> getString(R.string.saturn_bridges_error)
+                    SaturnSession.Stage.BOOTSTRAP -> if (exitCode != null) getString(R.string.saturn_core_exit, exitCode)
+                        else getString(R.string.saturn_bootstrap_error)
+                    else -> getString(R.string.saturn_start_error)
+                }
+                MessageHelper.sendMsg2UI(this@SaturnService, AppConfig.MSG_STATE_START_FAILURE, message)
                 stopService()
             }
         }

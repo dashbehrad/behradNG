@@ -38,4 +38,16 @@ class SaturnFmtTest {
         assertEquals(EConfigType.VLESS, old.configType)
         assertEquals("old", old.remarks)
     }
+
+    @Test fun releasedSaturnCustomSettingsRemainCustomAndAutomaticLinksRoundTrip() {
+        val preceding = Gson().fromJson(Gson().toJson(profile().saturnSettings), com.google.gson.JsonObject::class.java)
+        preceding.remove("bridgeSource")
+        val legacy = Gson().fromJson(preceding, SaturnSettings::class.java)
+        assertTrue(legacy.isValid())
+        assertFalse(legacy.usesAutomaticBridges())
+        val automatic = profile().copy(saturnSettings = SaturnSettings(bridgeSource = "auto", country = "nl"))
+        val restored = SaturnFmt.parse("saturn://" + SaturnFmt.toUri(automatic))!!
+        assertEquals(automatic.saturnSettings, restored.saturnSettings)
+        assertTrue(restored.saturnSettings!!.usesAutomaticBridges())
+    }
 }

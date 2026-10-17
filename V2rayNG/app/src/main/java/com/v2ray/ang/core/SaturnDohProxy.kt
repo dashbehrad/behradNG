@@ -6,6 +6,14 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.cancelAndJoin
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.suspendCancellableCoroutine
+import kotlin.coroutines.resume
+import kotlin.coroutines.resumeWithException
+import okhttp3.Call
+import okhttp3.Callback
+import okhttp3.Dns
+import okhttp3.Request
+import okhttp3.Response
 import okhttp3.OkHttpClient
 import okhttp3.HttpUrl.Companion.toHttpUrl
 import okhttp3.dnsoverhttps.DnsOverHttps
@@ -39,6 +47,43 @@ internal class SaturnDohProxy(settings: SaturnSettings, private val owner: Corou
 
     fun resolve(host: String): List<InetAddress> = if (SaturnSettings.isIpLiteral(host))
         listOf(InetAddress.getByName(host)) else resolver.lookup(host)
+
+    /** Session-owned refresh using the configured DoH resolver; cancellation closes the HTTP call. */
+    suspend fun discoverBridges(): List<String> = suspendCancellableCoroutine { continuation ->
+        val refreshClient = client.newBuilder().dns(object : Dns {
+            override fun lookup(hostname: String): List<InetAddress> = resolve(hostname)
+        }).callTimeout(4, TimeUnit.SECONDS).build()
+        val call = refreshClient.newCall(Request.Builder()
+            .url("https://bridges.torproject.org/moat/circumvention/builtin").build())
+        continuation.invokeOnCancellation { call.cancel() }
+        call.enqueue(object : Callback {
+            override fun onFailure(call: Call, e: java.io.IOException) {
+                if (continuation.isActive) continuation.resumeWithException(e)
+            }
+
+            override fun onResponse(call: Call, response: Response) {
+                try {
+                    val bridges = response.use {
+                        check(it.isSuccessful) { "Saturn bridge distributor unavailable" }
+                        it.body.byteStream().use { input ->
+                            val bytes = ByteArray(65537)
+                            var size = 0
+                            while (size < bytes.size) {
+                                val count = input.read(bytes, size, bytes.size - size)
+                                if (count < 0) break
+                                size += count
+                            }
+                            require(size <= 65536) { "Saturn bridge response too large" }
+                            SaturnBridgeSelector.parseBuiltins(String(bytes, 0, size, Charsets.UTF_8))
+                        }
+                    }
+                    continuation.resume(bridges)
+                } catch (e: Exception) {
+                    if (continuation.isActive) continuation.resumeWithException(e)
+                }
+            }
+        })
+    }
 
     fun start(bridges: List<String>) {
         allowed = bridges.map { line ->

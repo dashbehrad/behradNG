@@ -1,0 +1,5 @@
+Public obfs4 bridge descriptors from Orbot Android's builtin-bridges.json.
+Source: https://github.com/guardianproject/orbot-android/blob/c4061501535b1b9d9b5342e9d342ab8cfa19ac4f/app/src/main/assets/builtin-bridges.json
+Revision: c4061501535b1b9d9b5342e9d342ab8cfa19ac4f
+Live refresh: https://bridges.torproject.org/moat/circumvention/builtin
+These public descriptors do not guarantee reachability on any particular network.

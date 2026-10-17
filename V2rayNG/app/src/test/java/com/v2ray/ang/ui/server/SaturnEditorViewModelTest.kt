@@ -104,4 +104,22 @@ class SaturnEditorViewModelTest {
         assertEquals("draft", viewModel.state.value.remarks)
         assertEquals(settings, viewModel.state.value.settings)
     }
+
+    @Test
+    fun automaticProfileSavesWithoutManualBridgesAndRetainsCountryAndMode(): Unit = runBlocking {
+        var saved: ProfileItem? = null
+        val viewModel = SaturnEditorViewModel(mock<Application>(), SavedStateHandle(), Dispatchers.Unconfined,
+            { _, _ -> ProfileItem.create(EConfigType.SATURN).copy(remarks = "automatic") },
+            { _, profile -> saved = profile; "new-guid" })
+        viewModel.initialize("", "group-guid")
+        withTimeout(3_000) { viewModel.state.first { !it.loading } }
+        assertEquals(true, viewModel.state.value.settings.usesAutomaticBridges())
+        viewModel.changeSettings { it.copy(bridgeSource = "auto", country = "de", scanMode = "deep") }
+        viewModel.save()
+        withTimeout(3_000) { viewModel.state.first { it.savedGuid != null } }
+        assertEquals("", saved?.saturnSettings?.bridges)
+        assertEquals("de", saved?.saturnSettings?.country)
+        assertEquals("deep", saved?.saturnSettings?.scanMode)
+        assertEquals(true, saved?.saturnSettings?.usesAutomaticBridges())
+    }
 }

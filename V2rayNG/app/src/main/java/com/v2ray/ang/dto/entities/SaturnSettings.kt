@@ -9,7 +9,11 @@ data class SaturnSettings(
     val bridges: String = "",
     val scanMode: String = "turbo",
     val country: String = "auto",
+    // Missing in 3.0.0 links: retain custom bridges; empty profiles use automatic discovery.
+    val bridgeSource: String? = null,
 ) {
+    fun usesAutomaticBridges(): Boolean = bridgeSource == "auto" || (bridgeSource == null && bridges.isBlank())
+
     fun bridgeLines(): List<String> = bridges.lineSequence().map { it.trim().removePrefix("Bridge ") }
         .filter { it.isNotEmpty() }.distinct().toList()
 
@@ -22,8 +26,9 @@ data class SaturnSettings(
         val ips = bootstrapIps.split(',').map { it.trim() }
         require(ips.size in 1..8 && ips.all(::isIpLiteral))
         require(bridges.length <= 32768)
+        require(bridgeSource == null || bridgeSource in setOf("auto", "custom"))
         val lines = bridgeLines()
-        require(lines.size in 1..64 && lines.all(::validBridge))
+        if (!usesAutomaticBridges()) require(lines.size in 1..64 && lines.all(::validBridge))
         true
     }.getOrDefault(false)
 

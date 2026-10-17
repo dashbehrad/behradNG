@@ -7,9 +7,14 @@ import org.junit.jupiter.api.Test
 class SaturnSettingsTest {
     private val bridge = "obfs4 192.0.2.1:443 " + "A".repeat(40) + " cert=" + "B".repeat(70) + " iat-mode=0"
 
-    @Test fun emptyDefaultsCannotLaunchWithoutSuppliedBridges() {
-        assertFalse(SaturnSettings().isValid())
+    @Test fun emptyDefaultsUseAutomaticDiscoveryWhileCustomModeRequiresBridges() {
+        assertTrue(SaturnSettings().isValid())
+        assertTrue(SaturnSettings().usesAutomaticBridges())
+        assertFalse(SaturnSettings(bridgeSource = "custom").isValid())
         assertTrue(SaturnSettings(bridges = bridge).isValid())
+        assertFalse(SaturnSettings(bridges = bridge).usesAutomaticBridges())
+        assertTrue(SaturnSettings(bridges = bridge, bridgeSource = "auto").usesAutomaticBridges())
+        assertFalse(SaturnSettings(bridgeSource = "unknown").isValid())
     }
     @Test fun invalidDohBootstrapModesAndCountriesAreRejected() {
         val good = SaturnSettings(bridges = bridge)

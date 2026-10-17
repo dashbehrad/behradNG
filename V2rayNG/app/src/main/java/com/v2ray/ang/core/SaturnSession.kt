@@ -4,6 +4,9 @@ import android.content.Context
 import android.os.Process
 import androidx.annotation.RequiresApi
 import com.v2ray.ang.dto.entities.SaturnSettings
+import com.v2ray.ang.AppConfig
+import com.v2ray.ang.util.LogUtil
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -11,7 +14,7 @@ import kotlinx.coroutines.cancelAndJoin
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
-import kotlinx.coroutines.withTimeout
+import kotlinx.coroutines.withTimeoutOrNull
 import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.ensureActive
 import java.io.File
@@ -24,6 +27,11 @@ import java.util.concurrent.TimeUnit
 /** saturn-core: one daemon-owned DoH proxy, Tor process and managed obfs4 transport. */
 @RequiresApi(26)
 class SaturnSession {
+    enum class Stage { NATIVE, DNS, BRIDGES, BOOTSTRAP, READY }
+    @Volatile var stage: Stage = Stage.NATIVE
+        private set
+    @Volatile var nativeExitCode: Int? = null
+        private set
     private var child: java.lang.Process? = null
     private var outputJob: Job? = null
     private var doh: SaturnDohProxy? = null
@@ -32,6 +40,8 @@ class SaturnSession {
     suspend fun start(context: Context, guid: String, settings: SaturnSettings, reservedPorts: Set<Int>,
         owner: CoroutineScope): Int = withContext(Dispatchers.IO) {
         check(child == null && doh == null)
+        stage = Stage.NATIVE
+        nativeExitCode = null
         require(guid.matches(Regex("[A-Za-z0-9_-]{1,128}")) && settings.isValid())
         val nativeDir = File(context.applicationInfo.nativeLibraryDir)
         val launcher = File(nativeDir, "libsaturn-core.so")
@@ -53,11 +63,24 @@ class SaturnSession {
         }
         val proxy = SaturnDohProxy(settings, owner, reservedPorts)
         doh = proxy
+        stage = Stage.DNS
         currentCoroutineContext().ensureActive()
         // Validate the HTTPS resolver before probing bridges. There is no system-DNS fallback.
         proxy.resolve("torproject.org")
         currentCoroutineContext().ensureActive()
-        val lines = settings.bridgeLines().take(if (settings.scanMode == "turbo") 12 else 64).flatMap { bridge ->
+        stage = Stage.BRIDGES
+        val bundled = if (settings.usesAutomaticBridges()) context.assets.open("saturn/builtin-bridges.json")
+            .bufferedReader().use { SaturnBridgeSelector.parseBuiltins(it.readText()) } else emptyList()
+        val refreshed = if (settings.usesAutomaticBridges()) try {
+            proxy.discoverBridges()
+        } catch (e: CancellationException) {
+            throw e
+        } catch (e: Exception) {
+            LogUtil.w(AppConfig.TAG, "Saturn: mode=transport guid=$guid bridge refresh failed; using bundled pool",
+                IllegalStateException(e.javaClass.simpleName))
+            emptyList()
+        } else emptyList()
+        val lines = SaturnBridgeSelector.candidates(settings, bundled, refreshed).flatMap { bridge ->
             val parts = bridge.split(Regex("\\s+"))
             val host = parts[1].substringBeforeLast(':').removeSurrounding("[", "]")
             val port = parts[1].substringAfterLast(':')
@@ -84,7 +107,8 @@ class SaturnSession {
                 } catch (_: java.io.IOException) { null }
             }
         }
-        check(selected.isNotEmpty()) { "No supplied Saturn bridge is reachable" }
+        check(selected.isNotEmpty()) { "No Saturn bridge is reachable" }
+        stage = Stage.NATIVE
         val port = (1..16).asSequence().map {
             ServerSocket(0, 1, InetAddress.getByName("127.0.0.1")).use { it.localPort }
         }.first { it in 1024..65535 && it !in reservedPorts && it != proxy.port }
@@ -97,6 +121,7 @@ class SaturnSession {
         bootstrapped = false
         val process = builder.start()
         child = process
+        stage = Stage.BOOTSTRAP
         process.outputStream.close()
         outputJob = owner.launch(Dispatchers.IO) {
             // Native output can contain bridge addresses. Retain only bootstrap success.
@@ -117,13 +142,14 @@ class SaturnSession {
                 // Teardown closes the process pipe; native contents are never persisted.
             }
         }
-        withTimeout(if (settings.scanMode == "deep") 300_000 else 180_000) {
-            while (!bootstrapped) {
-                check(process.isAlive) { "Saturn Tor bootstrap failed" }
-                delay(200)
-            }
+        try {
+            check(awaitBootstrap(if (settings.scanMode == "deep") 300_000 else 180_000,
+                { bootstrapped }, { process.isAlive })) { "Saturn bootstrap timed out" }
+        } finally {
+            if (!process.isAlive) nativeExitCode = process.exitValue()
         }
         check(isAlive())
+        stage = Stage.READY
         port
     }
 
@@ -147,6 +173,16 @@ class SaturnSession {
     }
 
     companion object {
+        /** An owned bootstrap timeout is failure; cancellation by the service still propagates. */
+        internal suspend fun awaitBootstrap(timeoutMillis: Long, ready: () -> Boolean, alive: () -> Boolean): Boolean =
+            withTimeoutOrNull(timeoutMillis) {
+                while (!ready()) {
+                    check(alive()) { "Saturn Tor bootstrap failed" }
+                    delay(200)
+                }
+                true
+            } == true
+
         internal fun configuration(settings: SaturnSettings, directory: File, geoip: File, obfs4: File,
             port: Int, dohPort: Int, bridges: List<String>, ownerPid: Int): String {
             require(settings.isValid() && port in 1024..65535 && dohPort in 1024..65535 && bridges.isNotEmpty())

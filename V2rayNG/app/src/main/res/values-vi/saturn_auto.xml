@@ -1,0 +1,264 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="saturn_automatic">Tự động</string>
+    <string name="saturn_custom">Cầu nối tùy chỉnh</string>
+    <string name="saturn_bridge_source">Nguồn cầu nối</string>
+    <string name="saturn_country_list">Quốc gia thoát</string>
+    <string name="saturn_auto_hint">Tự động cập nhật và kiểm tra cầu nối obfs4 công khai. Dùng cầu nối tùy chỉnh nếu cầu nối công khai bị chặn. Chọn quốc gia tự động để có nhiều nút thoát Tor hơn. DoH chỉ phân giải DNS, không tạo đường hầm lưu lượng. Chỉ TCP. Kết nối lại sau khi thay đổi.</string>
+    <string name="saturn_dns_error">Saturn không thể kết nối DoH. Kiểm tra URL DoH và IP khởi tạo.</string>
+    <string name="saturn_bridges_error">Không có cầu nối obfs4 truy cập được. Thử quét sâu hoặc cầu nối tùy chỉnh.</string>
+    <string name="saturn_bootstrap_error">Không thể hoàn tất kết nối Tor. Thử quốc gia tự động, quét sâu hoặc cầu nối tùy chỉnh.</string>
+    <string name="saturn_core_exit">Lõi Saturn dừng khi khởi động Tor (mã thoát %1$d).</string>
+    <string name="saturn_native_error">Không thể chạy lõi Saturn gốc. Kiểm tra nhật ký ứng dụng.</string>
+    <string-array name="saturn_country_names">
+        <item>Andorra</item>
+        <item>Các Tiểu Vương quốc Ả Rập Thống nhất</item>
+        <item>Afghanistan</item>
+        <item>Antigua và Barbuda</item>
+        <item>Anguilla</item>
+        <item>Albania</item>
+        <item>Armenia</item>
+        <item>Angola</item>
+        <item>Nam Cực</item>
+        <item>Argentina</item>
+        <item>Samoa thuộc Mỹ</item>
+        <item>Áo</item>
+        <item>Úc</item>
+        <item>Aruba</item>
+        <item>Quần đảo Åland</item>
+        <item>Azerbaijan</item>
+        <item>Bosnia và Herzegovina</item>
+        <item>Barbados</item>
+        <item>Bangladesh</item>
+        <item>Bỉ</item>
+        <item>Burkina Faso</item>
+        <item>Bulgaria</item>
+        <item>Bahrain</item>
+        <item>Burundi</item>
+        <item>Benin</item>
+        <item>St. Barthélemy</item>
+        <item>Bermuda</item>
+        <item>Brunei</item>
+        <item>Bolivia</item>
+        <item>Ca-ri-bê Hà Lan</item>
+        <item>Brazil</item>
+        <item>Bahamas</item>
+        <item>Bhutan</item>
+        <item>Đảo Bouvet</item>
+        <item>Botswana</item>
+        <item>Belarus</item>
+        <item>Belize</item>
+        <item>Canada</item>
+        <item>Quần đảo Cocos (Keeling)</item>
+        <item>Congo - Kinshasa</item>
+        <item>Cộng hòa Trung Phi</item>
+        <item>Congo - Brazzaville</item>
+        <item>Thụy Sĩ</item>
+        <item>Côte d’Ivoire</item>
+        <item>Quần đảo Cook</item>
+        <item>Chile</item>
+        <item>Cameroon</item>
+        <item>Trung Quốc</item>
+        <item>Colombia</item>
+        <item>Costa Rica</item>
+        <item>Cuba</item>
+        <item>Cape Verde</item>
+        <item>Curaçao</item>
+        <item>Đảo Giáng Sinh</item>
+        <item>Síp</item>
+        <item>Séc</item>
+        <item>Đức</item>
+        <item>Djibouti</item>
+        <item>Đan Mạch</item>
+        <item>Dominica</item>
+        <item>Cộng hòa Dominica</item>
+        <item>Algeria</item>
+        <item>Ecuador</item>
+        <item>Estonia</item>
+        <item>Ai Cập</item>
+        <item>Tây Sahara</item>
+        <item>Eritrea</item>
+        <item>Tây Ban Nha</item>
+        <item>Ethiopia</item>
+        <item>Phần Lan</item>
+        <item>Fiji</item>
+        <item>Quần đảo Falkland</item>
+        <item>Micronesia</item>
+        <item>Quần đảo Faroe</item>
+        <item>Pháp</item>
+        <item>Gabon</item>
+        <item>Vương quốc Anh</item>
+        <item>Grenada</item>
+        <item>Georgia</item>
+        <item>Guiana thuộc Pháp</item>
+        <item>Guernsey</item>
+        <item>Ghana</item>
+        <item>Gibraltar</item>
+        <item>Greenland</item>
+        <item>Gambia</item>
+        <item>Guinea</item>
+        <item>Guadeloupe</item>
+        <item>Guinea Xích Đạo</item>
+        <item>Hy Lạp</item>
+        <item>Nam Georgia &amp; Quần đảo Nam Sandwich</item>
+        <item>Guatemala</item>
+        <item>Guam</item>
+        <item>Guinea-Bissau</item>
+        <item>Guyana</item>
+        <item>Đặc khu Hành chính Hồng Kông, Trung Quốc</item>
+        <item>Quần đảo Heard và McDonald</item>
+        <item>Honduras</item>
+        <item>Croatia</item>
+        <item>Haiti</item>
+        <item>Hungary</item>
+        <item>Indonesia</item>
+        <item>Ireland</item>
+        <item>Israel</item>
+        <item>Đảo Man</item>
+        <item>Ấn Độ</item>
+        <item>Lãnh thổ Ấn Độ Dương thuộc Anh</item>
+        <item>Iraq</item>
+        <item>Iran</item>
+        <item>Iceland</item>
+        <item>Italy</item>
+        <item>Jersey</item>
+        <item>Jamaica</item>
+        <item>Jordan</item>
+        <item>Nhật Bản</item>
+        <item>Kenya</item>
+        <item>Kyrgyzstan</item>
+        <item>Campuchia</item>
+        <item>Kiribati</item>
+        <item>Comoros</item>
+        <item>St. Kitts và Nevis</item>
+        <item>Triều Tiên</item>
+        <item>Hàn Quốc</item>
+        <item>Kuwait</item>
+        <item>Quần đảo Cayman</item>
+        <item>Kazakhstan</item>
+        <item>Lào</item>
+        <item>Li-băng</item>
+        <item>St. Lucia</item>
+        <item>Liechtenstein</item>
+        <item>Sri Lanka</item>
+        <item>Liberia</item>
+        <item>Lesotho</item>
+        <item>Litva</item>
+        <item>Luxembourg</item>
+        <item>Latvia</item>
+        <item>Libya</item>
+        <item>Ma-rốc</item>
+        <item>Monaco</item>
+        <item>Moldova</item>
+        <item>Montenegro</item>
+        <item>St. Martin</item>
+        <item>Madagascar</item>
+        <item>Quần đảo Marshall</item>
+        <item>Bắc Macedonia</item>
+        <item>Mali</item>
+        <item>Myanmar (Miến Điện)</item>
+        <item>Mông Cổ</item>
+        <item>Đặc khu Hành chính Macao, Trung Quốc</item>
+        <item>Quần đảo Bắc Mariana</item>
+        <item>Martinique</item>
+        <item>Mauritania</item>
+        <item>Montserrat</item>
+        <item>Malta</item>
+        <item>Mauritius</item>
+        <item>Maldives</item>
+        <item>Malawi</item>
+        <item>Mexico</item>
+        <item>Malaysia</item>
+        <item>Mozambique</item>
+        <item>Namibia</item>
+        <item>New Caledonia</item>
+        <item>Niger</item>
+        <item>Đảo Norfolk</item>
+        <item>Nigeria</item>
+        <item>Nicaragua</item>
+        <item>Hà Lan</item>
+        <item>Na Uy</item>
+        <item>Nepal</item>
+        <item>Nauru</item>
+        <item>Niue</item>
+        <item>New Zealand</item>
+        <item>Oman</item>
+        <item>Panama</item>
+        <item>Peru</item>
+        <item>Polynesia thuộc Pháp</item>
+        <item>Papua New Guinea</item>
+        <item>Philippines</item>
+        <item>Pakistan</item>
+        <item>Ba Lan</item>
+        <item>Saint Pierre và Miquelon</item>
+        <item>Quần đảo Pitcairn</item>
+        <item>Puerto Rico</item>
+        <item>Lãnh thổ Palestine</item>
+        <item>Bồ Đào Nha</item>
+        <item>Palau</item>
+        <item>Paraguay</item>
+        <item>Qatar</item>
+        <item>Réunion</item>
+        <item>Romania</item>
+        <item>Serbia</item>
+        <item>Nga</item>
+        <item>Rwanda</item>
+        <item>Ả Rập Xê-út</item>
+        <item>Quần đảo Solomon</item>
+        <item>Seychelles</item>
+        <item>Sudan</item>
+        <item>Thụy Điển</item>
+        <item>Singapore</item>
+        <item>St. Helena</item>
+        <item>Slovenia</item>
+        <item>Svalbard và Jan Mayen</item>
+        <item>Slovakia</item>
+        <item>Sierra Leone</item>
+        <item>San Marino</item>
+        <item>Senegal</item>
+        <item>Somalia</item>
+        <item>Suriname</item>
+        <item>Nam Sudan</item>
+        <item>São Tomé và Príncipe</item>
+        <item>El Salvador</item>
+        <item>Sint Maarten</item>
+        <item>Syria</item>
+        <item>Eswatini</item>
+        <item>Quần đảo Turks và Caicos</item>
+        <item>Chad</item>
+        <item>Lãnh thổ phía Nam Thuộc Pháp</item>
+        <item>Togo</item>
+        <item>Thái Lan</item>
+        <item>Tajikistan</item>
+        <item>Tokelau</item>
+        <item>Timor-Leste</item>
+        <item>Turkmenistan</item>
+        <item>Tunisia</item>
+        <item>Tonga</item>
+        <item>Thổ Nhĩ Kỳ</item>
+        <item>Trinidad và Tobago</item>
+        <item>Tuvalu</item>
+        <item>Đài Loan</item>
+        <item>Tanzania</item>
+        <item>Ukraina</item>
+        <item>Uganda</item>
+        <item>Các tiểu đảo xa của Hoa Kỳ</item>
+        <item>Hoa Kỳ</item>
+        <item>Uruguay</item>
+        <item>Uzbekistan</item>
+        <item>Thành Vatican</item>
+        <item>St. Vincent và Grenadines</item>
+        <item>Venezuela</item>
+        <item>Quần đảo Virgin thuộc Anh</item>
+        <item>Quần đảo Virgin thuộc Hoa Kỳ</item>
+        <item>Việt Nam</item>
+        <item>Vanuatu</item>
+        <item>Wallis và Futuna</item>
+        <item>Samoa</item>
+        <item>Yemen</item>
+        <item>Mayotte</item>
+        <item>Nam Phi</item>
+        <item>Zambia</item>
+        <item>Zimbabwe</item>
+    </string-array>
+</resources>
