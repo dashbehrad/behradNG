@@ -34,4 +34,3 @@ class SaturnBootstrapTest {
         assertThrows(CancellationException::class.java) { runBlocking { pending.await() } }
     }
 }
-
