@@ -137,3 +137,16 @@ Every push to `master` or `main` automatically triggers **GitHub Actions** to co
 ## 📄 License
 This project is licensed under the [GNU General Public License v3.0](LICENSE).
 behradNG is a fork and customization of v2rayNG powered by Xray-core / v2ray-core.
+
+## Aether and Saturn
+
+behradNG includes two built-in protocols designed for difficult and filtered networks:
+
+- **Aether**: an adaptive transport with configurable carriers, fragmentation, scanning, and
+  transport fallback. It integrates with the existing VPN, proxy-only, and routing modes.
+- **Saturn**: a Tor-backed transport that uses enhanced DNS-over-HTTPS through a proxy chain.
+  Saturn integrates with [SlipNet](https://github.com/anonvector/SlipNet) for managed Tor,
+  obfs4 bridge support, bridge fallback, and DNS routing.
+
+Both protocols recover after network handovers by restarting their transport and the Xray routing
+core in order. Existing profiles, app settings, UI, and routing controls remain compatible.
