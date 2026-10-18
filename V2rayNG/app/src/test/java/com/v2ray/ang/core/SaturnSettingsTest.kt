@@ -7,6 +7,10 @@ import org.junit.jupiter.api.Test
 class SaturnSettingsTest {
     private val bridge = "obfs4 192.0.2.1:443 " + "A".repeat(40) + " cert=" + "B".repeat(70) + " iat-mode=0"
 
+    @Test fun defaultsUseTheSaturnDoHEndpoint() {
+        assertEquals("https://doh.nineline.workers.dev/dns-query", SaturnSettings().dohUrl)
+    }
+
     @Test fun emptyDefaultsUseAutomaticDiscoveryWhileCustomModeRequiresBridges() {
         assertTrue(SaturnSettings().isValid())
         assertTrue(SaturnSettings().usesAutomaticBridges())

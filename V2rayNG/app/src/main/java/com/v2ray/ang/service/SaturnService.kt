@@ -142,8 +142,8 @@ class SaturnService : VpnService(), ServiceControl {
                         delay(1_000)
                         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O && session?.isAlive() != true) {
                             LogUtil.e(AppConfig.TAG, "Saturn: mode=$mode guid=$guid child process exited", IllegalStateException("Core exited"))
-                            MessageHelper.sendMsg2UI(this@SaturnService, AppConfig.MSG_STATE_START_FAILURE, getString(R.string.saturn_start_error))
-                            stopService()
+                            MessageHelper.sendMsg2UI(this@SaturnService, AppConfig.MSG_STATE_CONNECTING, "")
+                            restartOwnedService()
                             break
                         }
                     }

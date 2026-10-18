@@ -23,10 +23,15 @@ import okhttp3.dnsoverhttps.DnsOverHttps
 import okio.Buffer
 import java.io.DataInputStream
 import java.io.IOException
+import java.io.ByteArrayOutputStream
 import java.net.InetAddress
 import java.net.InetSocketAddress
 import java.net.ServerSocket
 import java.net.Socket
+import java.net.SocketAddress
+import javax.net.SocketFactory
+import java.io.OutputStream
+import java.util.Random
 import java.net.UnknownHostException
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.TimeUnit
@@ -36,7 +41,8 @@ import java.util.concurrent.atomic.AtomicBoolean
 /** Daemon-session-owned, loopback-only SOCKS5 CONNECT bridge. DoH never carries TCP payloads. */
 internal class SaturnDohProxy(settings: SaturnSettings, private val owner: CoroutineScope, reservedPorts: Set<Int> = emptySet(),
     private val profileGuid: String? = null) {
-    private val client = OkHttpClient.Builder().connectTimeout(8, TimeUnit.SECONDS)
+    private val client = OkHttpClient.Builder().socketFactory(DoHFragmentingSocketFactory())
+        .connectTimeout(8, TimeUnit.SECONDS)
         .readTimeout(8, TimeUnit.SECONDS).callTimeout(12, TimeUnit.SECONDS)
         .followRedirects(false).followSslRedirects(false).proxy(java.net.Proxy.NO_PROXY).build()
     private val resolvers = createResolvers(settings, client, ::reportDnsFailure)
@@ -235,4 +241,81 @@ internal class SaturnDohProxy(settings: SaturnSettings, private val owner: Corou
             }
         }
     }
+}
+
+/**
+ * Fragments the first TLS record sent by a DoH connection. This is the DoH transport
+ * workaround, separate from Xray outbound finalmask fragmentation: it splits the TLS
+ * ClientHello before the DoH HTTP request reaches the resolver.
+ */
+private class DoHFragmentingSocketFactory : SocketFactory() {
+    private val delegate = SocketFactory.getDefault()
+
+    override fun createSocket(): Socket = FragmentingSocket(delegate.createSocket())
+    override fun createSocket(host: String, port: Int): Socket = FragmentingSocket(delegate.createSocket(host, port))
+    override fun createSocket(host: String, port: Int, localHost: java.net.InetAddress, localPort: Int): Socket =
+        FragmentingSocket(delegate.createSocket(host, port, localHost, localPort))
+    override fun createSocket(host: java.net.InetAddress, port: Int): Socket = FragmentingSocket(delegate.createSocket(host, port))
+    override fun createSocket(host: java.net.InetAddress, port: Int, localHost: java.net.InetAddress, localPort: Int): Socket =
+        FragmentingSocket(delegate.createSocket(host, port, localHost, localPort))
+}
+
+private class FragmentingSocket(private val delegate: Socket) : Socket() {
+    private val output = FragmentingOutputStream(delegate.getOutputStream())
+
+    override fun connect(endpoint: SocketAddress?, timeout: Int) = delegate.connect(endpoint, timeout)
+    override fun getInputStream() = delegate.getInputStream()
+    override fun getOutputStream() = output
+    override fun setSoTimeout(timeout: Int) = delegate.setSoTimeout(timeout)
+    override fun getSoTimeout() = delegate.soTimeout
+    override fun setTcpNoDelay(on: Boolean) = delegate.setTcpNoDelay(on)
+    override fun setKeepAlive(on: Boolean) = delegate.setKeepAlive(on)
+    override fun close() = delegate.close()
+    override fun shutdownInput() = delegate.shutdownInput()
+    override fun shutdownOutput() = delegate.shutdownOutput()
+    override fun isConnected() = delegate.isConnected
+    override fun isClosed() = delegate.isClosed
+    override fun getInetAddress() = delegate.inetAddress
+    override fun getRemoteSocketAddress() = delegate.remoteSocketAddress
+}
+
+private class FragmentingOutputStream(private val delegate: OutputStream) : OutputStream() {
+    private var fragmented = false
+    private val random = Random()
+    private val pending = ByteArrayOutputStream()
+
+    override fun write(value: Int) = write(byteArrayOf(value.toByte()), 0, 1)
+
+    override fun write(bytes: ByteArray, offset: Int, length: Int) {
+        if (fragmented) {
+            delegate.write(bytes, offset, length)
+            return
+        }
+        pending.write(bytes, offset, length)
+        if (pending.size() >= 96) flushPending(true)
+    }
+
+    override fun flush() {
+        flushPending(false)
+        delegate.flush()
+    }
+
+    private fun flushPending(forceFragment: Boolean) {
+        if (pending.size() == 0) return
+        val bytes = pending.toByteArray()
+        pending.reset()
+        if (forceFragment && bytes[0].toInt() and 0xff == 0x16 && bytes.size > 1) {
+            val firstLength = 40 + random.nextInt(51)
+            val split = minOf(firstLength, bytes.size - 1)
+            delegate.write(bytes, 0, split)
+            delegate.flush()
+            delegate.write(bytes, split, bytes.size - split)
+            fragmented = true
+        } else {
+            delegate.write(bytes)
+            if (forceFragment) fragmented = true
+        }
+    }
+
+    override fun close() = delegate.close()
 }
