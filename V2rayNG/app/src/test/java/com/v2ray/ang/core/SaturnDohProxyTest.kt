@@ -19,6 +19,7 @@ import java.io.IOException
 import java.util.Collections
 import java.util.concurrent.atomic.AtomicInteger
 import okhttp3.Dns
+import okhttp3.HttpUrl.Companion.toHttpUrl
 import okhttp3.OkHttpClient
 import okhttp3.Protocol
 import okhttp3.Request
@@ -53,18 +54,20 @@ class SaturnDohProxyTest {
     }
 
     @Test fun blockedDefaultFallsBackToGoogleAndReusesTheWorkingProvider() {
+        val settings = SaturnSettings()
+        val defaultHost = settings.dohUrl.toHttpUrl().host
         val requests = Collections.synchronizedList(mutableListOf<Request>())
         val client = fakeDohClient { request ->
             requests.add(request)
-            if (request.url.host == "cloudflare-dns.com") 403 else 200
+            if (request.url.host == defaultHost) 403 else 200
         }
         try {
-            val resolvers = SaturnDohProxy.createResolvers(SaturnSettings(), client) { _, _ -> }
+            val resolvers = SaturnDohProxy.createResolvers(settings, client) { _, _ -> }
             val preferred = AtomicInteger()
             assertEquals(2, resolvers.size)
             assertEquals("192.0.2.7", SaturnDohProxy.lookupWithFallback("bridge.example", resolvers,
                 preferred, { false }) { _, _ -> }.single().hostAddress)
-            assertTrue(requests.any { it.url.host == "cloudflare-dns.com" && it.method == "GET" })
+            assertTrue(requests.any { it.url.host == defaultHost && it.method == "GET" })
             assertEquals(1, preferred.get())
             requests.clear()
             SaturnDohProxy.lookupWithFallback("other.example", resolvers, preferred, { false }) { _, _ -> }
