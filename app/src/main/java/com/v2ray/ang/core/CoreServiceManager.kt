@@ -254,9 +254,10 @@ object CoreServiceManager {
      */
     private fun startNetworkMonitor(service: Service) {
         val control = serviceControl?.get() ?: return
-        val saturn = control is com.v2ray.ang.service.SaturnService
+        val restartOwnedTransport = control is com.v2ray.ang.service.SaturnService ||
+            control is com.v2ray.ang.service.AetherService
         if (Build.VERSION.SDK_INT < Build.VERSION_CODES.P &&
-            !(saturn && Build.VERSION.SDK_INT >= Build.VERSION_CODES.O)) return
+            !(restartOwnedTransport && Build.VERSION.SDK_INT >= Build.VERSION_CODES.O)) return
         if (networkMonitor != null) return
 
         val connectivity = service.getSystemService(Context.CONNECTIVITY_SERVICE) as? ConnectivityManager ?: return
@@ -268,9 +269,9 @@ object CoreServiceManager {
             },
             onHandover = {
                 if (networkMonitor === monitor && serviceControl?.get() === control && isRunning()) {
-                    if (saturn) {
-                        // Xray reload alone leaves Tor, Lyrebird and DoH sockets on the old network.
-                        // Reuse the daemon's ordered transport restart so Stop still cancels recovery.
+                    if (restartOwnedTransport) {
+                        // Reloading Xray alone leaves the protocol-owned transport sockets on the
+                        // old network. Recreate the child transport and Xray in one ordered restart.
                         control.restartOwnedService()
                     } else reloadCore()
                 }
