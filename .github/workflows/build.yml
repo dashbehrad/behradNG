@@ -44,6 +44,15 @@ jobs:
         path: AndroidLibXrayLite
         fetch-depth: 1
 
+    - name: Checkout pinned HEV source
+      uses: actions/checkout@v4
+      with:
+        repository: heiher/hev-socks5-tunnel
+        ref: d9dca26c7ad0e494492244f0309e80ee583e739e
+        path: hev-socks5-tunnel
+        submodules: 'recursive'
+        fetch-depth: 1
+
     - name: Restore persistent release signing key
       if: github.event_name != 'pull_request'
       shell: bash

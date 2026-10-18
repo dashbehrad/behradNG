@@ -10,6 +10,16 @@ if [[ ! -d $NDK_HOME ]]; then
   echo "Android NDK: NDK_HOME not found. please set env \$NDK_HOME"
   exit 1
 fi
+# Archives can retain .gitmodules without a HEV gitlink. Fail before ndk-build
+# if the source checkout or its nested dependency makefiles are missing.
+for source_file in Android.mk build.mk third-part/yaml/Android.mk third-part/lwip/Android.mk third-part/hev-task-system/Android.mk; do
+  if [[ ! -s "$__dir/hev-socks5-tunnel/$source_file" ]]; then
+    echo "HEV source is incomplete: missing hev-socks5-tunnel/$source_file" >&2
+    echo "Check out the pinned HEV source and initialize its submodules recursively before building." >&2
+    exit 1
+  fi
+done
+
 TMPDIR=$(mktemp -d)
 clear_tmp () {
   rm -rf $TMPDIR
@@ -25,7 +35,7 @@ ln -s "$__dir/hev-socks5-tunnel" jni/hev-socks5-tunnel
 
 # 1) JNI shared library (libhev-socks5-tunnel.so) — loaded in-process by
 #    com.v2ray.ang.service.TProxyService for the VpnService hev tun mode.
-echo 'include $(call all-subdir-makefiles)' > jni/Android.mk
+echo 'include $(call my-dir)/hev-socks5-tunnel/Android.mk' > jni/Android.mk
 
 "$NDK_HOME/ndk-build" \
     NDK_PROJECT_PATH=. \
