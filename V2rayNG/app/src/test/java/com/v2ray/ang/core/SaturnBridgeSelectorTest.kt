@@ -1,6 +1,7 @@
 package com.v2ray.ang.core
 
 import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.runBlocking
 import org.junit.jupiter.api.Assertions.*
 import org.junit.jupiter.api.Test
@@ -37,6 +38,17 @@ class SaturnBridgeSelectorTest {
         assertEquals(bridges, resolved)
     }
 
+    @Test fun slowDnsCandidatesTimeOutInsteadOfBlockingBridgeResolution(): Unit = runBlocking {
+        val ipBridge = "obfs4 192.0.2.10:443 " + "A".repeat(40) + " cert=" + "B".repeat(70) + " iat-mode=0"
+        val dnsBridge = "obfs4 bridge.example:443 " + "C".repeat(40) + " cert=" + "D".repeat(70) + " iat-mode=0"
+        val resolved = SaturnBridgeSelector.resolveCandidates(listOf(ipBridge, dnsBridge), {
+            delay(200)
+            listOf(InetAddress.getByName("192.0.2.11"))
+        }, resolveTimeoutMillis = 50)
+        assertEquals(1, resolved.size)
+        assertTrue(resolved.single().startsWith("obfs4 192.0.2.10:443 "))
+    }
+
     @Test fun automaticPoolValidatesDeduplicatesAndRetainsBundledFallback() {
         fun bridge(ip: String) = "obfs4 $ip:443 " + "A".repeat(40) + " cert=" + "B".repeat(70) + " iat-mode=0"
         val bundled = bridge("192.0.2.1")
@@ -54,4 +66,3 @@ class SaturnBridgeSelectorTest {
         assertEquals(listOf(bundled), SaturnBridgeSelector.candidates(custom, emptyList(), listOf(fresh)))
     }
 }
-

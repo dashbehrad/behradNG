@@ -19,6 +19,7 @@ import com.v2ray.ang.enums.EConfigType
 import com.v2ray.ang.enums.RoutingType
 import com.v2ray.ang.enums.VpnInterfaceAddressConfig
 import com.v2ray.ang.extension.moveItem
+import com.v2ray.ang.core.CoreConfigManager
 import com.v2ray.ang.handler.MmkvManager.decodeAllServerList
 import com.v2ray.ang.handler.MmkvManager.decodeServerConfig
 import com.v2ray.ang.handler.MmkvManager.decodeSubsList
@@ -33,6 +34,7 @@ import java.io.FileOutputStream
 import kotlin.random.Random
 
 object SettingsManager {
+    internal const val PROXY_RESET_MIGRATION_KEY = "fresh_start_proxy_profiles_reset_v1"
 
     @Volatile
     private var runtimeSocksPort: Int? = null
@@ -43,7 +45,10 @@ object SettingsManager {
         initRoutingRulesets(context)
         migrateServerListToSubscriptions()
         migrateHysteria2PinSHA256()
+        resetPersistedProfilesForFreshStart()
     }
+
+    internal fun shouldResetProfilesForFreshStart(resetAlreadyDone: Boolean): Boolean = !resetAlreadyDone
 
     /**
      * Initialize routing rulesets.
@@ -593,6 +598,20 @@ object SettingsManager {
             if (subsList.moveItem(subsList.lastIndex, 0)) {
                 MmkvManager.encodeSubsList(subsList)
             }
+        }
+    }
+
+    private fun resetPersistedProfilesForFreshStart() {
+        if (!shouldResetProfilesForFreshStart(
+                MmkvManager.decodeSettingsBool(PROXY_RESET_MIGRATION_KEY, false)
+            )) return
+
+        val removedProfiles = MmkvManager.resetProxyProfilesForFreshStart()
+        runtimeSocksPort = null
+        CoreConfigManager.clearInMemoryConfigCaches()
+        MmkvManager.encodeSettings(PROXY_RESET_MIGRATION_KEY, true)
+        if (removedProfiles > 0) {
+            LogUtil.i(ANG_PACKAGE, "Fresh start migration removed persisted proxy profiles count=$removedProfiles")
         }
     }
 

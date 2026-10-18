@@ -75,7 +75,7 @@ class SaturnSession {
         val bundled = if (settings.usesAutomaticBridges()) context.assets.open("saturn/builtin-bridges.json")
             .bufferedReader().use { SaturnBridgeSelector.parseBuiltins(it.readText()) } else emptyList()
         val refreshed = if (settings.usesAutomaticBridges()) try {
-            proxy.discoverBridges()
+            discoverBridgesWithTimeout { proxy.discoverBridges() }
         } catch (e: CancellationException) {
             throw e
         } catch (e: Exception) {
@@ -238,6 +238,11 @@ class SaturnSession {
     }
 
     companion object {
+        internal const val BRIDGE_REFRESH_TIMEOUT_MILLIS = 10_000L
+
+        internal suspend fun discoverBridgesWithTimeout(discover: suspend () -> List<String>): List<String> =
+            withTimeoutOrNull(BRIDGE_REFRESH_TIMEOUT_MILLIS) { discover() }.orEmpty()
+
         internal fun parseObfs4Cmethod(line: String): String? {
             val fields = line.trim().split(Regex("\\s+"))
             if (fields.size != 4 || fields[0] != "CMETHOD" || fields[1] != "obfs4" || fields[2] != "socks5") return null
@@ -289,4 +294,3 @@ class SaturnSession {
         }
     }
 }
-

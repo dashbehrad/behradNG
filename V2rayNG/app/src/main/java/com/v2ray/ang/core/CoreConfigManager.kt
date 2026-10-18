@@ -26,6 +26,12 @@ object CoreConfigManager {
     private var initConfigCache: String? = null
     private var initConfigCacheWithTun: String? = null
 
+    @Synchronized
+    fun clearInMemoryConfigCaches() {
+        initConfigCache = null
+        initConfigCacheWithTun = null
+    }
+
     //region get config function
 
     /**

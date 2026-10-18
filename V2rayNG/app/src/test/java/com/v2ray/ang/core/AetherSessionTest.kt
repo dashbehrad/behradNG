@@ -6,6 +6,12 @@ import org.junit.jupiter.api.Test
 
 class AetherSessionTest {
     @Test
+    fun startupReadinessDependsOnSocksHandshake() {
+        assertTrue(AetherSession.isStartupReady(true))
+        assertFalse(AetherSession.isStartupReady(false))
+    }
+
+    @Test
     fun childEnvironmentLeavesEchUnsetAndDiscardsInheritedAetherOptions() {
         listOf("0", "auto", "invalid-key").forEach { inheritedEch ->
             val environment = mutableMapOf(

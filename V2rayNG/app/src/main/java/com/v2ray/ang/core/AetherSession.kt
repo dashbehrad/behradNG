@@ -102,8 +102,8 @@ class AetherSession {
                         withTimeout(1_000) { outputJob?.join() }
                         throw AetherStartupException(stage, child.exitValue(), failure, httpStatus, apiCode, ioCode)
                     }
-                    if (listenerReady && proxyReady(port)) break
-                    delay(200)
+                    if (isStartupReady(proxyReady(port))) break
+                    delay(100)
                 }
             }
         } catch (e: TimeoutCancellationException) {
@@ -162,4 +162,9 @@ class AetherSession {
             input.read() == 5 && input.read() == 0
         }
     }.getOrDefault(false)
+
+    companion object {
+        /** A successful local SOCKS5 handshake is the authoritative listener readiness signal. */
+        internal fun isStartupReady(proxyReady: Boolean): Boolean = proxyReady
+    }
 }

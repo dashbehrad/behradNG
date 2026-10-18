@@ -3,6 +3,7 @@ package com.v2ray.ang.core
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.async
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.runBlocking
 import org.junit.jupiter.api.Assertions.*
 import org.junit.jupiter.api.Test
@@ -32,5 +33,15 @@ class SaturnBootstrapTest {
         entered.await()
         pending.cancel()
         assertThrows(CancellationException::class.java) { runBlocking { pending.await() } }
+    }
+
+    @Test fun bridgeRefreshTimeoutFallsBackToBundledPool(): Unit = runBlocking {
+        assertEquals(emptyList<String>(), SaturnSession.discoverBridgesWithTimeout {
+            delay(SaturnSession.BRIDGE_REFRESH_TIMEOUT_MILLIS + 100)
+            listOf("obfs4 bridge.example:443")
+        })
+        assertEquals(listOf("obfs4 bridge.example:443"), SaturnSession.discoverBridgesWithTimeout {
+            listOf("obfs4 bridge.example:443")
+        })
     }
 }
