@@ -277,8 +277,8 @@ object CoreServiceManager {
                 }
             },
             logContext = "mode=${service.javaClass.simpleName} guid=${MmkvManager.getSelectServer().orEmpty()}",
-            watchLinkChanges = saturn,
-            debounceMillis = if (saturn) 2000L else 1000L,
+            watchLinkChanges = restartOwnedTransport,
+            debounceMillis = if (restartOwnedTransport) 2000L else 1000L,
         )
         networkMonitor = monitor
         monitor.register()
