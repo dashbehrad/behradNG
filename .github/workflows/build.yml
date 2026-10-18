@@ -37,6 +37,13 @@ jobs:
         submodules: 'recursive'
         fetch-depth: 0
 
+    - name: Checkout Xray source
+      uses: actions/checkout@v4
+      with:
+        repository: 2dust/AndroidLibXrayLite
+        path: AndroidLibXrayLite
+        fetch-depth: 1
+
     - name: Restore persistent release signing key
       if: github.event_name != 'pull_request'
       shell: bash
