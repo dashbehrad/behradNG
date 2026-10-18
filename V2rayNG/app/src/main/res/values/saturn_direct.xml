@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="saturn_direct">Direct (without tunnel)</string>
+    <string name="saturn_direct_hint">Connects directly to Tor without obfs4 bridges or a transport tunnel. The Android VPN still routes traffic through Tor. Direct Tor may be blocked by your network.</string>
+</resources>

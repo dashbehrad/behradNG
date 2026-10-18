@@ -10,6 +10,12 @@ import com.google.gson.Gson
 import com.v2ray.ang.dto.entities.SaturnSettings
 
 class SaturnBridgeSelectorTest {
+    @Test fun directModeDoesNotUseSavedOrDiscoveredBridges() {
+        val bridge = "obfs4 192.0.2.1:443 " + "A".repeat(40) + " cert=" + "B".repeat(70) + " iat-mode=0"
+        val settings = SaturnSettings(bridgeSource = "direct", bridges = bridge)
+        assertEquals(emptyList<String>(), SaturnBridgeSelector.candidates(settings, listOf(bridge), listOf(bridge)))
+    }
+
     @Test fun unavailableDohSkipsHostnameBridgeButKeepsIpLiteralBridge(): Unit = runBlocking {
         val ipBridge = "obfs4 192.0.2.10:443 " + "A".repeat(40) + " cert=" + "B".repeat(70) + " iat-mode=0"
         val dnsBridge = "obfs4 bridge.example:443 " + "C".repeat(40) + " cert=" + "D".repeat(70) + " iat-mode=0"

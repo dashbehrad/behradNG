@@ -6,6 +6,37 @@ import org.junit.jupiter.api.Assertions.*
 import org.junit.jupiter.api.Test
 
 class SaturnConfigurationTest {
+    @Test fun directTorDisablesBridgesAndTransportPluginsButRetainsExitCountry() {
+        val settings = SaturnSettings(bridgeSource = "direct", country = "de")
+        val config = SaturnSession.configuration(settings, File("state"), File("state/geoip"), "",
+            19050, emptyList(), 1234)
+        assertTrue(config.contains("UseBridges 0\n"))
+        assertTrue(config.contains("SocksPort 127.0.0.1:19050\n"))
+        assertTrue(config.contains("ExitNodes {de}\n"))
+        assertTrue(config.contains("__OwningControllerProcess 1234\n"))
+        assertFalse(config.contains("ClientTransportPlugin"))
+        assertFalse(config.contains("Socks5Proxy"))
+        assertFalse(config.lineSequence().any { it.startsWith("Bridge ") })
+        assertThrows(IllegalArgumentException::class.java) {
+            SaturnSession.configuration(settings, File("state"), File("geoip"), "", 0, emptyList(), 1234)
+        }
+        assertThrows(IllegalArgumentException::class.java) {
+            SaturnSession.configuration(settings.copy(bridgeSource = "custom"), File("state"), File("geoip"), "",
+                19050, emptyList(), 1234)
+        }
+    }
+
+    @Test fun directLivenessRequiresTorWhileBridgeLivenessAlsoRequiresObfs4() {
+        assertTrue(SaturnSession.transportProcessesAlive(true, true, false))
+        assertTrue(SaturnSession.transportProcessesAlive(true, true, true))
+        assertFalse(SaturnSession.transportProcessesAlive(true, false, false))
+        assertFalse(SaturnSession.transportProcessesAlive(true, false, true))
+        assertTrue(SaturnSession.transportProcessesAlive(false, true, true))
+        assertFalse(SaturnSession.transportProcessesAlive(false, true, false))
+        assertFalse(SaturnSession.transportProcessesAlive(false, false, true))
+        assertFalse(SaturnSession.transportProcessesAlive(false, false, false))
+    }
+
     @Test fun torrcUsesLoopbackManagedObfs4AndExplicitCountryWithoutShellCommands() {
         val bridge = "obfs4 192.0.2.1:443 " + "A".repeat(40) + " cert=" + "B".repeat(70) + " iat-mode=0"
         val settings = SaturnSettings(bridges = bridge, country = "de")

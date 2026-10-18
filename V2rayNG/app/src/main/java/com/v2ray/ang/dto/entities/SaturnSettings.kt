@@ -4,8 +4,8 @@ import java.net.URI
 
 /** Saturn owns only its Tor/DoH settings; native identity and runtime ports are never shared. */
 data class SaturnSettings(
-    val dohUrl: String = "https://doh.nineline.workers.dev/dns-query",
-    val bootstrapIps: String = "1.1.1.1,1.0.0.1",
+    val dohUrl: String = "https://dns.google/dns-query",
+    val bootstrapIps: String = "8.8.8.8,8.8.4.4",
     val bridges: String = "",
     val scanMode: String = "turbo",
     val country: String = "auto",
@@ -14,21 +14,25 @@ data class SaturnSettings(
 ) {
     fun usesAutomaticBridges(): Boolean = bridgeSource == "auto" || (bridgeSource == null && bridges.isBlank())
 
+    fun usesDirectConnection(): Boolean = bridgeSource == "direct"
+
     fun bridgeLines(): List<String> = bridges.lineSequence().map { it.trim().removePrefix("Bridge ") }
         .filter { it.isNotEmpty() }.distinct().toList()
 
     fun isValid(): Boolean = runCatching {
-        val uri = URI(dohUrl)
-        require(dohUrl.length <= 2048 && uri.scheme == "https" && !uri.host.isNullOrEmpty())
-        require(uri.userInfo == null && uri.fragment == null && uri.port in listOf(-1, 443))
+        if (!usesDirectConnection()) {
+            val uri = URI(dohUrl)
+            require(dohUrl.length <= 2048 && uri.scheme == "https" && !uri.host.isNullOrEmpty())
+            require(uri.userInfo == null && uri.fragment == null && uri.port in listOf(-1, 443))
+            val ips = bootstrapIps.split(',').map { it.trim() }
+            require(ips.size in 1..8 && ips.all(::isIpLiteral))
+        }
         require(scanMode in setOf("turbo", "deep"))
         require(country == "auto" || country.matches(Regex("[a-z]{2}")))
-        val ips = bootstrapIps.split(',').map { it.trim() }
-        require(ips.size in 1..8 && ips.all(::isIpLiteral))
         require(bridges.length <= 32768)
-        require(bridgeSource == null || bridgeSource in setOf("auto", "custom"))
+        require(bridgeSource == null || bridgeSource in setOf("auto", "custom", "direct"))
         val lines = bridgeLines()
-        if (!usesAutomaticBridges()) require(lines.size in 1..64 && lines.all(::validBridge))
+        if (!usesAutomaticBridges() && !usesDirectConnection()) require(lines.size in 1..64 && lines.all(::validBridge))
         true
     }.getOrDefault(false)
 

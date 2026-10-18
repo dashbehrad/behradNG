@@ -64,5 +64,5 @@
         <item>Hoa Kỳ</item>
         <item>Nam Phi</item>
     </string-array>
-    <string name="saturn_exit_error">Tor đã kết nối với cầu nhưng không thể mở kết nối đầu ra. Chọn quốc gia thoát tự động hoặc quốc gia khác rồi kết nối lại.</string>
+    <string name="saturn_exit_error">Tor không thể mở kết nối đầu ra. Chọn quốc gia thoát tự động hoặc quốc gia khác rồi kết nối lại.</string>
 </resources>

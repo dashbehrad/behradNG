@@ -17,6 +17,53 @@ import org.junit.jupiter.api.Test
 import org.mockito.kotlin.mock
 
 class SaturnEditorViewModelTest {
+    @Test fun directSelectionSavesWithoutBridgesAndRestoresFromDraft(): Unit = runBlocking {
+        var saved: ProfileItem? = null
+        val savedState = SavedStateHandle()
+        val viewModel = SaturnEditorViewModel(mock<Application>(), savedState, Dispatchers.Unconfined,
+            { _, _ -> ProfileItem.create(EConfigType.SATURN).copy(remarks = "direct") },
+            { _, profile -> saved = profile; "new-guid" })
+        viewModel.initialize("", "group-guid")
+        withTimeout(3_000) { viewModel.state.first { !it.loading } }
+        assertEquals("https://dns.google/dns-query", viewModel.state.value.settings.dohUrl)
+        viewModel.changeSettings { it.copy(bridgeSource = "direct", country = "de") }
+        assertEquals(true, viewModel.state.value.settings.usesDirectConnection())
+        val restored = SaturnEditorViewModel(mock<Application>(), savedState, Dispatchers.Unconfined,
+            { _, _ -> ProfileItem.create(EConfigType.SATURN) }, { _, _ -> error("Must not save") })
+        restored.initialize("", "group-guid")
+        withTimeout(3_000) { restored.state.first { !it.loading } }
+        assertEquals(viewModel.state.value.settings, restored.state.value.settings)
+        viewModel.save()
+        withTimeout(3_000) { viewModel.state.first { it.savedGuid != null } }
+        assertEquals("", saved?.saturnSettings?.bridges)
+        assertEquals("de", saved?.saturnSettings?.country)
+        assertEquals(true, saved?.saturnSettings?.usesDirectConnection())
+        val reopened = SaturnEditorViewModel(mock<Application>(), SavedStateHandle(), Dispatchers.Unconfined,
+            { guid, _ -> assertEquals("new-guid", guid); saved }, { _, _ -> error("Must not save") })
+        reopened.initialize("new-guid", "group-guid")
+        withTimeout(3_000) { reopened.state.first { !it.loading } }
+        assertEquals(saved?.saturnSettings, reopened.state.value.settings)
+    }
+
+    @Test fun directValidationAndSaveFailuresDoNotReportSuccess(): Unit = runBlocking {
+        var saves = 0
+        val viewModel = SaturnEditorViewModel(mock<Application>(), SavedStateHandle(), Dispatchers.Unconfined,
+            { _, _ -> ProfileItem.create(EConfigType.SATURN).copy(remarks = "direct") },
+            { _, _ -> saves++; error("Write failed") }, { _, _, _ -> })
+        viewModel.initialize("", "group-guid")
+        withTimeout(3_000) { viewModel.state.first { !it.loading } }
+        viewModel.changeSettings { it.copy(bridgeSource = "direct", country = "invalid") }
+        viewModel.save()
+        assertEquals(R.string.saturn_invalid_settings, viewModel.state.value.errorRes)
+        assertEquals(0, saves)
+        viewModel.changeSettings { it.copy(country = "auto") }
+        viewModel.save()
+        withTimeout(3_000) { viewModel.state.first { it.errorRes != null } }
+        assertEquals(R.string.saturn_save_error, viewModel.state.value.errorRes)
+        assertEquals(1, saves)
+        assertNull(viewModel.state.value.savedGuid)
+    }
+
     private val valid = SaturnSettings(bridges = "obfs4 192.0.2.1:443 AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA cert=BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB iat-mode=0")
     @Test
     fun loadAndSaveFailuresDoNotReportSuccess() = runBlocking {

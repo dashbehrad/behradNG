@@ -47,7 +47,9 @@ Aether provides configurable carriers, optional fragmentation, and scan and tran
 
 ### Saturn · Tor-backed transport
 
-Saturn combines DNS-over-HTTPS hostname resolution, obfs4 bridges, and a Tor circuit. It integrates components from [SlipNet](https://github.com/anonvector/SlipNet), supports automatic and custom bridge pools, and recreates its transport after network changes. A working connection still requires a reachable bridge and successful Tor bootstrap.
+Saturn connects through Tor with automatic bridges, custom obfs4 bridges, or **Direct (without tunnel)**. Following [SlipNet](https://github.com/anonvector/SlipNet), Direct connects to Tor without bridges or transport plugins; the Android VPN still routes traffic through Tor. Direct connections require a network that allows Tor.
+
+New bridge profiles use **Google DoH** (`https://dns.google/dns-query`) with Cloudflare as an encrypted fallback. Saved profiles retain their DNS settings. A working connection requires successful Tor bootstrap and an exit connection.
 
 [Automatic bridges →](SATURN-AUTOMATIC-BRIDGES.md) · [Release notes →](RELEASE-3.0.0.md)
 
@@ -141,7 +143,7 @@ behradNG بر پایه v2rayNG و Xray-core ساخته شده و در کنار �
 - حالت VPN و پروکسی، مسیریابی برنامه‌به‌برنامه، قوانین مسیریابی و زنجیره پروکسی.
 - تنظیمات DNS، Fragment، Mux و Sniffing، همراه با تست تأخیر و سرعت.
 - **Aether:** ترنسپورت تطبیقی با تنظیمات Carrier، اسکن و Fragment و راه‌اندازی مجدد هنگام تغییر شبکه.
-- **Saturn:** اتصال مبتنی بر Tor، پل‌های obfs4 و DNS-over-HTTPS با پشتیبانی از پل‌های خودکار و سفارشی. اتصال به پل قابل دسترس و تکمیل راه‌اندازی Tor وابسته است.
+- **Saturn:** اتصال مبتنی بر Tor با پل‌های خودکار، پل‌های سفارشی obfs4 یا حالت «مستقیم (بدون تونل)». حالت مستقیم بدون پل به Tor متصل می‌شود و وی‌پی‌ان اندروید همچنان ترافیک را از Tor عبور می‌دهد. پیش‌فرض DNS پروفایل‌های جدید Google DoH است؛ تنظیمات پروفایل‌های ذخیره‌شده حفظ می‌شود. اتصال به تکمیل راه‌اندازی Tor و دسترسی به یک خروجی وابسته است.
 
 ### ساخت و مشارکت
 

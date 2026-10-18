@@ -64,5 +64,5 @@
         <item>ایالات متحده</item>
         <item>افریقای جنوبی</item>
     </string-array>
-    <string name="saturn_exit_error">Tor به پل وصل شد، اما اتصال خروجی برقرار نەبو. کشور خروجی ن خودکار یا کشور دیگه انتخاب کنین و دوباره وصل بوین.</string>
+    <string name="saturn_exit_error">اتصال خروجی Tor برقرار نەبو. کشور خروجی ن خودکار یا کشور دیگه انتخاب کنین و دوباره وصل بوین.</string>
 </resources>

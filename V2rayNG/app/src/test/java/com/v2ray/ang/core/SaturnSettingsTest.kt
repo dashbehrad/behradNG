@@ -7,8 +7,25 @@ import org.junit.jupiter.api.Test
 class SaturnSettingsTest {
     private val bridge = "obfs4 192.0.2.1:443 " + "A".repeat(40) + " cert=" + "B".repeat(70) + " iat-mode=0"
 
-    @Test fun defaultsUseTheSaturnDoHEndpoint() {
-        assertEquals("https://doh.nineline.workers.dev/dns-query", SaturnSettings().dohUrl)
+    @Test fun defaultsUseGoogleDoHAndBootstrapAddresses() {
+        assertEquals("https://dns.google/dns-query", SaturnSettings().dohUrl)
+        assertEquals("8.8.8.8,8.8.4.4", SaturnSettings().bootstrapIps)
+    }
+
+    @Test fun directModeNeedsNoBridgesAndRetainsCustomBridgesForSwitchingBack() {
+        val direct = SaturnSettings(bridgeSource = "direct")
+        assertTrue(direct.isValid())
+        assertTrue(direct.usesDirectConnection())
+        assertTrue(direct.copy(dohUrl = "", bootstrapIps = "").isValid())
+        assertFalse(direct.copy(dohUrl = "", bootstrapIps = "", bridgeSource = "auto").isValid())
+        assertFalse(direct.copy(country = "invalid").isValid())
+        assertFalse(direct.usesAutomaticBridges())
+        assertFalse(SaturnSettings().usesDirectConnection())
+        val withBridges = direct.copy(bridges = bridge)
+        assertTrue(withBridges.isValid())
+        assertEquals(bridge, withBridges.copy(bridgeSource = "custom").bridges)
+        assertTrue(withBridges.copy(bridgeSource = "custom").isValid())
+        assertFalse(direct.copy(bridgeSource = "custom").isValid())
     }
 
     @Test fun emptyDefaultsUseAutomaticDiscoveryWhileCustomModeRequiresBridges() {

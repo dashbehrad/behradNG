@@ -181,14 +181,14 @@ internal class SaturnDohProxy(settings: SaturnSettings, private val owner: Corou
     }
 
     companion object {
-        /** Retry wire-format POST as GET. Only the built-in default may fail over to Google;
+        /** Retry wire-format POST as GET. Only the built-in default may fail over to Cloudflare;
          * custom providers stay confined to the configured endpoint. Never use system DNS. */
         internal fun createResolvers(settings: SaturnSettings, client: OkHttpClient,
             onFailure: (Int, IOException) -> Unit): List<Dns> {
             val endpoints = mutableListOf(settings.dohUrl to settings.bootstrapIps.split(',').map { it.trim() })
             val defaults = SaturnSettings()
             if (settings.dohUrl == defaults.dohUrl && settings.bootstrapIps == defaults.bootstrapIps) {
-                endpoints += "https://dns.google/dns-query" to listOf("8.8.8.8", "8.8.4.4")
+                endpoints += "https://cloudflare-dns.com/dns-query" to listOf("1.1.1.1", "1.0.0.1")
             }
             return endpoints.mapIndexed { index, (url, ips) ->
                 val preferGet = AtomicBoolean()

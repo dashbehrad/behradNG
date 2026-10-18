@@ -9,6 +9,19 @@ import org.junit.jupiter.api.Test
 import kotlin.io.encoding.Base64
 
 class SaturnFmtTest {
+    @Test fun releasedResolverSettingsRemainReadableAndDirectLinksRoundTrip() {
+        val released = Gson().fromJson("""{"dohUrl":"https://doh.nineline.workers.dev/dns-query","bootstrapIps":"1.1.1.1,1.0.0.1","bridges":"","scanMode":"turbo","country":"auto"}""", SaturnSettings::class.java)
+        assertTrue(released.isValid())
+        assertTrue(released.usesAutomaticBridges())
+        assertFalse(released.usesDirectConnection())
+        assertEquals("https://doh.nineline.workers.dev/dns-query", released.dohUrl)
+        assertEquals("1.1.1.1,1.0.0.1", released.bootstrapIps)
+        val direct = profile().copy(saturnSettings = SaturnSettings(bridgeSource = "direct", country = "nl"))
+        val restored = SaturnFmt.parse("saturn://" + SaturnFmt.toUri(direct))!!
+        assertEquals(direct.saturnSettings, restored.saturnSettings)
+        assertTrue(restored.saturnSettings!!.usesDirectConnection())
+    }
+
     private fun profile() = ProfileItem.create(EConfigType.SATURN).copy(remarks = "Saturn test",
         saturnSettings = SaturnSettings(bridges = "obfs4 192.0.2.1:443 " + "A".repeat(40) + " cert=" + "B".repeat(70) + " iat-mode=0"))
 

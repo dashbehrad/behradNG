@@ -24,7 +24,8 @@ internal object SaturnBridgeSelector {
     }
 
     fun candidates(settings: SaturnSettings, bundled: List<String>, refreshed: List<String>): List<String> =
-        if (settings.usesAutomaticBridges()) (refreshed + bundled).filter(SaturnSettings::validBridge).distinct().take(64)
+        if (settings.usesDirectConnection()) emptyList()
+        else if (settings.usesAutomaticBridges()) (refreshed + bundled).filter(SaturnSettings::validBridge).distinct().take(64)
         else settings.bridgeLines()
 
     suspend fun resolveCandidates(lines: List<String>, resolve: suspend (String) -> List<InetAddress>,

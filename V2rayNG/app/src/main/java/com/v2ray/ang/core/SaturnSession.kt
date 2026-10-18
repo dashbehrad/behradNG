@@ -33,7 +33,7 @@ import java.net.ServerSocket
 import java.net.Socket
 import java.util.concurrent.TimeUnit
 
-/** saturn-core: one daemon-owned DoH proxy, Tor process and managed obfs4 transport. */
+/** saturn-core: one daemon-owned Tor process, with optional DoH proxy and managed obfs4 transport. */
 @RequiresApi(26)
 class SaturnSession {
     enum class Stage { NATIVE, DNS, BRIDGES, BOOTSTRAP, EXIT, READY }
@@ -49,6 +49,7 @@ class SaturnSession {
     @Volatile private var bootstrapped = false
     @Volatile private var exitReady = false
     @Volatile private var bootstrapProgress = -1
+    private var directConnection = false
 
     suspend fun start(context: Context, guid: String, settings: SaturnSettings, reservedPorts: Set<Int>,
         owner: CoroutineScope): Int = withContext(Dispatchers.IO) {
@@ -57,11 +58,12 @@ class SaturnSession {
         exitReady = false
         nativeExitCode = null
         require(guid.matches(Regex("[A-Za-z0-9_-]{1,128}")) && settings.isValid())
+        directConnection = settings.usesDirectConnection()
         val nativeDir = File(context.applicationInfo.nativeLibraryDir)
         val launcher = File(nativeDir, "libsaturn-core.so")
         val tor = File(nativeDir, "libsaturn-tor.so")
         val obfs4 = File(nativeDir, "libsaturn-obfs4.so")
-        check(listOf(launcher, tor, obfs4).all { it.isFile }) { "Saturn native inputs unavailable" }
+        check((if (directConnection) listOf(launcher, tor) else listOf(launcher, tor, obfs4)).all { it.isFile }) { "Saturn native inputs unavailable" }
         val directory = File(context.noBackupFilesDir, "saturn/$guid")
         check(directory.isDirectory || directory.mkdirs())
         val geoip = File(directory, "geoip")
@@ -75,37 +77,41 @@ class SaturnSession {
                 } finally { pending.delete() }
             }
         }
-        val proxy = SaturnDohProxy(settings, owner, reservedPorts, guid)
-        doh = proxy
-        stage = Stage.DNS
-        LogUtil.i(AppConfig.TAG, "Saturn: mode=transport guid=$guid startup stage=DNS operation=initialize DoH resolver")
-        currentCoroutineContext().ensureActive()
-        // Do not gate IP-literal bridges on an unrelated DoH lookup; DoH is used only for hostnames.
-        stage = Stage.BRIDGES
-        LogUtil.i(AppConfig.TAG, "Saturn: mode=transport guid=$guid startup stage=BRIDGES operation=discover bridge candidates")
-        val bundled = if (settings.usesAutomaticBridges()) context.assets.open("saturn/builtin-bridges.json")
-            .bufferedReader().use { SaturnBridgeSelector.parseBuiltins(it.readText()) } else emptyList()
-        val refreshed = if (settings.usesAutomaticBridges()) try {
-            discoverBridgesWithTimeout { proxy.discoverBridges() }
-        } catch (e: CancellationException) {
-            throw e
-        } catch (e: Exception) {
-            LogUtil.w(AppConfig.TAG, "Saturn: mode=transport guid=$guid bridge refresh failed; using bundled pool",
-                e)
-            emptyList()
-        } else emptyList()
-        currentCoroutineContext().ensureActive()
-        val bridges = SaturnBridgeSelector.resolveCandidates(SaturnBridgeSelector.candidates(settings, bundled, refreshed), proxy::resolve)
-        // Let Tor authenticate every candidate. TCP probe latency cannot establish obfs4
-        // usability or bandwidth, and pre-filtering can discard the only working bridge.
-        check(bridges.isNotEmpty()) { "No Saturn bridge could be resolved" }
-        proxy.start(bridges)
-        LogUtil.i(AppConfig.TAG, "Saturn: mode=transport guid=$guid startup stage=BRIDGES operation=bridge pool ready candidates=${bridges.size}")
-        stage = Stage.NATIVE
-        val obfs4Proxy = startObfs4Transport(obfs4, directory, proxy.port, guid, owner)
+        var obfs4Proxy = ""
+        val bridges = if (directConnection) emptyList() else {
+            val proxy = SaturnDohProxy(settings, owner, reservedPorts, guid)
+            doh = proxy
+            stage = Stage.DNS
+            LogUtil.i(AppConfig.TAG, "Saturn: mode=transport guid=$guid startup stage=DNS operation=initialize DoH resolver")
+            currentCoroutineContext().ensureActive()
+            // Do not gate IP-literal bridges on an unrelated DoH lookup; DoH is used only for hostnames.
+            stage = Stage.BRIDGES
+            LogUtil.i(AppConfig.TAG, "Saturn: mode=transport guid=$guid startup stage=BRIDGES operation=discover bridge candidates")
+            val bundled = if (settings.usesAutomaticBridges()) context.assets.open("saturn/builtin-bridges.json")
+                .bufferedReader().use { SaturnBridgeSelector.parseBuiltins(it.readText()) } else emptyList()
+            val refreshed = if (settings.usesAutomaticBridges()) try {
+                discoverBridgesWithTimeout { proxy.discoverBridges() }
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                LogUtil.w(AppConfig.TAG, "Saturn: mode=transport guid=$guid bridge refresh failed; using bundled pool",
+                    e)
+                emptyList()
+            } else emptyList()
+            currentCoroutineContext().ensureActive()
+            val bridges = SaturnBridgeSelector.resolveCandidates(SaturnBridgeSelector.candidates(settings, bundled, refreshed), proxy::resolve)
+            // Let Tor authenticate every candidate. TCP probe latency cannot establish obfs4
+            // usability or bandwidth, and pre-filtering can discard the only working bridge.
+            check(bridges.isNotEmpty()) { "No Saturn bridge could be resolved" }
+            proxy.start(bridges)
+            LogUtil.i(AppConfig.TAG, "Saturn: mode=transport guid=$guid startup stage=BRIDGES operation=bridge pool ready candidates=${bridges.size}")
+            stage = Stage.NATIVE
+            obfs4Proxy = startObfs4Transport(obfs4, directory, proxy.port, guid, owner)
+            bridges
+        }
         val port = (1..16).asSequence().map {
             ServerSocket(0, 1, InetAddress.getByName("127.0.0.1")).use { it.localPort }
-        }.first { it in 1024..65535 && it !in reservedPorts && it != proxy.port }
+        }.first { it in 1024..65535 && it !in reservedPorts && it != doh?.port }
         val torrc = File(directory, "torrc")
         torrc.writeText(configuration(settings, directory, geoip, obfs4Proxy, port, bridges, Process.myPid()))
         currentCoroutineContext().ensureActive()
@@ -159,7 +165,7 @@ class SaturnSession {
         stage = Stage.EXIT
         LogUtil.i(AppConfig.TAG, "Saturn: mode=transport guid=$guid startup stage=EXIT operation=verify exit stream country=${settings.country}")
         check(awaitExit(60_000) {
-            check(process.isAlive && obfs4Process?.isAlive == true) { "Saturn process exited during exit check" }
+            check(transportProcessesAlive(directConnection, process.isAlive, obfs4Process?.isAlive == true)) { "Saturn process exited during exit check" }
             try {
                 probeExit(port)
             } catch (e: IOException) {
@@ -238,7 +244,8 @@ class SaturnSession {
         }
     }
 
-    fun isAlive(): Boolean = bootstrapped && exitReady && child?.isAlive == true && obfs4Process?.isAlive == true
+    fun isAlive(): Boolean = bootstrapped && exitReady &&
+        transportProcessesAlive(directConnection, child?.isAlive == true, obfs4Process?.isAlive == true)
 
     suspend fun stop() = withContext(Dispatchers.IO) {
         bootstrapped = false
@@ -266,6 +273,9 @@ class SaturnSession {
     }
 
     companion object {
+        internal fun transportProcessesAlive(direct: Boolean, torAlive: Boolean, obfs4Alive: Boolean): Boolean =
+            torAlive && (direct || obfs4Alive)
+
         internal const val BRIDGE_REFRESH_TIMEOUT_MILLIS = 10_000L
 
         internal suspend fun discoverBridgesWithTimeout(discover: suspend () -> List<String>): List<String> =
@@ -332,7 +342,9 @@ class SaturnSession {
 
         internal fun configuration(settings: SaturnSettings, directory: File, geoip: File, obfs4Proxy: String,
             port: Int, bridges: List<String>, ownerPid: Int): String {
-            require(settings.isValid() && port in 1024..65535 && parseObfs4Cmethod("CMETHOD obfs4 socks5 $obfs4Proxy") != null && bridges.isNotEmpty())
+            require(settings.isValid() && port in 1024..65535)
+            if (settings.usesDirectConnection()) require(bridges.isEmpty())
+            else require(parseObfs4Cmethod("CMETHOD obfs4 socks5 $obfs4Proxy") != null && bridges.isNotEmpty())
             require(bridges.all(SaturnSettings::validBridge))
             require(ownerPid > 0)
             fun quoted(file: File): String = "\"" + file.absolutePath.replace("\\", "\\\\").replace("\"", "\\\"") + "\""
@@ -342,10 +354,10 @@ class SaturnSession {
                 appendLine("GeoIPv6File ${quoted(File(geoip.parentFile, "geoip6"))}")
                 appendLine("SocksPort 127.0.0.1:$port")
                 appendLine("ClientOnly 1")
-                appendLine("UseBridges 1")
+                appendLine("UseBridges ${if (settings.usesDirectConnection()) 0 else 1}")
                 // Tor rejects Socks5Proxy alongside ClientTransportPlugin. Lyrebird owns the upstream
                 // SOCKS proxy via TOR_PT_PROXY; Tor connects to Lyrebird's managed local SOCKS endpoint.
-                appendLine("ClientTransportPlugin obfs4 socks5 $obfs4Proxy")
+                if (!settings.usesDirectConnection()) appendLine("ClientTransportPlugin obfs4 socks5 $obfs4Proxy")
                 appendLine("RunAsDaemon 0")
                 appendLine("SafeLogging 1")
                 // Start Tor's consensus fetch immediately; Tor otherwise waits before contacting authorities.
