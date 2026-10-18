@@ -1,0 +1,71 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="aether_title">aether</string>
+    <string name="aether_loading">Loading…</string>
+    <string name="aether_starting">Connecting to Aether…</string>
+    <string name="aether_protocol">Protocol</string>
+    <string name="aether_protocol_values">masque, wg</string>
+    <string name="aether_carrier">MASQUE transport</string>
+    <string name="aether_carrier_values">h2 (HTTP/2), h3 (HTTP/3)</string>
+    <string name="aether_scan">Endpoint scan mode</string>
+    <string name="aether_scan_values">turbo, balanced, thorough, verified, ironclad</string>
+    <string name="aether_ip">IP version</string>
+    <string name="aether_ip_values">v4, v6, both</string>
+    <string name="aether_noise">Obfuscation profile</string>
+    <string name="aether_noise_values">off, light, firewall, balanced, gfw, aggressive</string>
+    <string name="aether_endpoint">Endpoint (IP:port; leave empty to scan)</string>
+    <string name="aether_dns">Tunnel DNS (comma-separated IP addresses)</string>
+    <string name="aether_fragment">Fragment HTTP/2 ClientHello</string>
+    <string name="aether_fragment_size">Fragment size (bytes; e.g. 16-32)</string>
+    <string name="aether_fragment_delay">Fragment delay (milliseconds; e.g. 2-10)</string>
+    <string name="aether_socks_port">Local Aether proxy port (1024-65535)</string>
+    <string name="aether_cancel">Cancel</string>
+    <string name="aether_save">Save</string>
+    <string name="aether_load_error">Could not load this Aether profile.</string>
+    <string name="aether_save_error">Could not save this Aether profile. Try again.</string>
+    <string name="aether_invalid_settings">Enter a name and valid values for all Aether settings.</string>
+    <string name="aether_start_error">Aether could not connect. Check the profile and network, then reconnect.</string>
+    <string name="aether_unavailable">Aether requires its packaged core, Android 8 or later, ARM64/ARMv7/x86_64, and 4 KiB memory pages.</string>
+    <string name="aether_root_unsupported">Aether supports VPN and proxy-only modes. Switch out of root mode to use this profile.</string>
+    <string name="aether_standalone_only">Aether must be selected as its own profile; it cannot be a routing target or chain member.</string>
+    <string name="aether_apply_notice">Saved settings apply on the next connection. Disconnect and reconnect to apply changes.</string>
+    <string-array name="aether_protocol_options" translatable="false">
+        <item>masque</item>
+        <item>wg</item>
+    </string-array>
+    <string-array name="aether_carrier_options" translatable="false">
+        <item>h2</item>
+        <item>h3</item>
+    </string-array>
+    <string-array name="aether_scan_options" translatable="false">
+        <item>turbo</item>
+        <item>balanced</item>
+        <item>thorough</item>
+        <item>verified</item>
+        <item>ironclad</item>
+    </string-array>
+    <string-array name="aether_ip_options" translatable="false">
+        <item>v4</item>
+        <item>v6</item>
+        <item>both</item>
+    </string-array>
+    <string-array name="aether_noise_options" translatable="false">
+        <item>off</item>
+        <item>light</item>
+        <item>firewall</item>
+        <item>balanced</item>
+        <item>gfw</item>
+        <item>aggressive</item>
+    </string-array>
+    <string name="aether_permission_error">Allow behradNG to create a VPN connection, then retry.</string>
+    <string name="aether_vpn_error">behradNG could not create the VPN interface. Check VPN permissions and per-app settings.</string>
+    <string name="aether_tunnel_error">Aether connected, but the phone VPN tunnel could not start. Reconnect and check the app logs.</string>
+    <string name="aether_routing_error">behradNG could not start its routing core for Aether. Check whether the app proxy port is already in use.</string>
+    <string name="aether_native_error">Aether stopped during %1$s (exit code %2$d). Check the network and reconnect.</string>
+    <string name="aether_timeout_error">Aether timed out during %1$s. Check the network, endpoint and scan mode, then retry.</string>
+    <string name="aether_stage_core">core startup</string>
+    <string name="aether_stage_registration">Cloudflare registration</string>
+    <string name="aether_stage_scan">endpoint scanning</string>
+    <string name="aether_stage_transport">tunnel handshake</string>
+</resources>
+

@@ -1,0 +1,123 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="saturn_automatic">Automatic</string>
+    <string name="saturn_custom">Custom bridges</string>
+    <string name="saturn_bridge_source">Bridge source</string>
+    <string name="saturn_country_list">Exit country</string>
+    <string name="saturn_auto_hint">Automatically refreshes and ranks public obfs4 bridges. Custom bridges remain available if public bridges are blocked. Use Automatic country for the widest choice of Tor exits. DoH resolves DNS; it does not tunnel traffic. TCP only. Reconnect after changing settings.</string>
+    <string name="saturn_dns_error">Saturn could not reach the DoH resolver. Check the DoH URL and bootstrap IPs.</string>
+    <string name="saturn_bridges_error">No obfs4 bridge is reachable. Try Deep scan or custom bridges.</string>
+    <string name="saturn_bootstrap_error">Saturn could not finish the Tor connection. Try Automatic country, Deep scan or custom bridges.</string>
+    <string name="saturn_core_exit">Saturn core stopped during Tor startup (exit code %1$d).</string>
+    <string name="saturn_native_error">Saturn could not launch its native core. Check the app logs.</string>
+    <!-- Countries with active Tor exits in Onionoo-derived data dated 2026-09-11. -->
+    <string-array name="saturn_country_codes" translatable="false">
+        <item>ae</item>
+        <item>at</item>
+        <item>au</item>
+        <item>az</item>
+        <item>bd</item>
+        <item>be</item>
+        <item>bg</item>
+        <item>ca</item>
+        <item>ch</item>
+        <item>cl</item>
+        <item>cn</item>
+        <item>cr</item>
+        <item>cy</item>
+        <item>cz</item>
+        <item>de</item>
+        <item>dk</item>
+        <item>es</item>
+        <item>fi</item>
+        <item>fr</item>
+        <item>gb</item>
+        <item>gr</item>
+        <item>hk</item>
+        <item>hr</item>
+        <item>hu</item>
+        <item>id</item>
+        <item>il</item>
+        <item>is</item>
+        <item>it</item>
+        <item>jp</item>
+        <item>kr</item>
+        <item>lu</item>
+        <item>md</item>
+        <item>mx</item>
+        <item>my</item>
+        <item>nl</item>
+        <item>no</item>
+        <item>nz</item>
+        <item>pe</item>
+        <item>pk</item>
+        <item>pl</item>
+        <item>pt</item>
+        <item>ro</item>
+        <item>rs</item>
+        <item>sa</item>
+        <item>sc</item>
+        <item>se</item>
+        <item>sg</item>
+        <item>tr</item>
+        <item>tw</item>
+        <item>ua</item>
+        <item>us</item>
+        <item>za</item>
+    </string-array>
+    <string-array name="saturn_country_names">
+        <item>United Arab Emirates</item>
+        <item>Austria</item>
+        <item>Australia</item>
+        <item>Azerbaijan</item>
+        <item>Bangladesh</item>
+        <item>Belgium</item>
+        <item>Bulgaria</item>
+        <item>Canada</item>
+        <item>Switzerland</item>
+        <item>Chile</item>
+        <item>China</item>
+        <item>Costa Rica</item>
+        <item>Cyprus</item>
+        <item>Czechia</item>
+        <item>Germany</item>
+        <item>Denmark</item>
+        <item>Spain</item>
+        <item>Finland</item>
+        <item>France</item>
+        <item>United Kingdom</item>
+        <item>Greece</item>
+        <item>Hong Kong SAR China</item>
+        <item>Croatia</item>
+        <item>Hungary</item>
+        <item>Indonesia</item>
+        <item>Israel</item>
+        <item>Iceland</item>
+        <item>Italy</item>
+        <item>Japan</item>
+        <item>South Korea</item>
+        <item>Luxembourg</item>
+        <item>Moldova</item>
+        <item>Mexico</item>
+        <item>Malaysia</item>
+        <item>Netherlands</item>
+        <item>Norway</item>
+        <item>New Zealand</item>
+        <item>Peru</item>
+        <item>Pakistan</item>
+        <item>Poland</item>
+        <item>Portugal</item>
+        <item>Romania</item>
+        <item>Serbia</item>
+        <item>Saudi Arabia</item>
+        <item>Seychelles</item>
+        <item>Sweden</item>
+        <item>Singapore</item>
+        <item>Türkiye</item>
+        <item>Taiwan</item>
+        <item>Ukraine</item>
+        <item>United States</item>
+        <item>South Africa</item>
+    </string-array>
+    <string name="saturn_exit_error">Tor connected to a bridge but could not open an exit connection. Choose Automatic exit country or another country, then reconnect.</string>
+</resources>

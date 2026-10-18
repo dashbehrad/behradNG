@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="saturn_title">Saturn</string>
+    <string name="saturn_doh">نشونی DNS روی HTTPS</string>
+    <string name="saturn_bootstrap">آی‌پی‌های شروع DoH (با ویرگول)</string>
+    <string name="saturn_bridges">پل‌های obfs4 (هر خط یە پل)</string>
+    <string name="saturn_scan">شیوە بررسی پل‌ها</string>
+    <string name="saturn_turbo">جست‌وجوی تند</string>
+    <string name="saturn_deep">جست‌وجوی عمیق</string>
+    <string name="saturn_country">کشور خروج (auto یا کد دوحرفی)</string>
+    <string name="saturn_hint">DoH فقط سی DNS هە؛ بعد با پل‌های obfs4 و Tor وصل ابوه. فقط TCP. بعد تغییر تنظیمات دوبارە وصل بوین.</string>
+    <string name="saturn_loading">Saturn بار ابوه…</string>
+    <string name="saturn_starting">Saturn شروع ابوه…</string>
+    <string name="saturn_start_error">Saturn وصل نەبو. DoH، پل‌ها و کشور خروج ن بررسی کنین.</string>
+    <string name="saturn_invalid_settings">نوم، نشونی HTTPS، آی‌پی‌ها، پل‌های obfs4 و کد کشور ن بررسی کنین.</string>
+    <string name="saturn_load_error">نمایە Saturn بار نەبو.</string>
+    <string name="saturn_save_error">نمایە Saturn ذخیرە نەبو.</string>
+    <string name="saturn_unavailable">Saturn وە اندروید ۸ یا بالاتر و هستە سازگار نیاز دارە.</string>
+    <string name="saturn_root_unsupported">Saturn تو حالت روت کار ناکنە.</string>
+    <string name="saturn_permission_error">اول اجازە VPN بدین.</string>
+    <string name="saturn_vpn_error">رابط VPN درست نەبو.</string>
+    <string name="saturn_routing_error">مسیریابی Saturn شروع نەبو.</string>
+    <string name="saturn_tunnel_error">تونل VPN شروع نەبو.</string>
+</resources>

@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<data-extraction-rules>
+    <!-- Android 12+ uses separate cloud and device-transfer rules. Keep MMKV local in both modes. -->
+    <cloud-backup>
+        <exclude domain="file" path="mmkv/" />
+    </cloud-backup>
+    <device-transfer>
+        <exclude domain="file" path="mmkv/" />
+    </device-transfer>
+</data-extraction-rules>

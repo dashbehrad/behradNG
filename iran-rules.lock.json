@@ -1,0 +1,10 @@
+{
+  "repository": "Chocolate4U/Iran-v2ray-rules",
+  "revision": "680f985f4ace741b59271f2248db0fb660d46262",
+  "licenseRevision": "676695ea3b4c95d5cf48a7c4e2e718bac5b8a099",
+  "files": {
+    "geoip.dat": "b008752d6e54fc569b7cddd90a90a9c598ae3de05be45f3a576fcd8b1ff42fc4",
+    "geosite.dat": "d0fe7fa043bd7b21cffb831b578b91e9c0c0dd9726aef7b10d3de2df42cecd7f"
+  },
+  "licenseSha256": "3972dc9744f6499f0f9b2dbf76696f2ae7ad8af9b23dde66d6af86c9dfb36986"
+}

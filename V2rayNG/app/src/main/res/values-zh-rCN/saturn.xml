@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="saturn_title">Saturn</string>
+    <string name="saturn_doh">DNS over HTTPS 地址</string>
+    <string name="saturn_bootstrap">DoH 引导 IP（逗号分隔）</string>
+    <string name="saturn_bridges">自定义 obfs4 网桥（每行一个）</string>
+    <string name="saturn_scan">网桥测试模式</string>
+    <string name="saturn_turbo">快速扫描</string>
+    <string name="saturn_deep">深度扫描</string>
+    <string name="saturn_country">出口国家（auto 或两字母代码）</string>
+    <string name="saturn_hint">DoH 仅用于 DNS，然后通过所提供的 obfs4 网桥连接 Tor。仅支持 TCP。修改设置后请重新连接。</string>
+    <string name="saturn_loading">正在加载 Saturn…</string>
+    <string name="saturn_starting">正在启动 Saturn…</string>
+    <string name="saturn_start_error">Saturn 连接失败。请检查 DoH、网桥和出口国家。</string>
+    <string name="saturn_invalid_settings">请检查名称、HTTPS 地址、引导 IP、obfs4 网桥和国家代码。</string>
+    <string name="saturn_load_error">无法加载 Saturn 配置。</string>
+    <string name="saturn_save_error">无法保存 Saturn 配置。</string>
+    <string name="saturn_unavailable">Saturn 需要 Android 8+ 以及支持此设备的核心。</string>
+    <string name="saturn_root_unsupported">Saturn 不支持 root 模式。</string>
+    <string name="saturn_permission_error">请先授予 VPN 权限。</string>
+    <string name="saturn_vpn_error">无法创建 VPN 接口。</string>
+    <string name="saturn_routing_error">无法启动 Saturn 路由。</string>
+    <string name="saturn_tunnel_error">无法启动 VPN 隧道。</string>
+</resources>

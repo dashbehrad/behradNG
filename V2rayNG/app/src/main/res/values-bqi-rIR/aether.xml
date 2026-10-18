@@ -1,0 +1,71 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="aether_title">aether</string>
+    <string name="aether_loading">در حال بارگذاری…</string>
+    <string name="aether_starting">در حال اتصال به Aether…</string>
+    <string name="aether_protocol">پروتکل</string>
+    <string name="aether_protocol_values">masque, wg</string>
+    <string name="aether_carrier">حامل MASQUE</string>
+    <string name="aether_carrier_values">h2 (HTTP/2), h3 (HTTP/3)</string>
+    <string name="aether_scan">حالت جستجوی نقطه اتصال</string>
+    <string name="aether_scan_values">turbo, balanced, thorough, verified, ironclad</string>
+    <string name="aether_ip">نسخه IP</string>
+    <string name="aether_ip_values">v4, v6, both</string>
+    <string name="aether_noise">پروفایل مبهم‌سازی</string>
+    <string name="aether_noise_values">off, light, firewall, balanced, gfw, aggressive</string>
+    <string name="aether_endpoint">نقطه اتصال (IP:port؛ خالی برای جستجو)</string>
+    <string name="aether_dns">DNS تونل (آدرس‌های IP جداشده با ویرگول)</string>
+    <string name="aether_fragment">قطعه‌بندی ClientHello در HTTP/2</string>
+    <string name="aether_fragment_size">اندازه قطعه (بایت؛ مانند 16-32)</string>
+    <string name="aether_fragment_delay">تأخیر قطعه (میلی‌ثانیه؛ مانند 2-10)</string>
+    <string name="aether_socks_port">پورت محلی Aether (1024-65535)</string>
+    <string name="aether_cancel">لغو</string>
+    <string name="aether_save">ذخیره</string>
+    <string name="aether_load_error">بارگذاری این پروفایل Aether ممکن نشد.</string>
+    <string name="aether_save_error">ذخیره این پروفایل Aether ممکن نشد. دوباره تلاش کنید.</string>
+    <string name="aether_invalid_settings">نام و مقادیر معتبر برای همه تنظیمات Aether وارد کنید.</string>
+    <string name="aether_start_error">Aether متصل نشد. تنظیمات پروفایل و شبکه را بررسی کنید و دوباره متصل شوید.</string>
+    <string name="aether_unavailable">Aether به هسته بسته‌بندی‌شده، اندروید ۸ یا بالاتر، ARM64/ARMv7/x86_64 و صفحات حافظه 4 KiB نیاز دارد.</string>
+    <string name="aether_root_unsupported">Aether از حالت VPN و فقط پروکسی پشتیبانی می‌کند. برای این پروفایل از حالت روت خارج شوید.</string>
+    <string name="aether_standalone_only">Aether باید پروفایل مستقل باشد؛ مقصد مسیریابی یا عضو زنجیره نباشد.</string>
+    <string name="aether_apply_notice">تنظیمات ذخیره‌شده در اتصال بعدی اعمال می‌شوند. قطع و دوباره متصل شوید.</string>
+    <string-array name="aether_protocol_options" translatable="false">
+        <item>masque</item>
+        <item>wg</item>
+    </string-array>
+    <string-array name="aether_carrier_options" translatable="false">
+        <item>h2</item>
+        <item>h3</item>
+    </string-array>
+    <string-array name="aether_scan_options" translatable="false">
+        <item>turbo</item>
+        <item>balanced</item>
+        <item>thorough</item>
+        <item>verified</item>
+        <item>ironclad</item>
+    </string-array>
+    <string-array name="aether_ip_options" translatable="false">
+        <item>v4</item>
+        <item>v6</item>
+        <item>both</item>
+    </string-array>
+    <string-array name="aether_noise_options" translatable="false">
+        <item>off</item>
+        <item>light</item>
+        <item>firewall</item>
+        <item>balanced</item>
+        <item>gfw</item>
+        <item>aggressive</item>
+    </string-array>
+    <string name="aether_permission_error">اجازهٔ ایجاد اتصال VPN را به behradNG بدهید و دوباره تلاش کنید.</string>
+    <string name="aether_vpn_error">ایجاد رابط VPN ممکن نشد. مجوز VPN و تنظیمات برنامه‌های انتخاب‌شده را بررسی کنید.</string>
+    <string name="aether_tunnel_error">Aether متصل شد اما تونل VPN گوشی شروع نشد. دوباره متصل شوید و گزارش برنامه را بررسی کنید.</string>
+    <string name="aether_routing_error">هستهٔ مسیریابی behradNG برای Aether شروع نشد. بررسی کنید پورت پراکسی برنامه در حال استفاده نباشد.</string>
+    <string name="aether_native_error">Aether هنگام %1$s متوقف شد (کد خروج %2$d). شبکه را بررسی کنید و دوباره متصل شوید.</string>
+    <string name="aether_timeout_error">زمان انتظار Aether هنگام %1$s پایان یافت. شبکه، آدرس سرور و حالت جست‌وجو را بررسی کنید و دوباره تلاش کنید.</string>
+    <string name="aether_stage_core">شروع هسته</string>
+    <string name="aether_stage_registration">ثبت‌نام در Cloudflare</string>
+    <string name="aether_stage_scan">جست‌وجوی آدرس سرور</string>
+    <string name="aether_stage_transport">برقراری تونل</string>
+</resources>
+

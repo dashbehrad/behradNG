@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="aether_chain_invalid">অন্তত দুটি ভিন্ন প্রোফাইল বেছে নিন। Aether কেবল একবার, প্রথম ধাপে ব্যবহার করা যাবে।</string>
+    <string name="aether_chain_hint">Aether চেইন: Aether → Xray → ইন্টারনেট। রুট মোড সমর্থিত নয়।</string>
+    <string name="chain_hop_number">%1$d</string>
+</resources>

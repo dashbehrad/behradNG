@@ -1,0 +1,68 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="saturn_automatic">স্বয়ংক্রিয়</string>
+    <string name="saturn_custom">নিজস্ব ব্রিজ</string>
+    <string name="saturn_bridge_source">ব্রিজের উৎস</string>
+    <string name="saturn_country_list">প্রস্থান দেশ</string>
+    <string name="saturn_auto_hint">সর্বজনীন obfs4 ব্রিজ স্বয়ংক্রিয়ভাবে হালনাগাদ ও পরীক্ষা করা হয়। সেগুলি অবরুদ্ধ হলে নিজস্ব ব্রিজ ব্যবহার করুন। স্বয়ংক্রিয় দেশ নির্বাচন বেশি Tor প্রস্থান দেয়। DoH শুধু DNS সমাধান করে, ট্রাফিক টানেল করে না। শুধু TCP। পরিবর্তনের পরে আবার সংযোগ করুন।</string>
+    <string name="saturn_dns_error">Saturn DoH সার্ভারে পৌঁছাতে পারেনি। DoH URL এবং প্রারম্ভিক IP পরীক্ষা করুন।</string>
+    <string name="saturn_bridges_error">কোনো obfs4 ব্রিজে পৌঁছানো যাচ্ছে না। গভীর স্ক্যান বা নিজস্ব ব্রিজ চেষ্টা করুন।</string>
+    <string name="saturn_bootstrap_error">Tor সংযোগ সম্পূর্ণ হয়নি। স্বয়ংক্রিয় দেশ, গভীর স্ক্যান বা নিজস্ব ব্রিজ চেষ্টা করুন।</string>
+    <string name="saturn_core_exit">Tor চালুর সময় Saturn কোর থেমেছে (প্রস্থান কোড %1$d)।</string>
+    <string name="saturn_native_error">Saturn নেটিভ কোর চালু করা যায়নি। অ্যাপের লগ দেখুন।</string>
+    <string-array name="saturn_country_names">
+        <item>সংযুক্ত আরব আমিরাত</item>
+        <item>অস্ট্রিয়া</item>
+        <item>অস্ট্রেলিয়া</item>
+        <item>আজারবাইজান</item>
+        <item>বাংলাদেশ</item>
+        <item>বেলজিয়াম</item>
+        <item>বুলগেরিয়া</item>
+        <item>কানাডা</item>
+        <item>সুইজারল্যান্ড</item>
+        <item>চিলি</item>
+        <item>চীন</item>
+        <item>কোস্টারিকা</item>
+        <item>সাইপ্রাস</item>
+        <item>চেকিয়া</item>
+        <item>জার্মানি</item>
+        <item>ডেনমার্ক</item>
+        <item>স্পেন</item>
+        <item>ফিনল্যান্ড</item>
+        <item>ফ্রান্স</item>
+        <item>যুক্তরাজ্য</item>
+        <item>গ্রীস</item>
+        <item>হংকং এসএআর চীনা</item>
+        <item>ক্রোয়েশিয়া</item>
+        <item>হাঙ্গেরি</item>
+        <item>ইন্দোনেশিয়া</item>
+        <item>ইজরায়েল</item>
+        <item>আইসল্যান্ড</item>
+        <item>ইতালি</item>
+        <item>জাপান</item>
+        <item>দক্ষিণ কোরিয়া</item>
+        <item>লাক্সেমবার্গ</item>
+        <item>মলডোভা</item>
+        <item>মেক্সিকো</item>
+        <item>মালয়েশিয়া</item>
+        <item>নেদারল্যান্ডস</item>
+        <item>নরওয়ে</item>
+        <item>নিউজিল্যান্ড</item>
+        <item>পেরু</item>
+        <item>পাকিস্তান</item>
+        <item>পোল্যান্ড</item>
+        <item>পর্তুগাল</item>
+        <item>রোমানিয়া</item>
+        <item>সার্বিয়া</item>
+        <item>সৌদি আরব</item>
+        <item>সিসিলি</item>
+        <item>সুইডেন</item>
+        <item>সিঙ্গাপুর</item>
+        <item>তুরস্ক</item>
+        <item>তাইওয়ান</item>
+        <item>ইউক্রেন</item>
+        <item>মার্কিন যুক্তরাষ্ট্র</item>
+        <item>দক্ষিণ আফ্রিকা</item>
+    </string-array>
+    <string name="saturn_exit_error">Tor ব্রিজে সংযুক্ত হয়েছে, কিন্তু প্রস্থান সংযোগ খুলতে পারেনি। স্বয়ংক্রিয় প্রস্থান দেশ বা অন্য দেশ বেছে নিয়ে আবার সংযোগ করুন।</string>
+</resources>

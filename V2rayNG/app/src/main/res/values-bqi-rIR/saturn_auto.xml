@@ -1,0 +1,68 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="saturn_automatic">خودکار</string>
+    <string name="saturn_custom">پل‌های سفارشی</string>
+    <string name="saturn_bridge_source">منبع پل</string>
+    <string name="saturn_country_list">کشور خروجی</string>
+    <string name="saturn_auto_hint">پل‌های عمومی obfs4 به‌صورت خودکار به‌روز و رتبه‌بندی می‌شوند. اگر مسدود بودند از پل سفارشی استفاده کنید. کشور خودکار خروجی‌های بیشتری دارد. DoH فقط DNS را حل می‌کند و تونل ترافیک نیست. فقط TCP. پس از تغییر دوباره وصل شوید.</string>
+    <string name="saturn_dns_error">اتصال Saturn به DoH ممکن نشد. نشانی DoH و IPهای راه‌اندازی را بررسی کنید.</string>
+    <string name="saturn_bridges_error">هیچ پل obfs4 در دسترس نیست. اسکن عمیق یا پل سفارشی را امتحان کنید.</string>
+    <string name="saturn_bootstrap_error">اتصال Tor کامل نشد. کشور خودکار، اسکن عمیق یا پل سفارشی را امتحان کنید.</string>
+    <string name="saturn_core_exit">هسته Saturn هنگام راه‌اندازی Tor متوقف شد (کد خروج %1$d).</string>
+    <string name="saturn_native_error">هسته بومی Saturn اجرا نشد. گزارش برنامه را بررسی کنید.</string>
+    <string-array name="saturn_country_names">
+        <item>امارات متحدهٔ عربی</item>
+        <item>اتریش</item>
+        <item>استرالیا</item>
+        <item>جمهوری آذربایجان</item>
+        <item>بنگلادش</item>
+        <item>بلژیک</item>
+        <item>بلغارستان</item>
+        <item>کانادا</item>
+        <item>سوئیس</item>
+        <item>شیلی</item>
+        <item>چین</item>
+        <item>کاستاریکا</item>
+        <item>قبرس</item>
+        <item>چک</item>
+        <item>آلمان</item>
+        <item>دانمارک</item>
+        <item>اسپانیا</item>
+        <item>فنلاند</item>
+        <item>فرانسه</item>
+        <item>بریتانیا</item>
+        <item>یونان</item>
+        <item>هنگ‌کنگ، منطقهٔ ویژهٔ اداری چین</item>
+        <item>کرواسی</item>
+        <item>مجارستان</item>
+        <item>اندونزی</item>
+        <item>اسرائیل</item>
+        <item>ایسلند</item>
+        <item>ایتالیا</item>
+        <item>ژاپن</item>
+        <item>کرهٔ جنوبی</item>
+        <item>لوکزامبورگ</item>
+        <item>مولداوی</item>
+        <item>مکزیک</item>
+        <item>مالزی</item>
+        <item>هلند</item>
+        <item>نروژ</item>
+        <item>نیوزیلند</item>
+        <item>پرو</item>
+        <item>پاکستان</item>
+        <item>لهستان</item>
+        <item>پرتغال</item>
+        <item>رومانی</item>
+        <item>صربستان</item>
+        <item>عربستان سعودی</item>
+        <item>سیشل</item>
+        <item>سوئد</item>
+        <item>سنگاپور</item>
+        <item>ترکیه</item>
+        <item>تایوان</item>
+        <item>اوکراین</item>
+        <item>ایالات متحده</item>
+        <item>افریقای جنوبی</item>
+    </string-array>
+    <string name="saturn_exit_error">Tor به پل وصل شد، اما اتصال خروجی برقرار نەبو. کشور خروجی ن خودکار یا کشور دیگه انتخاب کنین و دوباره وصل بوین.</string>
+</resources>

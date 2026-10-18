@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="aether_chain_invalid">Выберите минимум два разных профиля. Aether можно использовать один раз, первым звеном.</string>
+    <string name="aether_chain_hint">Цепочка Aether: Aether → Xray → Интернет. Режим root не поддерживается.</string>
+    <string name="chain_hop_number">%1$d</string>
+</resources>

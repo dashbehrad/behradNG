@@ -1,0 +1,68 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="saturn_automatic">Tự động</string>
+    <string name="saturn_custom">Cầu nối tùy chỉnh</string>
+    <string name="saturn_bridge_source">Nguồn cầu nối</string>
+    <string name="saturn_country_list">Quốc gia thoát</string>
+    <string name="saturn_auto_hint">Tự động cập nhật và kiểm tra cầu nối obfs4 công khai. Dùng cầu nối tùy chỉnh nếu cầu nối công khai bị chặn. Chọn quốc gia tự động để có nhiều nút thoát Tor hơn. DoH chỉ phân giải DNS, không tạo đường hầm lưu lượng. Chỉ TCP. Kết nối lại sau khi thay đổi.</string>
+    <string name="saturn_dns_error">Saturn không thể kết nối DoH. Kiểm tra URL DoH và IP khởi tạo.</string>
+    <string name="saturn_bridges_error">Không có cầu nối obfs4 truy cập được. Thử quét sâu hoặc cầu nối tùy chỉnh.</string>
+    <string name="saturn_bootstrap_error">Không thể hoàn tất kết nối Tor. Thử quốc gia tự động, quét sâu hoặc cầu nối tùy chỉnh.</string>
+    <string name="saturn_core_exit">Lõi Saturn dừng khi khởi động Tor (mã thoát %1$d).</string>
+    <string name="saturn_native_error">Không thể chạy lõi Saturn gốc. Kiểm tra nhật ký ứng dụng.</string>
+    <string-array name="saturn_country_names">
+        <item>Các Tiểu Vương quốc Ả Rập Thống nhất</item>
+        <item>Áo</item>
+        <item>Úc</item>
+        <item>Azerbaijan</item>
+        <item>Bangladesh</item>
+        <item>Bỉ</item>
+        <item>Bulgaria</item>
+        <item>Canada</item>
+        <item>Thụy Sĩ</item>
+        <item>Chile</item>
+        <item>Trung Quốc</item>
+        <item>Costa Rica</item>
+        <item>Síp</item>
+        <item>Séc</item>
+        <item>Đức</item>
+        <item>Đan Mạch</item>
+        <item>Tây Ban Nha</item>
+        <item>Phần Lan</item>
+        <item>Pháp</item>
+        <item>Vương quốc Anh</item>
+        <item>Hy Lạp</item>
+        <item>Đặc khu Hành chính Hồng Kông, Trung Quốc</item>
+        <item>Croatia</item>
+        <item>Hungary</item>
+        <item>Indonesia</item>
+        <item>Israel</item>
+        <item>Iceland</item>
+        <item>Italy</item>
+        <item>Nhật Bản</item>
+        <item>Hàn Quốc</item>
+        <item>Luxembourg</item>
+        <item>Moldova</item>
+        <item>Mexico</item>
+        <item>Malaysia</item>
+        <item>Hà Lan</item>
+        <item>Na Uy</item>
+        <item>New Zealand</item>
+        <item>Peru</item>
+        <item>Pakistan</item>
+        <item>Ba Lan</item>
+        <item>Bồ Đào Nha</item>
+        <item>Romania</item>
+        <item>Serbia</item>
+        <item>Ả Rập Xê-út</item>
+        <item>Seychelles</item>
+        <item>Thụy Điển</item>
+        <item>Singapore</item>
+        <item>Thổ Nhĩ Kỳ</item>
+        <item>Đài Loan</item>
+        <item>Ukraina</item>
+        <item>Hoa Kỳ</item>
+        <item>Nam Phi</item>
+    </string-array>
+    <string name="saturn_exit_error">Tor đã kết nối với cầu nhưng không thể mở kết nối đầu ra. Chọn quốc gia thoát tự động hoặc quốc gia khác rồi kết nối lại.</string>
+</resources>

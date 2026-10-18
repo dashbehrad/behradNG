@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="saturn_title">Saturn</string>
+    <string name="saturn_doh">Адрес DNS через HTTPS</string>
+    <string name="saturn_bootstrap">Начальные IP DoH (через запятую)</string>
+    <string name="saturn_bridges">Мосты obfs4 (по одному в строке)</string>
+    <string name="saturn_scan">Режим проверки мостов</string>
+    <string name="saturn_turbo">Быстрая проверка</string>
+    <string name="saturn_deep">Глубокая проверка</string>
+    <string name="saturn_country">Страна выхода (auto или двухбуквенный код)</string>
+    <string name="saturn_hint">DoH используется для DNS, затем соединение идёт через заданные мосты obfs4 и Tor. Только TCP. После изменения настроек подключитесь заново.</string>
+    <string name="saturn_loading">Загрузка Saturn…</string>
+    <string name="saturn_starting">Запуск Saturn…</string>
+    <string name="saturn_start_error">Не удалось подключить Saturn. Проверьте DoH, мосты и страну выхода.</string>
+    <string name="saturn_invalid_settings">Проверьте имя, адрес HTTPS, IP, мосты obfs4 и код страны.</string>
+    <string name="saturn_load_error">Не удалось загрузить профиль Saturn.</string>
+    <string name="saturn_save_error">Не удалось сохранить профиль Saturn.</string>
+    <string name="saturn_unavailable">Saturn требует Android 8+ и совместимое ядро для устройства.</string>
+    <string name="saturn_root_unsupported">Saturn недоступен в режиме root.</string>
+    <string name="saturn_permission_error">Сначала разрешите VPN.</string>
+    <string name="saturn_vpn_error">Не удалось создать интерфейс VPN.</string>
+    <string name="saturn_routing_error">Не удалось запустить маршрутизацию Saturn.</string>
+    <string name="saturn_tunnel_error">Не удалось запустить туннель VPN.</string>
+</resources>

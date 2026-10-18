@@ -1,0 +1,68 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="saturn_automatic">تلقائي</string>
+    <string name="saturn_custom">جسور مخصصة</string>
+    <string name="saturn_bridge_source">مصدر الجسور</string>
+    <string name="saturn_country_list">بلد الخروج</string>
+    <string name="saturn_auto_hint">يحدّث جسور obfs4 العامة ويرتبها تلقائيًا. استخدم جسورًا مخصصة إذا كانت محجوبة. اختر البلد التلقائي لتوسيع خيارات خروج Tor. يحل DoH أسماء DNS فقط ولا ينقل البيانات كنفق. TCP فقط. أعد الاتصال بعد التغيير.</string>
+    <string name="saturn_dns_error">تعذر الوصول إلى محلل DoH. تحقق من عنوان DoH وعناوين IP للتهيئة.</string>
+    <string name="saturn_bridges_error">لا يمكن الوصول إلى أي جسر obfs4. جرّب الفحص العميق أو جسورًا مخصصة.</string>
+    <string name="saturn_bootstrap_error">تعذر إكمال اتصال Tor. جرّب البلد التلقائي أو الفحص العميق أو جسورًا مخصصة.</string>
+    <string name="saturn_core_exit">توقفت نواة Saturn أثناء بدء Tor (رمز الخروج %1$d).</string>
+    <string name="saturn_native_error">تعذر تشغيل نواة Saturn الأصلية. راجع سجلات التطبيق.</string>
+    <string-array name="saturn_country_names">
+        <item>الإمارات العربية المتحدة</item>
+        <item>النمسا</item>
+        <item>أستراليا</item>
+        <item>أذربيجان</item>
+        <item>بنغلاديش</item>
+        <item>بلجيكا</item>
+        <item>بلغاريا</item>
+        <item>كندا</item>
+        <item>سويسرا</item>
+        <item>تشيلي</item>
+        <item>الصين</item>
+        <item>كوستاريكا</item>
+        <item>قبرص</item>
+        <item>التشيك</item>
+        <item>ألمانيا</item>
+        <item>الدانمرك</item>
+        <item>إسبانيا</item>
+        <item>فنلندا</item>
+        <item>فرنسا</item>
+        <item>المملكة المتحدة</item>
+        <item>اليونان</item>
+        <item>هونغ كونغ الصينية (منطقة إدارية خاصة)</item>
+        <item>كرواتيا</item>
+        <item>هنغاريا</item>
+        <item>إندونيسيا</item>
+        <item>إسرائيل</item>
+        <item>آيسلندا</item>
+        <item>إيطاليا</item>
+        <item>اليابان</item>
+        <item>كوريا الجنوبية</item>
+        <item>لوكسمبورغ</item>
+        <item>مولدوفا</item>
+        <item>المكسيك</item>
+        <item>ماليزيا</item>
+        <item>هولندا</item>
+        <item>النرويج</item>
+        <item>نيوزيلندا</item>
+        <item>بيرو</item>
+        <item>باكستان</item>
+        <item>بولندا</item>
+        <item>البرتغال</item>
+        <item>رومانيا</item>
+        <item>صربيا</item>
+        <item>المملكة العربية السعودية</item>
+        <item>سيشل</item>
+        <item>السويد</item>
+        <item>سنغافورة</item>
+        <item>تركيا</item>
+        <item>تايوان</item>
+        <item>أوكرانيا</item>
+        <item>الولايات المتحدة</item>
+        <item>جنوب أفريقيا</item>
+    </string-array>
+    <string name="saturn_exit_error">اتصل Tor بالجسر ولكن تعذر فتح اتصال خروج. اختر بلد الخروج التلقائي أو بلدًا آخر، ثم أعد الاتصال.</string>
+</resources>

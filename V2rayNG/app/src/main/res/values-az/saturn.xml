@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="saturn_title">Saturn</string>
+    <string name="saturn_doh">HTTPS üzərindən DNS ünvanı</string>
+    <string name="saturn_bootstrap">DoH başlanğıc IP-ləri (vergüllə ayrılır)</string>
+    <string name="saturn_bridges">Fərdi obfs4 körpüləri (hər sətirdə biri)</string>
+    <string name="saturn_scan">Körpü yoxlama rejimi</string>
+    <string name="saturn_turbo">Sürətli yoxlama</string>
+    <string name="saturn_deep">Dərin yoxlama</string>
+    <string name="saturn_country">Çıxış ölkəsi (auto və ya iki hərfli kod)</string>
+    <string name="saturn_hint">DoH DNS üçün işlədilir, sonra daxil edilən obfs4 körpüləri və Tor ilə əlaqə qurulur. Yalnız TCP. Dəyişiklikdən sonra yenidən qoşulun.</string>
+    <string name="saturn_loading">Saturn yüklənir…</string>
+    <string name="saturn_starting">Saturn başladılır…</string>
+    <string name="saturn_start_error">Saturn qoşulmadı. DoH, körpülər və çıxış ölkəsini yoxlayın.</string>
+    <string name="saturn_invalid_settings">Adı, HTTPS ünvanını, IP-ləri, obfs4 körpülərini və ölkə kodunu yoxlayın.</string>
+    <string name="saturn_load_error">Saturn profili yüklənmədi.</string>
+    <string name="saturn_save_error">Saturn profili saxlanmadı.</string>
+    <string name="saturn_unavailable">Saturn üçün Android 8+ və cihazla uyğun nüvə lazımdır.</string>
+    <string name="saturn_root_unsupported">Saturn root rejimində mövcud deyil.</string>
+    <string name="saturn_permission_error">Əvvəlcə VPN icazəsi verin.</string>
+    <string name="saturn_vpn_error">VPN interfeysi yaradılmadı.</string>
+    <string name="saturn_routing_error">Saturn yönləndirməsi başlamadı.</string>
+    <string name="saturn_tunnel_error">VPN tuneli başlamadı.</string>
+</resources>

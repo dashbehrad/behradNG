@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<full-backup-content>
+    <!-- MMKV owns profiles, subscription indexes and settings; restore them only by explicit import. -->
+    <exclude domain="file" path="mmkv/" />
+</full-backup-content>

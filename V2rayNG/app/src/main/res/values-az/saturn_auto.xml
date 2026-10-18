@@ -1,0 +1,68 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="saturn_automatic">Avtomatik</string>
+    <string name="saturn_custom">Fərdi körpülər</string>
+    <string name="saturn_bridge_source">Körpü mənbəyi</string>
+    <string name="saturn_country_list">Çıxış ölkəsi</string>
+    <string name="saturn_auto_hint">İctimai obfs4 körpüləri avtomatik yenilənir və yoxlanılır. Bloklanarsa fərdi körpülərdən istifadə edin. Avtomatik ölkə daha çox Tor çıxışı seçir. DoH yalnız DNS həll edir, trafiki tunelləmir. Yalnız TCP. Dəyişiklikdən sonra yenidən qoşulun.</string>
+    <string name="saturn_dns_error">Saturn DoH xidmətinə qoşula bilmədi. DoH URL və başlanğıc IP ünvanlarını yoxlayın.</string>
+    <string name="saturn_bridges_error">Əlçatan obfs4 körpüsü yoxdur. Dərin skan və ya fərdi körpüləri sınayın.</string>
+    <string name="saturn_bootstrap_error">Tor bağlantısı tamamlanmadı. Avtomatik ölkə, dərin skan və ya fərdi körpüləri sınayın.</string>
+    <string name="saturn_core_exit">Saturn nüvəsi Tor başlayarkən dayandı (çıxış kodu %1$d).</string>
+    <string name="saturn_native_error">Saturn yerli nüvəsi başlaya bilmədi. Tətbiq qeydlərini yoxlayın.</string>
+    <string-array name="saturn_country_names">
+        <item>Birləşmiş Ərəb Əmirlikləri</item>
+        <item>Avstriya</item>
+        <item>Avstraliya</item>
+        <item>Azərbaycan</item>
+        <item>Banqladeş</item>
+        <item>Belçika</item>
+        <item>Bolqarıstan</item>
+        <item>Kanada</item>
+        <item>İsveçrə</item>
+        <item>Çili</item>
+        <item>Çin</item>
+        <item>Kosta Rika</item>
+        <item>Kipr</item>
+        <item>Çexiya</item>
+        <item>Almaniya</item>
+        <item>Danimarka</item>
+        <item>İspaniya</item>
+        <item>Finlandiya</item>
+        <item>Fransa</item>
+        <item>Birləşmiş Krallıq</item>
+        <item>Yunanıstan</item>
+        <item>Honq Konq Xüsusi İnzibati Rayonu Çin</item>
+        <item>Xorvatiya</item>
+        <item>Macarıstan</item>
+        <item>İndoneziya</item>
+        <item>İsrail</item>
+        <item>İslandiya</item>
+        <item>İtaliya</item>
+        <item>Yaponiya</item>
+        <item>Cənubi Koreya</item>
+        <item>Lüksemburq</item>
+        <item>Moldova</item>
+        <item>Meksika</item>
+        <item>Malayziya</item>
+        <item>Niderland</item>
+        <item>Norveç</item>
+        <item>Yeni Zelandiya</item>
+        <item>Peru</item>
+        <item>Pakistan</item>
+        <item>Polşa</item>
+        <item>Portuqaliya</item>
+        <item>Rumıniya</item>
+        <item>Serbiya</item>
+        <item>Səudiyyə Ərəbistanı</item>
+        <item>Seyşel adaları</item>
+        <item>İsveç</item>
+        <item>Sinqapur</item>
+        <item>Türkiyə</item>
+        <item>Tayvan</item>
+        <item>Ukrayna</item>
+        <item>Amerika Birləşmiş Ştatları</item>
+        <item>Cənub Afrika</item>
+    </string-array>
+    <string name="saturn_exit_error">Tor körpüyə qoşuldu, lakin çıxış bağlantısı qurulmadı. Avtomatik çıxış ölkəsini və ya başqa ölkəni seçin, sonra yenidən qoşulun.</string>
+</resources>

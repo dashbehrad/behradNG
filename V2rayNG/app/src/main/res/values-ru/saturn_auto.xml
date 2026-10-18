@@ -1,0 +1,68 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="saturn_automatic">Автоматически</string>
+    <string name="saturn_custom">Свои мосты</string>
+    <string name="saturn_bridge_source">Источник мостов</string>
+    <string name="saturn_country_list">Страна выхода</string>
+    <string name="saturn_auto_hint">Автоматическое обновление и проверка публичных мостов obfs4. Если они заблокированы, используйте свои мосты. Автовыбор страны расширяет выбор выходов Tor. DoH разрешает DNS, но не передаёт трафик туннелем. Только TCP. После изменений переподключитесь.</string>
+    <string name="saturn_dns_error">Не удалось подключиться к DoH. Проверьте URL и начальные IP-адреса.</string>
+    <string name="saturn_bridges_error">Нет доступных мостов obfs4. Попробуйте глубокую проверку или свои мосты.</string>
+    <string name="saturn_bootstrap_error">Не удалось завершить подключение Tor. Попробуйте автовыбор страны, глубокую проверку или свои мосты.</string>
+    <string name="saturn_core_exit">Ядро Saturn остановилось при запуске Tor (код %1$d).</string>
+    <string name="saturn_native_error">Не удалось запустить нативное ядро Saturn. Проверьте журнал приложения.</string>
+    <string-array name="saturn_country_names">
+        <item>ОАЭ</item>
+        <item>Австрия</item>
+        <item>Австралия</item>
+        <item>Азербайджан</item>
+        <item>Бангладеш</item>
+        <item>Бельгия</item>
+        <item>Болгария</item>
+        <item>Канада</item>
+        <item>Швейцария</item>
+        <item>Чили</item>
+        <item>Китай</item>
+        <item>Коста-Рика</item>
+        <item>Кипр</item>
+        <item>Чехия</item>
+        <item>Германия</item>
+        <item>Дания</item>
+        <item>Испания</item>
+        <item>Финляндия</item>
+        <item>Франция</item>
+        <item>Великобритания</item>
+        <item>Греция</item>
+        <item>Гонконг (САР)</item>
+        <item>Хорватия</item>
+        <item>Венгрия</item>
+        <item>Индонезия</item>
+        <item>Израиль</item>
+        <item>Исландия</item>
+        <item>Италия</item>
+        <item>Япония</item>
+        <item>Республика Корея</item>
+        <item>Люксембург</item>
+        <item>Молдова</item>
+        <item>Мексика</item>
+        <item>Малайзия</item>
+        <item>Нидерланды</item>
+        <item>Норвегия</item>
+        <item>Новая Зеландия</item>
+        <item>Перу</item>
+        <item>Пакистан</item>
+        <item>Польша</item>
+        <item>Португалия</item>
+        <item>Румыния</item>
+        <item>Сербия</item>
+        <item>Саудовская Аравия</item>
+        <item>Сейшельские о-ва</item>
+        <item>Швеция</item>
+        <item>Сингапур</item>
+        <item>Турция</item>
+        <item>Тайвань</item>
+        <item>Украина</item>
+        <item>Соединенные Штаты</item>
+        <item>Южно-Африканская Республика</item>
+    </string-array>
+    <string name="saturn_exit_error">Tor подключился к мосту, но не смог открыть выходное соединение. Выберите автоматический выбор страны выхода или другую страну и подключитесь снова.</string>
+</resources>

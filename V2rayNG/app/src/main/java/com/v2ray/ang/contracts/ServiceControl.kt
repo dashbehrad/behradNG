@@ -1,0 +1,50 @@
+package com.v2ray.ang.contracts
+
+import android.app.Service
+import android.net.Network
+
+interface ServiceControl {
+    /**
+     * Gets the service instance.
+     * @return The service instance.
+     */
+    fun getService(): Service
+
+    /**
+     * Starts the service.
+     */
+    fun startService()
+
+    /** Returns true when this service owns an asynchronous, ordered restart. */
+    fun restartOwnedService(): Boolean = false
+
+    /** Daemon-owned setup state; this is not proof that a connection is ready. */
+    fun isConnecting(): Boolean = false
+
+    /** Returns the ready Aether child's internal port only for the service-owned profile GUID. */
+    fun aetherProxyPort(guid: String): Int? = null
+
+    /** Ready Saturn child port, bound to the daemon-owned selected profile. */
+    fun saturnProxyPort(guid: String): Int? = null
+
+    /**
+     * Stops the service.
+     */
+    fun stopService()
+
+    /**
+     * Protects the VPN socket.
+     * @param socket The socket to protect.
+     * @return True if the socket is protected, false otherwise.
+     */
+    fun vpnProtect(socket: Int): Boolean
+
+    /**
+     * Declares the networks the tunnel runs on top of.
+     * Only meaningful for the VPN service, the other run modes have no interface to report.
+     *
+     * @param networks The upstream networks, null to let the system pick.
+     * @return True if the networks were accepted.
+     */
+    fun setUnderlyingNetworks(networks: Array<Network>?): Boolean = false
+}

@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="connection_connecting">Đang kết nối…</string>
+    <string name="connection_status_connected">Đã kết nối</string>
+    <string name="connection_connecting_hint">Đang thiết lập kết nối. Nhấn để hủy.</string>
+    <string name="connection_connected_hint">Đã thiết lập kết nối.</string>
+    <string name="connection_start_hint">Nhấn nút bên dưới để kết nối.</string>
+    <string name="connection_cancel">Hủy kết nối</string>
+    <string name="connection_stop">Ngắt kết nối VPN</string>
+    <string name="connection_start">Kết nối VPN</string>
+</resources>
