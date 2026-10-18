@@ -51,6 +51,7 @@ object CoreServiceManager {
     private var currentConfig: ProfileItem? = null
     private var processFinder: XrayProcessFinder? = null
     private var browserDialer: IDialerService? = null
+    @Volatile
     private var networkMonitor: NetworkMonitor? = null
     private val connectionTestScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
 
@@ -252,15 +253,34 @@ object CoreServiceManager {
      * and root mode as well, not just behind the VPN interface.
      */
     private fun startNetworkMonitor(service: Service) {
-        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.P) return
+        val control = serviceControl?.get() ?: return
+        val saturn = control is com.v2ray.ang.service.SaturnService
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.P &&
+            !(saturn && Build.VERSION.SDK_INT >= Build.VERSION_CODES.O)) return
         if (networkMonitor != null) return
 
         val connectivity = service.getSystemService(Context.CONNECTIVITY_SERVICE) as? ConnectivityManager ?: return
-        networkMonitor = NetworkMonitor(
+        lateinit var monitor: NetworkMonitor
+        monitor = NetworkMonitor(
             connectivity = connectivity,
-            onUnderlyingNetworksChanged = { networks -> serviceControl?.get()?.setUnderlyingNetworks(networks) },
-            onHandover = { reloadCore() },
-        ).also { it.register() }
+            onUnderlyingNetworksChanged = { networks ->
+                if (networkMonitor === monitor && serviceControl?.get() === control) control.setUnderlyingNetworks(networks)
+            },
+            onHandover = {
+                if (networkMonitor === monitor && serviceControl?.get() === control && isRunning()) {
+                    if (saturn) {
+                        // Xray reload alone leaves Tor, Lyrebird and DoH sockets on the old network.
+                        // Reuse the daemon's ordered transport restart so Stop still cancels recovery.
+                        control.restartOwnedService()
+                    } else reloadCore()
+                }
+            },
+            logContext = "mode=${service.javaClass.simpleName} guid=${MmkvManager.getSelectServer().orEmpty()}",
+            watchLinkChanges = saturn,
+            debounceMillis = if (saturn) 2000L else 1000L,
+        )
+        networkMonitor = monitor
+        monitor.register()
     }
 
     /**

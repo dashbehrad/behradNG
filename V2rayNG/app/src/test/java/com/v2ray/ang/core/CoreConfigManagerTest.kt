@@ -8,6 +8,53 @@ import org.junit.jupiter.api.Test
 
 class CoreConfigManagerTest {
     @Test
+    fun saturnDnsInterceptsVpnAndProxyOnlyInputsBeforeUserRoutesAndIsIdempotent() {
+        val userRule = V2rayConfig.RoutingBean.RulesBean(outboundTag = "proxy", network = "udp")
+        val config = V2rayConfig(log = V2rayConfig.LogBean(),
+            inbounds = arrayListOf(
+                V2rayConfig.InboundBean(tag = "socks", port = 10808, protocol = "socks"),
+                V2rayConfig.InboundBean(tag = "tun", port = null, protocol = "tun"),
+                V2rayConfig.InboundBean(tag = "http", port = 10809, protocol = "http")),
+            outbounds = arrayListOf(), routing = V2rayConfig.RoutingBean("AsIs", rules = arrayListOf(userRule)))
+
+        CoreConfigManager.configureSaturnDns(config)
+        CoreConfigManager.configureSaturnDns(config)
+
+        assertEquals(2, config.routing.rules.size)
+        assertEquals(listOf("socks", "tun"), config.routing.rules.first().inboundTag)
+        assertEquals("53", config.routing.rules.first().port)
+        assertEquals("dns-out", config.routing.rules.first().outboundTag)
+        assertEquals(userRule, config.routing.rules.last())
+        assertEquals(1, config.outbounds.count { it.protocol == "dns" && it.tag == "dns-out" })
+    }
+
+    @Test
+    fun saturnDnsReusesAnExistingDnsOutboundAndSupportsSocksOnlyMode() {
+        val dnsOutbound = V2rayConfig.OutboundBean(protocol = "dns", tag = "dns-out")
+        val config = V2rayConfig(log = V2rayConfig.LogBean(),
+            inbounds = arrayListOf(V2rayConfig.InboundBean(tag = "socks", port = 10808, protocol = "socks")),
+            outbounds = arrayListOf(dnsOutbound), routing = V2rayConfig.RoutingBean("AsIs", rules = arrayListOf()))
+        CoreConfigManager.configureSaturnDns(config)
+        assertEquals(listOf("socks"), config.routing.rules.single().inboundTag)
+        assertEquals(listOf(dnsOutbound), config.outbounds)
+
+        config.inbounds.clear()
+        config.routing.rules.clear()
+        CoreConfigManager.configureSaturnDns(config)
+        assertTrue(config.routing.rules.isEmpty())
+    }
+
+    @Test
+    fun rawDnsIpsUseTcpWhileHttpsAndExplicitTcpResolversStayUnchanged() {
+        val servers = listOf("8.8.8.8", "2001:4860:4860::8888", "[2606:4700:4700::1111]",
+            "https://custom.example/dns-query", "tcp://192.0.2.1:5353", "localhost")
+        assertEquals(listOf("tcp://8.8.8.8", "tcp://[2001:4860:4860::8888]", "tcp://[2606:4700:4700::1111]",
+            "https://custom.example/dns-query", "tcp://192.0.2.1:5353", "localhost"), CoreConfigManager.tcpDnsServers(servers))
+        assertTrue(CoreConfigManager.tcpDnsServers(emptyList()).isEmpty())
+        assertEquals("8.8.8.8", servers.first())
+    }
+
+    @Test
     fun successfulResolutionIsSharedAcrossOutboundsWithoutDiscardingAddressFamilies() {
         val outbounds = listOf(outbound("proxy.example", 443), outbound("proxy.example", 8443))
         val dns = V2rayConfig.DnsBean(hosts = mapOf("existing.example" to "192.0.2.2"))

@@ -207,6 +207,7 @@ object CoreConfigManager {
         configureDns(configContext, v2rayConfig, policyGroupBalancerTags)
         configureLocalDns(configContext, v2rayConfig)
         configureRootModeDns(v2rayConfig)
+        if (primaryResolvedOutbound.profile.configType == EConfigType.SATURN) configureSaturnDns(v2rayConfig)
 
         // (added by getDns / getCustomLocalDns) to use the balancer, then add
         // the catch-all balancer rule.
@@ -724,6 +725,27 @@ object CoreConfigManager {
         }
     }
 
+    /** Tor SOCKS cannot carry UDP. Intercept DNS even when the global local-DNS toggle
+     * is off, covering both VPN TUN and proxy-only SOCKS inputs without changing saved settings. */
+    internal fun configureSaturnDns(v2rayConfig: V2rayConfig) {
+        val tags = v2rayConfig.inbounds.filter { it.protocol == "socks" || it.protocol == "tun" }.map { it.tag }.distinct()
+        if (tags.isEmpty()) return
+        val rule = V2rayConfig.RoutingBean.RulesBean(inboundTag = tags, outboundTag = "dns-out", port = "53")
+        if (v2rayConfig.routing.rules.firstOrNull() != rule) v2rayConfig.routing.rules.add(0, rule)
+        if (v2rayConfig.outbounds.none { it.protocol == "dns" && it.tag == "dns-out" }) {
+            v2rayConfig.outbounds.add(V2rayConfig.OutboundBean(protocol = "dns", tag = "dns-out",
+                settings = null, streamSettings = null, mux = null))
+        }
+    }
+
+    /** Retain configured resolvers and encrypted URLs; only raw UDP IP endpoints need TCP over Tor. */
+    internal fun tcpDnsServers(servers: List<String>): List<String> = servers.map { server ->
+        if (!Utils.isPureIpAddress(server)) server else {
+            val ip = server.removeSurrounding("[", "]")
+            "tcp://" + if (ip.contains(':')) "[$ip]" else ip
+        }
+    }
+
     /**
      * Remove speed-test runtime sections when the feature is disabled.
      */
@@ -885,7 +907,9 @@ object CoreConfigManager {
         policyGroupBalancerTags: Map<String, String>,
     ) {
         val servers = ArrayList<Any>()
-        val remoteDns = SettingsManager.getRemoteDnsServers()
+        val configuredRemoteDns = SettingsManager.getRemoteDnsServers()
+        val remoteDns = if (configContext.resolvedOutbounds.firstOrNull()?.profile?.configType == EConfigType.SATURN)
+            tcpDnsServers(configuredRemoteDns) else configuredRemoteDns
         val domesticDns = SettingsManager.getDomesticDnsServers()
 
         remoteDns.forEach { servers.add(it) }
