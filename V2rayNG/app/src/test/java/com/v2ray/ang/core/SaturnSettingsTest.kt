@@ -21,6 +21,8 @@ class SaturnSettingsTest {
         assertFalse(direct.copy(bootstrapIps = "invalid").isValid())
         assertFalse(direct.copy(dohUrl = "", bootstrapIps = "", bridgeSource = "auto").isValid())
         assertFalse(direct.copy(country = "invalid").isValid())
+        assertTrue(direct.copy(bootstrapIps = "").isValid())
+        assertTrue(SaturnSettings(bootstrapIps = "").isValid())
         assertFalse(direct.usesAutomaticBridges())
         assertFalse(SaturnSettings().usesDirectConnection())
         val withBridges = direct.copy(bridges = bridge)

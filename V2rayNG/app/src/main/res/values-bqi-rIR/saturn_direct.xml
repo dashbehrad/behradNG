@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="saturn_direct">مستقیم (بی تونل)</string>
+    <string name="saturn_direct_hint">بی پل obfs4 و تونل انتقال، مستقیم به تور وصل ایبو. وی‌پی‌ان اندروید هنوز ترافیک نَه از تور رد ایکنه. شاید شبکه‌تون اتصال مستقیم به تور نَه بسته بوه.</string>
+</resources>
+

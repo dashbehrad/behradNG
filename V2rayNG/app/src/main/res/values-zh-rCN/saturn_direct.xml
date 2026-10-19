@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="saturn_direct">直连（不使用隧道）</string>
+    <string name="saturn_direct_hint">直接连接 Tor，不使用 obfs4 网桥或传输隧道。Android VPN 仍会通过 Tor 路由流量。你的网络可能会阻止直连 Tor。</string>
+</resources>
+

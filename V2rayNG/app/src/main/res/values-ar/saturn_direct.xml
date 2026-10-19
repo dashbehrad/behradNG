@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="saturn_direct">مباشر (بدون نفق)</string>
+    <string name="saturn_direct_hint">يتصل مباشرة بتور دون جسور obfs4 أو نفق نقل. تظل شبكة VPN في أندرويد تمرر حركة البيانات عبر تور. قد تحظر شبكتك الاتصال المباشر بتور.</string>
+</resources>
+

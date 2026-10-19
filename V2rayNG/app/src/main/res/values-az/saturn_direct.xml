@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="saturn_direct">Birbaşa (tunelsiz)</string>
+    <string name="saturn_direct_hint">obfs4 körpüləri və ya nəqliyyat tuneli olmadan birbaşa Tor şəbəkəsinə qoşulur. Android VPN trafiki yenə Tor vasitəsilə yönləndirir. Şəbəkəniz birbaşa Tor bağlantısını bloklaya bilər.</string>
+</resources>
+
