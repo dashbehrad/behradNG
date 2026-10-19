@@ -84,9 +84,8 @@ class SaturnSession {
         LogUtil.i(AppConfig.TAG, "Saturn: mode=transport guid=$guid startup stage=DNS operation=initialize DoH resolver")
         currentCoroutineContext().ensureActive()
         if (directConnection) {
-            // Direct Tor still uses the configured encrypted resolver and local SOCKS proxy.
-            // Establish DoH before Tor starts; relay TCP payloads do not travel inside DNS.
-            proxy.resolve("www.torproject.org")
+            // Like SlipNet, initialize the DoH-backed proxy before Tor without probing an
+            // unrelated hostname. IP-literal Tor relays do not require a DNS lookup.
             proxy.start(emptyList())
         }
         val bridges = if (directConnection) emptyList() else {

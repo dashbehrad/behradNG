@@ -41,13 +41,13 @@ import java.util.concurrent.atomic.AtomicBoolean
 /** Daemon-session-owned, loopback-only SOCKS5 CONNECT bridge. DoH never carries TCP payloads. */
 internal class SaturnDohProxy(settings: SaturnSettings, private val owner: CoroutineScope, reservedPorts: Set<Int> = emptySet(),
     private val profileGuid: String? = null) {
-    private val client = OkHttpClient.Builder().socketFactory(DoHFragmentingSocketFactory())
+    private val stopped = AtomicBoolean()
+    private val client = OkHttpClient.Builder()
         .connectTimeout(8, TimeUnit.SECONDS)
         .readTimeout(8, TimeUnit.SECONDS).callTimeout(12, TimeUnit.SECONDS)
         .followRedirects(false).followSslRedirects(false).proxy(java.net.Proxy.NO_PROXY).build()
-    private val resolvers = createResolvers(settings, client, ::reportDnsFailure)
+    private val resolvers = createResolvers(settings, client, stopped::get, ::reportDnsFailure)
     private val preferredResolver = AtomicInteger()
-    private val stopped = AtomicBoolean()
     private val sockets = ConcurrentHashMap.newKeySet<Socket>()
     private val active = AtomicInteger()
     private val listener = (1..16).asSequence().map {
@@ -185,7 +185,7 @@ internal class SaturnDohProxy(settings: SaturnSettings, private val owner: Corou
         /** Retry wire-format POST as GET. Only the built-in default may fail over to Cloudflare;
          * custom providers stay confined to the configured endpoint. Never use system DNS. */
         internal fun createResolvers(settings: SaturnSettings, client: OkHttpClient,
-            onFailure: (Int, IOException) -> Unit): List<Dns> {
+            isStopped: () -> Boolean = { false }, onFailure: (Int, IOException) -> Unit): List<Dns> {
             val endpoints = mutableListOf(settings.dohUrl to settings.bootstrapIps.split(',').map { it.trim() })
             val defaults = SaturnSettings()
             if (settings.dohUrl == defaults.dohUrl && settings.bootstrapIps == defaults.bootstrapIps) {
@@ -213,10 +213,53 @@ internal class SaturnDohProxy(settings: SaturnSettings, private val owner: Corou
                             } else response
                         })
                     }.build()
-                DnsOverHttps.Builder().client(dnsClient).url(url.toHttpUrl())
+                fun resolverFor(transport: OkHttpClient): Dns = DnsOverHttps.Builder().client(transport).url(url.toHttpUrl())
                     .bootstrapDnsHosts(ips.map(InetAddress::getByName))
                     .resolvePrivateAddresses(true).post(true).build()
+                val standard = resolverFor(dnsClient)
+                val fragmented = resolverFor(dnsClient.newBuilder().socketFactory(DoHFragmentingSocketFactory()).build())
+                object : Dns {
+                    override fun lookup(hostname: String): List<InetAddress> =
+                        lookupWithTlsFallback(hostname, standard, fragmented, isStopped) { failure ->
+                            onFailure(index, IOException("DoH HTTPS transport failed; retrying with fragmented TLS", failure))
+                        }
+                }
             }
+        }
+
+        /** Retry only socket transport failures, retaining the same encrypted endpoint and TLS checks. */
+        internal fun lookupWithTlsFallback(host: String, standard: Dns, fragmented: Dns,
+            isStopped: () -> Boolean, onFailure: (IOException) -> Unit): List<InetAddress> {
+            if (isStopped()) throw IOException("Saturn encrypted resolver stopped")
+            try {
+                return standard.lookup(host)
+            } catch (failure: IOException) {
+                if (isStopped() || Thread.currentThread().isInterrupted || !isTlsTransportFailure(failure)) throw failure
+                onFailure(failure)
+                if (isStopped() || Thread.currentThread().isInterrupted) throw failure
+                try {
+                    return fragmented.lookup(host)
+                } catch (retryFailure: IOException) {
+                    if (retryFailure !== failure) retryFailure.addSuppressed(failure)
+                    throw retryFailure
+                }
+            }
+        }
+
+        private fun isTlsTransportFailure(failure: IOException): Boolean {
+            val pending = java.util.ArrayDeque<Throwable>()
+            val seen = mutableSetOf<Throwable>()
+            var transportFailure = false
+            pending.add(failure)
+            while (pending.isNotEmpty()) {
+                val error = pending.removeFirst()
+                if (!seen.add(error)) continue
+                if (error is javax.net.ssl.SSLPeerUnverifiedException || error is java.security.cert.CertificateException) return false
+                if (error is java.net.SocketException || error is java.net.SocketTimeoutException) transportFailure = true
+                error.cause?.let(pending::add)
+                error.suppressed.forEach(pending::add)
+            }
+            return transportFailure
         }
 
         /** Remember the working encrypted resolver for this session to avoid repeated failed round trips. */

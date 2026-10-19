@@ -30,10 +30,11 @@ import okio.Buffer
 import okio.ByteString.Companion.decodeBase64
 
 class SaturnDohProxyTest {
-    @Test fun directModeRelaysThroughTheLocalProxyWithoutABridgeAllowlist(): Unit = runBlocking {
+    @Test fun directIpRelayDoesNotRequireAReachableDohServer(): Unit = runBlocking {
         val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
         val echo = ServerSocket(0, 1, InetAddress.getByName("127.0.0.1"))
-        val proxy = SaturnDohProxy(SaturnSettings(bridgeSource = "direct"), scope)
+        val proxy = SaturnDohProxy(SaturnSettings(bridgeSource = "direct",
+            dohUrl = "https://unreachable.invalid/dns-query", bootstrapIps = "192.0.2.1"), scope)
         val proxyPort = proxy.port
         val echoJob = scope.launch {
             echo.accept().use { peer -> peer.getOutputStream().write(peer.getInputStream().read()) }
