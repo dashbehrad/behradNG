@@ -282,7 +282,7 @@ class SaturnSession {
         internal fun transportProcessesAlive(direct: Boolean, torAlive: Boolean, obfs4Alive: Boolean): Boolean =
             torAlive && (direct || obfs4Alive)
 
-        internal const val BRIDGE_REFRESH_TIMEOUT_MILLIS = 10_000L
+        internal const val BRIDGE_REFRESH_TIMEOUT_MILLIS = 3_000L
 
         internal suspend fun discoverBridgesWithTimeout(discover: suspend () -> List<String>): List<String> =
             withTimeoutOrNull(BRIDGE_REFRESH_TIMEOUT_MILLIS) { discover() }.orEmpty()
@@ -362,6 +362,11 @@ class SaturnSession {
                 appendLine("GeoIPv6File ${quoted(File(geoip.parentFile, "geoip6"))}")
                 appendLine("SocksPort 127.0.0.1:$port")
                 appendLine("ClientOnly 1")
+                appendLine("AvoidDiskWrites 1")
+                appendLine("DormantClientTimeout 2419200")
+                appendLine("KeepalivePeriod 30")
+                appendLine("NumEntryGuards 1")
+                appendLine("ConnectionPadding 1")
                 appendLine("UseBridges ${if (settings.usesDirectConnection()) 0 else 1}")
                 if (settings.usesDirectConnection()) appendLine("Socks5Proxy 127.0.0.1:$dohProxyPort")
                 // Tor rejects Socks5Proxy alongside ClientTransportPlugin. Lyrebird owns the upstream

@@ -2,9 +2,12 @@ package com.v2ray.ang.core
 
 import com.v2ray.ang.dto.entities.SaturnSettings
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
+import kotlinx.coroutines.async
+import kotlinx.coroutines.cancelAndJoin
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.withTimeout
@@ -19,6 +22,8 @@ import java.io.IOException
 import java.util.Collections
 import java.util.concurrent.atomic.AtomicInteger
 import okhttp3.Dns
+import okhttp3.Call
+import okhttp3.Callback
 import okhttp3.HttpUrl.Companion.toHttpUrl
 import okhttp3.OkHttpClient
 import okhttp3.Protocol
@@ -30,6 +35,66 @@ import okio.Buffer
 import okio.ByteString.Companion.decodeBase64
 
 class SaturnDohProxyTest {
+    @Test fun cancellingBridgeRefreshCancelsNestedDnsButKeepsSessionRequestsAlive(): Unit = runBlocking {
+        val enteredDns = CompletableDeferred<Unit>()
+        val cancelledDns = CompletableDeferred<Unit>()
+        val enteredSession = CompletableDeferred<Unit>()
+        val completedSession = CompletableDeferred<Unit>()
+        val releaseSession = java.util.concurrent.CountDownLatch(1)
+        val dnsCalls = Collections.synchronizedList(mutableListOf<Call>())
+        val client = OkHttpClient.Builder().addInterceptor { chain ->
+            val request = chain.request()
+            when (request.url.host) {
+                "custom.example" -> {
+                    dnsCalls.add(chain.call())
+                    enteredDns.complete(Unit)
+                    while (!chain.call().isCanceled()) Thread.sleep(5)
+                    cancelledDns.complete(Unit)
+                    throw IOException("Cancelled DoH request")
+                }
+                "session.example" -> {
+                    enteredSession.complete(Unit)
+                    while (releaseSession.count > 0 && !chain.call().isCanceled()) Thread.sleep(5)
+                    check(!chain.call().isCanceled())
+                    Response.Builder().request(request).protocol(Protocol.HTTP_1_1).code(200).message("Test")
+                        .body("alive".toResponseBody()).build()
+                }
+                "bridges.torproject.org" -> chain.proceed(request)
+                else -> error("Unexpected network request")
+            }
+        }.build()
+        val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
+        val proxy = SaturnDohProxy(SaturnSettings(dohUrl = "https://custom.example/dns-query", bootstrapIps = "192.0.2.1"),
+            scope, client = client)
+        val sessionCall = client.newCall(Request.Builder().url("https://session.example/").build())
+        sessionCall.enqueue(object : Callback {
+            override fun onFailure(call: Call, e: IOException) { completedSession.completeExceptionally(e) }
+            override fun onResponse(call: Call, response: Response) {
+                response.use { completedSession.complete(Unit) }
+            }
+        })
+        val refresh = scope.async { proxy.discoverBridges() }
+        try {
+            withTimeout(3000) {
+                enteredSession.await()
+                enteredDns.await()
+                refresh.cancelAndJoin()
+                cancelledDns.await()
+            }
+            assertTrue(dnsCalls.isNotEmpty())
+            assertTrue(dnsCalls.all { it.isCanceled() })
+            assertFalse(sessionCall.isCanceled())
+            assertFalse(client.dispatcher.executorService.isShutdown)
+            releaseSession.countDown()
+            withTimeout(3000) { completedSession.await() }
+        } finally {
+            releaseSession.countDown()
+            refresh.cancelAndJoin()
+            proxy.stop()
+            scope.cancel()
+        }
+    }
+
     @Test fun directIpRelayDoesNotRequireAReachableDohServer(): Unit = runBlocking {
         val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
         val echo = ServerSocket(0, 1, InetAddress.getByName("127.0.0.1"))

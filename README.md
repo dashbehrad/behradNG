@@ -47,7 +47,7 @@ Aether provides configurable carriers, optional fragmentation, and scan and tran
 
 ### Saturn · Tor-backed transport
 
-Saturn offers **Automatic obfs4**, **Custom obfs4**, and **Direct**. All three use the configured DoH resolver and a session-owned local SOCKS proxy. Following [SlipNet](https://github.com/anonvector/SlipNet), Direct sets Tor to use that proxy without obfs4 bridges or transport plugins. DoH resolves DNS; TCP relay traffic is not carried inside DNS requests. The Android VPN still routes traffic through Tor, and Direct requires a network that allows Tor.
+Saturn supports **Automatic obfs4**, **Custom obfs4**, and direct Tor connections (by specifying `DIRECT` as custom bridge or in profile configuration). All modes use the configured DoH resolver and a session-owned local SOCKS proxy. Following [SlipNet](https://github.com/anonvector/SlipNet), direct mode sets Tor to use that proxy without obfs4 bridges or transport plugins. DoH resolves DNS; TCP relay traffic is not carried inside DNS requests. The Android VPN still routes traffic through Tor, and direct mode requires a network that allows Tor.
 
 New bridge profiles use **Google DoH** (`https://dns.google/dns-query`) with Cloudflare as an encrypted fallback. Saved profiles retain their DNS settings. A working connection requires successful Tor bootstrap and an exit connection.
 
@@ -143,7 +143,7 @@ behradNG بر پایه v2rayNG و Xray-core ساخته شده و در کنار �
 - حالت VPN و پروکسی، مسیریابی برنامه‌به‌برنامه، قوانین مسیریابی و زنجیره پروکسی.
 - تنظیمات DNS، Fragment، Mux و Sniffing، همراه با تست تأخیر و سرعت.
 - **Aether:** ترنسپورت تطبیقی با تنظیمات Carrier، اسکن و Fragment و راه‌اندازی مجدد هنگام تغییر شبکه.
-- **Saturn:** سه حالت «obfs4 خودکار»، «obfs4 سفارشی» و «مستقیم» همگی از حل‌کننده DoH تنظیم‌شده و پروکسی محلی استفاده می‌کنند. حالت مستقیم بدون obfs4 از همین پروکسی به Tor وصل می‌شود. DoH فقط نام دامنه را حل می‌کند و ترافیک TCP را داخل DNS منتقل نمی‌کند. وی‌پی‌ان اندروید همچنان ترافیک را از Tor عبور می‌دهد. پیش‌فرض DNS پروفایل‌های جدید Google DoH است و تنظیمات ذخیره‌شده حفظ می‌شود.
+- **Saturn:** اتصال مبتنی بر Tor با پشتیبانی از «obfs4 خودکار»، «obfs4 سفارشی» و اتصال مستقیم به Tor (با نوشتن DIRECT در پل‌های سفارشی). همگی از حل‌کننده DoH تنظیم‌شده و پروکسی محلی استفاده می‌کنند. DoH فقط نام دامنه را حل می‌کند و ترافیک TCP را داخل DNS منتقل نمی‌کند. پیش‌فرض DNS پروفایل‌های جدید Google DoH است و تنظیمات ذخیره‌شده حفظ می‌شود.
 
 ### ساخت و مشارکت
 

@@ -1,7 +1,0 @@
-<?xml version="1.0" encoding="utf-8"?>
-<resources>
-    <string name="saturn_direct">直连</string>
-    <string name="saturn_automatic_obfs4">自动 obfs4</string>
-    <string name="saturn_custom_obfs4">自定义 obfs4</string>
-    <string name="saturn_direct_hint">通过本地代理和配置的 DoH 连接 Tor，不使用 obfs4 网桥。DoH 解析 DNS，中继流量通过 TCP 传输。Android VPN 仍会通过 Tor 路由流量。</string>
-</resources>

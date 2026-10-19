@@ -1,7 +1,0 @@
-<?xml version="1.0" encoding="utf-8"?>
-<resources>
-    <string name="saturn_direct">Trực tiếp</string>
-    <string name="saturn_automatic_obfs4">obfs4 tự động</string>
-    <string name="saturn_custom_obfs4">obfs4 tùy chỉnh</string>
-    <string name="saturn_direct_hint">Kết nối Tor qua proxy cục bộ và DoH đã cấu hình, không dùng cầu obfs4. DoH phân giải DNS; lưu lượng truyền qua TCP. VPN Android vẫn định tuyến lưu lượng qua Tor.</string>
-</resources>

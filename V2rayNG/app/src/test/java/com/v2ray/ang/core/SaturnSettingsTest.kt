@@ -30,6 +30,13 @@ class SaturnSettingsTest {
         assertFalse(direct.copy(bridgeSource = "custom").isValid())
     }
 
+    @Test fun directKeywordInCustomBridgesEnablesDirectConnectionWithoutUiChanges() {
+        val customDirect = SaturnSettings(bridgeSource = "custom", bridges = "DIRECT")
+        assertTrue(customDirect.isValid())
+        assertTrue(customDirect.usesDirectConnection())
+        assertFalse(customDirect.usesAutomaticBridges())
+    }
+
     @Test fun emptyDefaultsUseAutomaticDiscoveryWhileCustomModeRequiresBridges() {
         assertTrue(SaturnSettings().isValid())
         assertTrue(SaturnSettings().usesAutomaticBridges())

@@ -1,7 +1,0 @@
-<?xml version="1.0" encoding="utf-8"?>
-<resources>
-    <string name="saturn_direct">Direct</string>
-    <string name="saturn_automatic_obfs4">Automatic obfs4</string>
-    <string name="saturn_custom_obfs4">Custom obfs4</string>
-    <string name="saturn_direct_hint">Connects to Tor through the local proxy and configured DoH resolver, without obfs4 bridges. DoH resolves DNS; relay traffic uses TCP. The Android VPN still routes traffic through Tor.</string>
-</resources>

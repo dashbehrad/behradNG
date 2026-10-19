@@ -1,7 +1,0 @@
-<?xml version="1.0" encoding="utf-8"?>
-<resources>
-    <string name="saturn_direct">مستقیم</string>
-    <string name="saturn_automatic_obfs4">obfs4 خودکار</string>
-    <string name="saturn_custom_obfs4">obfs4 سفارشی</string>
-    <string name="saturn_direct_hint">بی پل obfs4 و از پروکسی محلی و DoH تنظیم‌شده به Tor وصل ایبو. DoH نام دامنه نَه حل ایکنه و ترافیک از TCP رد ایبو. وی‌پی‌ان اندروید هنوز ترافیک نَه از Tor رد ایکنه.</string>
-</resources>

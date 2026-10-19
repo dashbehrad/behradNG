@@ -14,6 +14,7 @@ import kotlin.coroutines.resumeWithException
 import okhttp3.Call
 import okhttp3.Callback
 import okhttp3.Dns
+import okhttp3.Dispatcher
 import okhttp3.Interceptor
 import okhttp3.Request
 import okhttp3.Response
@@ -39,16 +40,16 @@ import java.util.concurrent.atomic.AtomicInteger
 import java.util.concurrent.atomic.AtomicBoolean
 
 /** Daemon-session-owned, loopback-only SOCKS5 CONNECT bridge. DoH never carries TCP payloads. */
-internal class SaturnDohProxy(settings: SaturnSettings, private val owner: CoroutineScope, reservedPorts: Set<Int> = emptySet(),
-    private val profileGuid: String? = null) {
-    private val stopped = AtomicBoolean()
-    private val client = OkHttpClient.Builder()
+internal class SaturnDohProxy(private val settings: SaturnSettings, private val owner: CoroutineScope, reservedPorts: Set<Int> = emptySet(),
+    private val profileGuid: String? = null, private val client: OkHttpClient = OkHttpClient.Builder()
         .connectTimeout(8, TimeUnit.SECONDS)
         .readTimeout(8, TimeUnit.SECONDS).callTimeout(12, TimeUnit.SECONDS)
-        .followRedirects(false).followSslRedirects(false).proxy(java.net.Proxy.NO_PROXY).build()
+        .followRedirects(false).followSslRedirects(false).proxy(java.net.Proxy.NO_PROXY).build()) {
+    private val stopped = AtomicBoolean()
     private val resolvers = createResolvers(settings, client, stopped::get, ::reportDnsFailure)
     private val preferredResolver = AtomicInteger()
     private val sockets = ConcurrentHashMap.newKeySet<Socket>()
+    private val refreshDispatchers = ConcurrentHashMap.newKeySet<Dispatcher>()
     private val active = AtomicInteger()
     private val listener = (1..16).asSequence().map {
         ServerSocket(0, 16, InetAddress.getByName("127.0.0.1"))
@@ -64,19 +65,45 @@ internal class SaturnDohProxy(settings: SaturnSettings, private val owner: Corou
         listOf(InetAddress.getByName(host)) else lookupWithFallback(host, resolvers, preferredResolver, stopped::get, ::reportDnsFailure)
 
     private fun reportDnsFailure(index: Int, e: IOException) {
-        LogUtil.w(AppConfig.TAG, "Saturn: mode=transport component=DoH guid=$profileGuid operation=encrypted DNS request failed resolver=$index", e)
+        val source = if (settings.usesDirectConnection()) "direct" else if (settings.usesAutomaticBridges()) "auto" else "custom"
+        LogUtil.w(AppConfig.TAG, "Saturn: mode=transport component=DoH guid=$profileGuid source=$source operation=encrypted DNS request failed resolver=$index", e)
     }
 
-    /** Session-owned refresh using the configured DoH resolver; cancellation closes the HTTP call. */
+    /** Refresh owns its HTTP and nested DoH calls; cancellation must leave other session requests alone. */
     suspend fun discoverBridges(): List<String> = suspendCancellableCoroutine { continuation ->
-        val refreshClient = client.newBuilder().dns(object : Dns {
-            override fun lookup(hostname: String): List<InetAddress> = resolve(hostname)
-        }).callTimeout(20, TimeUnit.SECONDS).build()
+        val refreshStopped = AtomicBoolean()
+        val dispatcher = Dispatcher()
+        refreshDispatchers.add(dispatcher)
+        fun finishRefresh() {
+            if (refreshStopped.compareAndSet(false, true)) {
+                dispatcher.cancelAll()
+                dispatcher.executorService.shutdown()
+                refreshDispatchers.remove(dispatcher)
+            }
+        }
+        continuation.invokeOnCancellation { finishRefresh() }
+        if (stopped.get() || !continuation.isActive) {
+            finishRefresh()
+            if (continuation.isActive) continuation.resumeWithException(IOException("Saturn bridge refresh stopped"))
+            return@suspendCancellableCoroutine
+        }
+        val isRefreshStopped = { stopped.get() || refreshStopped.get() }
+        val reportRefreshFailure: (Int, IOException) -> Unit = { index, failure ->
+            if (!isRefreshStopped()) reportDnsFailure(index, failure)
+        }
+        val refreshDnsClient = client.newBuilder().dispatcher(dispatcher).build()
+        val refreshResolvers = createResolvers(settings, refreshDnsClient, isRefreshStopped, reportRefreshFailure)
+        val refreshPreferred = AtomicInteger(preferredResolver.get())
+        val refreshClient = refreshDnsClient.newBuilder().dns(object : Dns {
+            override fun lookup(hostname: String): List<InetAddress> =
+                if (SaturnSettings.isIpLiteral(hostname)) listOf(InetAddress.getByName(hostname))
+                else lookupWithFallback(hostname, refreshResolvers, refreshPreferred, isRefreshStopped, reportRefreshFailure)
+        }).socketFactory(DoHFragmentingSocketFactory()).callTimeout(5, TimeUnit.SECONDS).build()
         val call = refreshClient.newCall(Request.Builder()
             .url("https://bridges.torproject.org/moat/circumvention/builtin").build())
-        continuation.invokeOnCancellation { call.cancel() }
         call.enqueue(object : Callback {
             override fun onFailure(call: Call, e: java.io.IOException) {
+                finishRefresh()
                 if (continuation.isActive) continuation.resumeWithException(e)
             }
 
@@ -96,10 +123,10 @@ internal class SaturnDohProxy(settings: SaturnSettings, private val owner: Corou
                             SaturnBridgeSelector.parseBuiltins(String(bytes, 0, size, Charsets.UTF_8))
                         }
                     }
-                    continuation.resume(bridges)
+                    if (continuation.isActive) continuation.resume(bridges)
                 } catch (e: Exception) {
                     if (continuation.isActive) continuation.resumeWithException(e)
-                }
+                } finally { finishRefresh() }
             }
         })
     }
@@ -173,6 +200,11 @@ internal class SaturnDohProxy(settings: SaturnSettings, private val owner: Corou
     suspend fun stop() {
         stopped.set(true)
         listener.close()
+        refreshDispatchers.forEach { dispatcher ->
+            dispatcher.cancelAll()
+            dispatcher.executorService.shutdown()
+        }
+        refreshDispatchers.clear()
         client.dispatcher.cancelAll()
         sockets.forEach { runCatching { it.close() } }
         sockets.clear()
@@ -189,12 +221,12 @@ internal class SaturnDohProxy(settings: SaturnSettings, private val owner: Corou
             val endpoints = mutableListOf(settings.dohUrl to settings.bootstrapIps.split(',').map { it.trim() })
             val defaults = SaturnSettings()
             if (settings.dohUrl == defaults.dohUrl && settings.bootstrapIps == defaults.bootstrapIps) {
-                endpoints += "https://cloudflare-dns.com/dns-query" to listOf("1.1.1.1", "1.0.0.1")
+                endpoints += "https://cloudflare-dns.com/dns-query" to listOf("162.159.36.1", "162.159.46.1", "1.1.1.1", "1.0.0.1")
             }
             return endpoints.mapIndexed { index, (url, ips) ->
                 val preferGet = AtomicBoolean()
-                val dnsClient = client.newBuilder().connectTimeout(5, TimeUnit.SECONDS)
-                    .readTimeout(5, TimeUnit.SECONDS).callTimeout(6, TimeUnit.SECONDS).apply {
+                val dnsClient = client.newBuilder().connectTimeout(4, TimeUnit.SECONDS)
+                    .readTimeout(4, TimeUnit.SECONDS).callTimeout(5, TimeUnit.SECONDS).apply {
                         interceptors().add(0, Interceptor { chain ->
                             fun getRequest(request: Request): Request {
                                 val buffer = Buffer()
@@ -354,8 +386,8 @@ internal class FragmentingOutputStream(private val delegate: OutputStream) : Out
         passthrough = true
         if (tlsHeader && recordLength in 4..16384 && buffered[5] == 1.toByte()) {
             val payload = buffered.copyOfRange(5, 5 + recordLength)
-            val middle = sniSplitPoint(payload) ?: (1 + (payload.size - 1) / 2)
-            val ends = listOf(1, middle, payload.size).distinct().sorted()
+            val middle = (sniSplitPoint(payload) ?: (payload.size / 2)).coerceIn(4, payload.size - 1)
+            val ends = listOf(middle, payload.size).distinct().sorted()
             var start = 0
             for (end in ends) {
                 val size = end - start

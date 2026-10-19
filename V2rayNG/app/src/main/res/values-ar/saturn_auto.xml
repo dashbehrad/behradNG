@@ -64,5 +64,5 @@
         <item>الولايات المتحدة</item>
         <item>جنوب أفريقيا</item>
     </string-array>
-    <string name="saturn_exit_error">تعذر على Tor فتح اتصال خروج. اختر بلد الخروج التلقائي أو بلدًا آخر، ثم أعد الاتصال.</string>
+    <string name="saturn_exit_error">اتصل Tor بالجسر ولكن تعذر فتح اتصال خروج. اختر بلد الخروج التلقائي أو بلدًا آخر، ثم أعد الاتصال.</string>
 </resources>

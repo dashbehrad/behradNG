@@ -14,7 +14,7 @@ data class SaturnSettings(
 ) {
     fun usesAutomaticBridges(): Boolean = bridgeSource == "auto" || (bridgeSource == null && bridges.isBlank())
 
-    fun usesDirectConnection(): Boolean = bridgeSource == "direct"
+    fun usesDirectConnection(): Boolean = bridgeSource == "direct" || (!usesAutomaticBridges() && bridges.trim().equals("DIRECT", ignoreCase = true))
 
     fun bridgeLines(): List<String> = bridges.lineSequence().map { it.trim().removePrefix("Bridge ") }
         .filter { it.isNotEmpty() }.distinct().toList()
