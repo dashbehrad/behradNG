@@ -330,7 +330,7 @@ class CoreVpnService : VpnService(), ServiceControl {
 
         RootLanSharing.stopClientSharing(this)
 
-        if (CoreServiceManager.getService() === this) {
+        if (CoreServiceManager.serviceControl?.get() === this) {
             CoreServiceManager.stopCoreLoop()
         }
 

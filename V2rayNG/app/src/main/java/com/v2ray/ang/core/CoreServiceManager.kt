@@ -426,7 +426,7 @@ object CoreServiceManager {
      * Gets the current service instance.
      * @return The current service instance, or null if not available.
      */
-    private fun getService(): Service? {
+    internal fun getService(): Service? {
         return serviceControl?.get()?.getService()
     }
 
