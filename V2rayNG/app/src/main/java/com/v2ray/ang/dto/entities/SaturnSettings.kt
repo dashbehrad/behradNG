@@ -20,13 +20,11 @@ data class SaturnSettings(
         .filter { it.isNotEmpty() }.distinct().toList()
 
     fun isValid(): Boolean = runCatching {
-        if (!usesDirectConnection()) {
-            val uri = URI(dohUrl)
-            require(dohUrl.length <= 2048 && uri.scheme == "https" && !uri.host.isNullOrEmpty())
-            require(uri.userInfo == null && uri.fragment == null && uri.port in listOf(-1, 443))
-            val ips = bootstrapIps.split(',').map { it.trim() }
-            require(ips.size in 1..8 && ips.all(::isIpLiteral))
-        }
+        val uri = URI(dohUrl)
+        require(dohUrl.length <= 2048 && uri.scheme == "https" && !uri.host.isNullOrEmpty())
+        require(uri.userInfo == null && uri.fragment == null && uri.port in listOf(-1, 443))
+        val ips = bootstrapIps.split(',').map { it.trim() }
+        require(ips.size in 1..8 && ips.all(::isIpLiteral))
         require(scanMode in setOf("turbo", "deep"))
         require(country == "auto" || country.matches(Regex("[a-z]{2}")))
         require(bridges.length <= 32768)

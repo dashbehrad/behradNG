@@ -30,6 +30,34 @@ import okio.Buffer
 import okio.ByteString.Companion.decodeBase64
 
 class SaturnDohProxyTest {
+    @Test fun directModeRelaysThroughTheLocalProxyWithoutABridgeAllowlist(): Unit = runBlocking {
+        val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
+        val echo = ServerSocket(0, 1, InetAddress.getByName("127.0.0.1"))
+        val proxy = SaturnDohProxy(SaturnSettings(bridgeSource = "direct"), scope)
+        val proxyPort = proxy.port
+        val echoJob = scope.launch {
+            echo.accept().use { peer -> peer.getOutputStream().write(peer.getInputStream().read()) }
+        }
+        try {
+            proxy.start(emptyList())
+            Socket("127.0.0.1", proxyPort).use { client ->
+                client.soTimeout = 3000
+                val output = client.getOutputStream()
+                val input = DataInputStream(client.getInputStream())
+                output.write(byteArrayOf(5, 1, 0)); output.flush()
+                assertEquals(5, input.readUnsignedByte()); assertEquals(0, input.readUnsignedByte())
+                output.write(byteArrayOf(5, 1, 0, 1, 127, 0, 0, 1, (echo.localPort shr 8).toByte(), echo.localPort.toByte()))
+                output.flush()
+                val reply = ByteArray(10); input.readFully(reply)
+                assertEquals(0.toByte(), reply[1])
+                output.write(42); output.flush()
+                assertEquals(42, input.read())
+            }
+            withTimeout(3000) { echoJob.join() }
+        } finally { proxy.stop(); echo.close(); scope.cancel() }
+        assertThrows(IOException::class.java) { Socket("127.0.0.1", proxyPort).close() }
+    }
+
     @Test fun forbiddenDohPostRetriesGetAndRemembersTheWorkingMethod() {
         val requests = Collections.synchronizedList(mutableListOf<Request>())
         val client = fakeDohClient { request ->

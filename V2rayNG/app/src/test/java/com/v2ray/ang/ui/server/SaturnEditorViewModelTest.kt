@@ -56,7 +56,11 @@ class SaturnEditorViewModelTest {
         viewModel.save()
         assertEquals(R.string.saturn_invalid_settings, viewModel.state.value.errorRes)
         assertEquals(0, saves)
-        viewModel.changeSettings { it.copy(country = "auto") }
+        viewModel.changeSettings { it.copy(country = "auto", dohUrl = "") }
+        viewModel.save()
+        assertEquals(R.string.saturn_invalid_settings, viewModel.state.value.errorRes)
+        assertEquals(0, saves)
+        viewModel.changeSettings { it.copy(dohUrl = "https://dns.google/dns-query") }
         viewModel.save()
         withTimeout(3_000) { viewModel.state.first { it.errorRes != null } }
         assertEquals(R.string.saturn_save_error, viewModel.state.value.errorRes)

@@ -33,7 +33,7 @@ import java.net.ServerSocket
 import java.net.Socket
 import java.util.concurrent.TimeUnit
 
-/** saturn-core: one daemon-owned Tor process, with optional DoH proxy and managed obfs4 transport. */
+/** saturn-core: one daemon-owned DoH proxy and Tor process, with optional managed obfs4 transport. */
 @RequiresApi(26)
 class SaturnSession {
     enum class Stage { NATIVE, DNS, BRIDGES, BOOTSTRAP, EXIT, READY }
@@ -78,12 +78,18 @@ class SaturnSession {
             }
         }
         var obfs4Proxy = ""
+        val proxy = SaturnDohProxy(settings, owner, reservedPorts, guid)
+        doh = proxy
+        stage = Stage.DNS
+        LogUtil.i(AppConfig.TAG, "Saturn: mode=transport guid=$guid startup stage=DNS operation=initialize DoH resolver")
+        currentCoroutineContext().ensureActive()
+        if (directConnection) {
+            // Direct Tor still uses the configured encrypted resolver and local SOCKS proxy.
+            // Establish DoH before Tor starts; relay TCP payloads do not travel inside DNS.
+            proxy.resolve("www.torproject.org")
+            proxy.start(emptyList())
+        }
         val bridges = if (directConnection) emptyList() else {
-            val proxy = SaturnDohProxy(settings, owner, reservedPorts, guid)
-            doh = proxy
-            stage = Stage.DNS
-            LogUtil.i(AppConfig.TAG, "Saturn: mode=transport guid=$guid startup stage=DNS operation=initialize DoH resolver")
-            currentCoroutineContext().ensureActive()
             // Do not gate IP-literal bridges on an unrelated DoH lookup; DoH is used only for hostnames.
             stage = Stage.BRIDGES
             LogUtil.i(AppConfig.TAG, "Saturn: mode=transport guid=$guid startup stage=BRIDGES operation=discover bridge candidates")
@@ -113,7 +119,8 @@ class SaturnSession {
             ServerSocket(0, 1, InetAddress.getByName("127.0.0.1")).use { it.localPort }
         }.first { it in 1024..65535 && it !in reservedPorts && it != doh?.port }
         val torrc = File(directory, "torrc")
-        torrc.writeText(configuration(settings, directory, geoip, obfs4Proxy, port, bridges, Process.myPid()))
+        stage = Stage.NATIVE
+        torrc.writeText(configuration(settings, directory, geoip, obfs4Proxy, port, bridges, Process.myPid(), proxy.port))
         currentCoroutineContext().ensureActive()
         val command = listOf(launcher.absolutePath, tor.absolutePath, "-f", torrc.absolutePath)
         val builder = ProcessBuilder(command).directory(directory).redirectErrorStream(true)
@@ -341,9 +348,11 @@ class SaturnSession {
             } == true
 
         internal fun configuration(settings: SaturnSettings, directory: File, geoip: File, obfs4Proxy: String,
-            port: Int, bridges: List<String>, ownerPid: Int): String {
+            port: Int, bridges: List<String>, ownerPid: Int, dohProxyPort: Int? = null): String {
             require(settings.isValid() && port in 1024..65535)
-            if (settings.usesDirectConnection()) require(bridges.isEmpty())
+            if (settings.usesDirectConnection()) {
+                require(bridges.isEmpty() && dohProxyPort != null && dohProxyPort in 1024..65535 && dohProxyPort != port)
+            }
             else require(parseObfs4Cmethod("CMETHOD obfs4 socks5 $obfs4Proxy") != null && bridges.isNotEmpty())
             require(bridges.all(SaturnSettings::validBridge))
             require(ownerPid > 0)
@@ -355,6 +364,7 @@ class SaturnSession {
                 appendLine("SocksPort 127.0.0.1:$port")
                 appendLine("ClientOnly 1")
                 appendLine("UseBridges ${if (settings.usesDirectConnection()) 0 else 1}")
+                if (settings.usesDirectConnection()) appendLine("Socks5Proxy 127.0.0.1:$dohProxyPort")
                 // Tor rejects Socks5Proxy alongside ClientTransportPlugin. Lyrebird owns the upstream
                 // SOCKS proxy via TOR_PT_PROXY; Tor connects to Lyrebird's managed local SOCKS endpoint.
                 if (!settings.usesDirectConnection()) appendLine("ClientTransportPlugin obfs4 socks5 $obfs4Proxy")

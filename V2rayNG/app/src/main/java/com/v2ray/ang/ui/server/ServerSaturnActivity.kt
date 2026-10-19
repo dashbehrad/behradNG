@@ -44,7 +44,8 @@ class ServerSaturnActivity : BaseComponentActivity() {
         }
         val settings = state.settings
         val automatic = stringResource(R.string.saturn_automatic)
-        val custom = stringResource(R.string.saturn_custom)
+        val bridgeAutomatic = stringResource(R.string.saturn_automatic_obfs4)
+        val custom = stringResource(R.string.saturn_custom_obfs4)
         val direct = stringResource(R.string.saturn_direct)
         val countryCodes = stringArrayResource(R.array.saturn_country_codes).toList()
         val countryNames = stringArrayResource(R.array.saturn_country_names)
@@ -57,16 +58,14 @@ class ServerSaturnActivity : BaseComponentActivity() {
                 Text(stringResource(if (settings.usesDirectConnection()) R.string.saturn_direct_hint else R.string.saturn_auto_hint), Modifier.padding(horizontal = 16.dp))
                 if (state.loading) Text(stringResource(R.string.saturn_loading), Modifier.padding(16.dp))
                 FormTextField(stringResource(R.string.server_lab_remarks), state.remarks, viewModel::changeRemarks, enabled = state.editable)
-                if (!settings.usesDirectConnection()) {
-                    FormTextField(stringResource(R.string.saturn_doh), settings.dohUrl,
-                        { value -> viewModel.changeSettings { it.copy(dohUrl = value) } }, enabled = state.editable)
-                    FormTextField(stringResource(R.string.saturn_bootstrap), settings.bootstrapIps,
-                        { value -> viewModel.changeSettings { it.copy(bootstrapIps = value) } }, enabled = state.editable)
-                }
+                FormTextField(stringResource(R.string.saturn_doh), settings.dohUrl,
+                    { value -> viewModel.changeSettings { it.copy(dohUrl = value) } }, enabled = state.editable)
+                FormTextField(stringResource(R.string.saturn_bootstrap), settings.bootstrapIps,
+                    { value -> viewModel.changeSettings { it.copy(bootstrapIps = value) } }, enabled = state.editable)
                 FormDropdownField(stringResource(R.string.saturn_bridge_source),
                     if (settings.usesDirectConnection()) "direct" else if (settings.usesAutomaticBridges()) "auto" else "custom", listOf("auto", "custom", "direct"),
                     { value -> viewModel.changeSettings { it.copy(bridgeSource = value) } }, enabled = state.editable,
-                    optionLabel = { when (it) { "auto" -> automatic; "direct" -> direct; else -> custom } })
+                    optionLabel = { when (it) { "auto" -> bridgeAutomatic; "direct" -> direct; else -> custom } })
                 if (!settings.usesAutomaticBridges() && !settings.usesDirectConnection()) {
                     FormTextField(stringResource(R.string.saturn_bridges), settings.bridges,
                         { value -> viewModel.changeSettings { it.copy(bridges = value) } }, enabled = state.editable, maxLines = 10)

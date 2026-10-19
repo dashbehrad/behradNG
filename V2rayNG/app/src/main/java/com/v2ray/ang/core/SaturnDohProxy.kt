@@ -57,6 +57,7 @@ internal class SaturnDohProxy(settings: SaturnSettings, private val owner: Corou
     } ?: error("No internal Saturn DNS proxy port available")
     private var acceptJob: Job? = null
     private var allowed = emptySet<Pair<String, Int>>()
+    private val directConnection = settings.usesDirectConnection()
     val port: Int get() = listener.localPort
 
     fun resolve(host: String): List<InetAddress> = if (SaturnSettings.isIpLiteral(host))
@@ -141,7 +142,7 @@ internal class SaturnDohProxy(settings: SaturnSettings, private val owner: Corou
                 else -> error("Unsupported address")
             }
             val destPort = input.readUnsignedShort()
-            require(host to destPort in allowed)
+            require(destPort in 1..65535 && (directConnection || host to destPort in allowed))
             val remote = Socket()
             sockets.add(remote)
             try {
@@ -248,7 +249,7 @@ internal class SaturnDohProxy(settings: SaturnSettings, private val owner: Corou
  * workaround, separate from Xray outbound finalmask fragmentation: it splits the TLS
  * ClientHello before the DoH HTTP request reaches the resolver.
  */
-private class DoHFragmentingSocketFactory : SocketFactory() {
+internal class DoHFragmentingSocketFactory : SocketFactory() {
     private val delegate = SocketFactory.getDefault()
 
     override fun createSocket(): Socket = FragmentingSocket(delegate.createSocket())
@@ -261,7 +262,7 @@ private class DoHFragmentingSocketFactory : SocketFactory() {
 }
 
 private class FragmentingSocket(private val delegate: Socket) : Socket() {
-    private val output = FragmentingOutputStream(delegate.getOutputStream())
+    private val output by lazy { FragmentingOutputStream(delegate.getOutputStream()) }
 
     override fun connect(endpoint: SocketAddress?, timeout: Int) = delegate.connect(endpoint, timeout)
     override fun getInputStream() = delegate.getInputStream()

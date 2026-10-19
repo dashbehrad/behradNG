@@ -1,5 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="saturn_direct">সরাসরি (টানেল ছাড়া)</string>
-    <string name="saturn_direct_hint">obfs4 ব্রিজ বা পরিবহন টানেল ছাড়াই সরাসরি Tor-এ সংযোগ করে। Android VPN এখনও Tor-এর মাধ্যমে ট্রাফিক পাঠায়। আপনার নেটওয়ার্ক সরাসরি Tor সংযোগ বন্ধ করতে পারে।</string>
+    <string name="saturn_direct">সরাসরি</string>
+    <string name="saturn_automatic_obfs4">স্বয়ংক্রিয় obfs4</string>
+    <string name="saturn_custom_obfs4">নিজস্ব obfs4</string>
+    <string name="saturn_direct_hint">obfs4 ব্রিজ ছাড়াই স্থানীয় প্রক্সি ও নির্ধারিত DoH ব্যবহার করে Tor-এ সংযোগ করে। DoH DNS সমাধান করে; ট্রাফিক TCP দিয়ে যায়। Android VPN এখনও Tor-এর মাধ্যমে ট্রাফিক পাঠায়।</string>
 </resources>

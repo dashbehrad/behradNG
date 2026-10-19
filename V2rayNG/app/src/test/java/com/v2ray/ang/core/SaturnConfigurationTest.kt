@@ -6,19 +6,24 @@ import org.junit.jupiter.api.Assertions.*
 import org.junit.jupiter.api.Test
 
 class SaturnConfigurationTest {
-    @Test fun directTorDisablesBridgesAndTransportPluginsButRetainsExitCountry() {
+    @Test fun directTorUsesDohProxyWithoutObfs4AndRetainsExitCountry() {
         val settings = SaturnSettings(bridgeSource = "direct", country = "de")
         val config = SaturnSession.configuration(settings, File("state"), File("state/geoip"), "",
-            19050, emptyList(), 1234)
+            19050, emptyList(), 1234, 19052)
         assertTrue(config.contains("UseBridges 0\n"))
         assertTrue(config.contains("SocksPort 127.0.0.1:19050\n"))
         assertTrue(config.contains("ExitNodes {de}\n"))
         assertTrue(config.contains("__OwningControllerProcess 1234\n"))
         assertFalse(config.contains("ClientTransportPlugin"))
-        assertFalse(config.contains("Socks5Proxy"))
+        assertTrue(config.contains("Socks5Proxy 127.0.0.1:19052\n"))
         assertFalse(config.lineSequence().any { it.startsWith("Bridge ") })
         assertThrows(IllegalArgumentException::class.java) {
-            SaturnSession.configuration(settings, File("state"), File("geoip"), "", 0, emptyList(), 1234)
+            SaturnSession.configuration(settings, File("state"), File("geoip"), "", 0, emptyList(), 1234, 19052)
+        }
+        for (proxyPort in listOf(null, 0, 80, 19050, 65536)) {
+            assertThrows(IllegalArgumentException::class.java) {
+                SaturnSession.configuration(settings, File("state"), File("geoip"), "", 19050, emptyList(), 1234, proxyPort)
+            }
         }
         assertThrows(IllegalArgumentException::class.java) {
             SaturnSession.configuration(settings.copy(bridgeSource = "custom"), File("state"), File("geoip"), "",

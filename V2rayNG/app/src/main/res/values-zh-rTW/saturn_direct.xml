@@ -1,5 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="saturn_direct">直連（不使用通道）</string>
-    <string name="saturn_direct_hint">直接連線至 Tor，不使用 obfs4 橋接或傳輸通道。Android VPN 仍會透過 Tor 路由流量。你的網路可能會封鎖直連 Tor。</string>
+    <string name="saturn_direct">直連</string>
+    <string name="saturn_automatic_obfs4">自動 obfs4</string>
+    <string name="saturn_custom_obfs4">自訂 obfs4</string>
+    <string name="saturn_direct_hint">透過本機代理和設定的 DoH 連線至 Tor，不使用 obfs4 橋接。DoH 解析 DNS，中繼流量透過 TCP 傳輸。Android VPN 仍會透過 Tor 路由流量。</string>
 </resources>
