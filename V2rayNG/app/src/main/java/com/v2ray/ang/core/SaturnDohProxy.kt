@@ -234,16 +234,53 @@ internal class SaturnDohProxy(private val settings: SaturnSettings, private val 
     }
 
     companion object {
+        internal val KNOWN_DOH_POOLS = mapOf(
+            "dns.google" to listOf("8.8.8.8", "8.8.4.4"),
+            "cloudflare-dns.com" to listOf("162.159.36.1", "162.159.46.1", "1.1.1.1", "1.0.0.1"),
+            "dns.alidns.com" to listOf("223.5.5.5", "223.6.6.6"),
+            "dns.quad9.net" to listOf("9.9.9.9", "149.112.112.112"),
+            "doh.opendns.com" to listOf("208.67.222.222", "208.67.220.220", "146.112.41.2"),
+            "doh.cleanbrowsing.org" to listOf("185.228.168.9", "185.228.169.9"),
+            "base.dns.mullvad.net" to listOf("194.242.2.2")
+        )
+
+        /**
+         * Scans candidate IPs concurrently on port 443 with a short timeout, ranking responsive
+         * IPs by lowest round-trip latency. Follows pydns-scanner / SlipNet DnsPoolScanner design.
+         */
+        internal fun scanBestIps(candidates: List<String>, port: Int = 443, timeoutMs: Int = 1500): List<String> {
+            if (candidates.size <= 1) return candidates
+            val results = ConcurrentHashMap<String, Long>()
+            val threads = candidates.map { ip ->
+                Thread({
+                    try {
+                        val t0 = System.currentTimeMillis()
+                        Socket().use { s ->
+                            s.connect(InetSocketAddress(ip, port), timeoutMs)
+                        }
+                        results[ip] = System.currentTimeMillis() - t0
+                    } catch (_: Exception) {}
+                }, "doh-ip-scanner").apply { isDaemon = true; start() }
+            }
+            threads.forEach { runCatching { it.join(timeoutMs.toLong() + 200) } }
+            val working = results.entries.sortedBy { it.value }.map { it.key }
+            return if (working.isNotEmpty()) working + (candidates - working.toSet()) else candidates
+        }
+
         /** Retry wire-format POST as GET. Only the built-in default may fail over to Cloudflare;
          * custom providers stay confined to the configured endpoint. Never use system DNS. */
         internal fun createResolvers(settings: SaturnSettings, client: OkHttpClient,
             isStopped: () -> Boolean = { false }, onFailure: (Int, IOException) -> Unit): List<Dns> {
-            val endpoints = mutableListOf(settings.dohUrl to settings.bootstrapIps.split(',').map { it.trim() })
+            val userIps = settings.bootstrapIps.split(',').map { it.trim() }.filter { it.isNotEmpty() }
+            val dohHost = try { settings.dohUrl.toHttpUrl().host } catch (_: Exception) { "" }
+            val primaryCandidates = if (userIps.isNotEmpty()) userIps
+                else KNOWN_DOH_POOLS[dohHost] ?: (if (SaturnSettings.isIpLiteral(dohHost)) listOf(dohHost) else emptyList())
+            val endpoints = mutableListOf(settings.dohUrl to scanBestIps(primaryCandidates))
             val defaults = SaturnSettings()
-            if (settings.dohUrl == defaults.dohUrl && settings.bootstrapIps == defaults.bootstrapIps) {
-                endpoints += "https://cloudflare-dns.com/dns-query" to listOf("162.159.36.1", "162.159.46.1", "1.1.1.1", "1.0.0.1")
-                endpoints += "https://dns.alidns.com/dns-query" to listOf("223.5.5.5", "223.6.6.6")
-                endpoints += "https://dns.quad9.net/dns-query" to listOf("9.9.9.9", "149.112.112.112")
+            if (settings.dohUrl == defaults.dohUrl && (settings.bootstrapIps == defaults.bootstrapIps || settings.bootstrapIps.isBlank())) {
+                endpoints += "https://cloudflare-dns.com/dns-query" to scanBestIps(KNOWN_DOH_POOLS["cloudflare-dns.com"] ?: listOf("162.159.36.1", "1.1.1.1"))
+                endpoints += "https://dns.alidns.com/dns-query" to scanBestIps(KNOWN_DOH_POOLS["dns.alidns.com"] ?: listOf("223.5.5.5", "223.6.6.6"))
+                endpoints += "https://dns.quad9.net/dns-query" to scanBestIps(KNOWN_DOH_POOLS["dns.quad9.net"] ?: listOf("9.9.9.9", "149.112.112.112"))
             }
             return endpoints.mapIndexed { index, (url, ips) ->
                 val preferGet = AtomicBoolean()
@@ -267,9 +304,13 @@ internal class SaturnDohProxy(private val settings: SaturnSettings, private val 
                             } else response
                         })
                     }.build()
-                fun resolverFor(transport: OkHttpClient): Dns = DnsOverHttps.Builder().client(transport).url(url.toHttpUrl())
-                    .bootstrapDnsHosts(ips.map(InetAddress::getByName))
-                    .resolvePrivateAddresses(true).post(true).build()
+                fun resolverFor(transport: OkHttpClient): Dns {
+                    val builder = DnsOverHttps.Builder().client(transport).url(url.toHttpUrl())
+                        .resolvePrivateAddresses(true).post(true)
+                    val hosts = ips.mapNotNull { runCatching { InetAddress.getByName(it) }.getOrNull() }
+                    if (hosts.isNotEmpty()) builder.bootstrapDnsHosts(hosts)
+                    return builder.build()
+                }
                 val standard = resolverFor(dnsClient)
                 val fragmented = resolverFor(dnsClient.newBuilder().socketFactory(DoHFragmentingSocketFactory()).build())
                 object : Dns {

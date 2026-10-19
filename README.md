@@ -54,7 +54,7 @@ Saturn supports **Automatic obfs4**, **Custom obfs4**, and **Direct Tor** connec
 - **When obfs4 bridges are slow or blocked:** If bridge distribution or bridge endpoints face disruption or high latency, DIRECT allows Tor to reach public relays directly.
 - **Diagnostic check:** Isolates whether a connection failure stems from the obfs4 transport layer or the underlying Tor circuit.
 
-**How to enable DIRECT mode:** In the Saturn editor, select **Custom** under **Bridge Source** and enter `DIRECT` in the **Bridges** field, then save.
+**How to enable DIRECT mode:** In the Saturn editor, select **Direct** from the **Bridge source** dropdown (or enter `DIRECT` in custom bridges), then save.
 
 New bridge profiles use **Google DoH** (`https://dns.google/dns-query`) with Cloudflare as an encrypted fallback. Saved profiles retain their DNS settings. A working connection requires successful Tor bootstrap and an exit connection.
 
