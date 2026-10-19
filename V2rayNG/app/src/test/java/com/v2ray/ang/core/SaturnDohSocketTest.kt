@@ -13,7 +13,11 @@ class SaturnDohSocketTest {
                 assertFalse(client.isConnected)
                 client.connect(InetSocketAddress("127.0.0.1", listener.localPort), 3000)
                 assertTrue(client.isConnected)
+                assertTrue(client.isBound)
+                assertTrue(client.tcpNoDelay)
+                assertEquals(listener.localPort, client.port)
                 listener.accept().use { peer ->
+                    assertEquals(peer.port, client.localPort)
                     peer.soTimeout = 3000
                     client.getOutputStream().write(42)
                     client.getOutputStream().flush()

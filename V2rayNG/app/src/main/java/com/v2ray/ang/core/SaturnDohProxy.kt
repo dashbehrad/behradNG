@@ -23,6 +23,7 @@ import okhttp3.dnsoverhttps.DnsOverHttps
 import okio.Buffer
 import java.io.DataInputStream
 import java.io.IOException
+import java.io.InterruptedIOException
 import java.io.ByteArrayOutputStream
 import java.net.InetAddress
 import java.net.InetSocketAddress
@@ -31,7 +32,6 @@ import java.net.Socket
 import java.net.SocketAddress
 import javax.net.SocketFactory
 import java.io.OutputStream
-import java.util.Random
 import java.net.UnknownHostException
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.TimeUnit
@@ -245,9 +245,10 @@ internal class SaturnDohProxy(settings: SaturnSettings, private val owner: Corou
 }
 
 /**
- * Fragments the first TLS record sent by a DoH connection. This is the DoH transport
- * workaround, separate from Xray outbound finalmask fragmentation: it splits the TLS
- * ClientHello before the DoH HTTP request reaches the resolver.
+ * Splits the first ClientHello into valid TLS records, including across the SNI hostname.
+ * Uses the record-splitting approach in SlipNet SniFragmentForwarder; handshake bytes,
+ * certificate verification and HTTPS hostname verification remain unchanged.
+ * Reference: anonvector/SlipNet@552ab507, SniFragmentForwarder.kt (sni_split).
  */
 internal class DoHFragmentingSocketFactory : SocketFactory() {
     private val delegate = SocketFactory.getDefault()
@@ -264,59 +265,121 @@ internal class DoHFragmentingSocketFactory : SocketFactory() {
 private class FragmentingSocket(private val delegate: Socket) : Socket() {
     private val output by lazy { FragmentingOutputStream(delegate.getOutputStream()) }
 
+    init { delegate.tcpNoDelay = true }
+
     override fun connect(endpoint: SocketAddress?, timeout: Int) = delegate.connect(endpoint, timeout)
     override fun getInputStream() = delegate.getInputStream()
     override fun getOutputStream() = output
     override fun setSoTimeout(timeout: Int) = delegate.setSoTimeout(timeout)
     override fun getSoTimeout() = delegate.soTimeout
     override fun setTcpNoDelay(on: Boolean) = delegate.setTcpNoDelay(on)
+    override fun getTcpNoDelay() = delegate.tcpNoDelay
     override fun setKeepAlive(on: Boolean) = delegate.setKeepAlive(on)
     override fun close() = delegate.close()
     override fun shutdownInput() = delegate.shutdownInput()
     override fun shutdownOutput() = delegate.shutdownOutput()
     override fun isConnected() = delegate.isConnected
+    override fun isBound() = delegate.isBound
     override fun isClosed() = delegate.isClosed
     override fun getInetAddress() = delegate.inetAddress
+    override fun getPort() = delegate.port
+    override fun getLocalPort() = delegate.localPort
     override fun getRemoteSocketAddress() = delegate.remoteSocketAddress
+    override fun getLocalSocketAddress() = delegate.localSocketAddress
 }
 
-private class FragmentingOutputStream(private val delegate: OutputStream) : OutputStream() {
-    private var fragmented = false
-    private val random = Random()
+internal class FragmentingOutputStream(private val delegate: OutputStream) : OutputStream() {
+    private var passthrough = false
     private val pending = ByteArrayOutputStream()
 
     override fun write(value: Int) = write(byteArrayOf(value.toByte()), 0, 1)
 
     override fun write(bytes: ByteArray, offset: Int, length: Int) {
-        if (fragmented) {
+        if (offset < 0 || length < 0 || offset > bytes.size - length) throw IndexOutOfBoundsException()
+        if (length == 0) return
+        if (passthrough) {
             delegate.write(bytes, offset, length)
             return
         }
         pending.write(bytes, offset, length)
-        if (pending.size() >= 96) flushPending(true)
-    }
-
-    override fun flush() {
-        flushPending(false)
-        delegate.flush()
-    }
-
-    private fun flushPending(forceFragment: Boolean) {
-        if (pending.size() == 0) return
-        val bytes = pending.toByteArray()
+        val buffered = pending.toByteArray()
+        val tlsHeader = buffered[0] == 0x16.toByte() && (buffered.size < 2 || buffered[1] == 3.toByte())
+        if (tlsHeader && buffered.size < 5) return
+        val recordLength = if (tlsHeader) unsignedShort(buffered, 3) else 0
+        if (tlsHeader && recordLength in 1..16384 && buffered.size < 5 + recordLength) return
         pending.reset()
-        if (forceFragment && bytes[0].toInt() and 0xff == 0x16 && bytes.size > 1) {
-            val firstLength = 40 + random.nextInt(51)
-            val split = minOf(firstLength, bytes.size - 1)
-            delegate.write(bytes, 0, split)
-            delegate.flush()
-            delegate.write(bytes, split, bytes.size - split)
-            fragmented = true
+        passthrough = true
+        if (tlsHeader && recordLength in 4..16384 && buffered[5] == 1.toByte()) {
+            val payload = buffered.copyOfRange(5, 5 + recordLength)
+            val middle = sniSplitPoint(payload) ?: (1 + (payload.size - 1) / 2)
+            val ends = listOf(1, middle, payload.size).distinct().sorted()
+            var start = 0
+            for (end in ends) {
+                val size = end - start
+                delegate.write(byteArrayOf(buffered[0], buffered[1], buffered[2], (size shr 8).toByte(), size.toByte()))
+                delegate.write(payload, start, size)
+                delegate.flush()
+                start = end
+                if (end < payload.size) {
+                    // A short gap plus TCP_NODELAY prevents adjacent record writes from coalescing.
+                    try { Thread.sleep(5) } catch (e: InterruptedException) {
+                        Thread.currentThread().interrupt()
+                        throw InterruptedIOException("DoH ClientHello fragmentation interrupted").apply { initCause(e) }
+                    }
+                }
+            }
+            delegate.write(buffered, 5 + recordLength, buffered.size - 5 - recordLength)
         } else {
-            delegate.write(bytes)
-            if (forceFragment) fragmented = true
+            delegate.write(buffered)
         }
     }
 
-    override fun close() = delegate.close()
+    private fun unsignedShort(bytes: ByteArray, offset: Int): Int =
+        ((bytes[offset].toInt() and 0xff) shl 8) or (bytes[offset + 1].toInt() and 0xff)
+
+    private fun sniSplitPoint(payload: ByteArray): Int? {
+        if (payload.size < 39) return null
+        val helloEnd = 4 + ((payload[1].toInt() and 0xff) shl 16) + unsignedShort(payload, 2)
+        if (helloEnd > payload.size || helloEnd < 39) return null
+        var offset = 38
+        offset += 1 + (payload[offset].toInt() and 0xff)
+        if (offset + 2 > helloEnd) return null
+        val cipherLength = unsignedShort(payload, offset)
+        offset += 2 + cipherLength
+        if (offset >= helloEnd) return null
+        offset += 1 + (payload[offset].toInt() and 0xff)
+        if (offset + 2 > helloEnd) return null
+        val extensionsEnd = offset + 2 + unsignedShort(payload, offset)
+        offset += 2
+        if (extensionsEnd > helloEnd) return null
+        while (offset + 4 <= extensionsEnd) {
+            val type = unsignedShort(payload, offset)
+            val extensionEnd = offset + 4 + unsignedShort(payload, offset + 2)
+            offset += 4
+            if (extensionEnd > extensionsEnd) return null
+            if (type == 0 && offset + 2 <= extensionEnd) {
+                val namesEnd = offset + 2 + unsignedShort(payload, offset)
+                offset += 2
+                if (namesEnd > extensionEnd) return null
+                while (offset + 3 <= namesEnd) {
+                    val nameType = payload[offset].toInt() and 0xff
+                    val nameLength = unsignedShort(payload, offset + 1)
+                    offset += 3
+                    if (offset + nameLength > namesEnd) return null
+                    if (nameType == 0 && nameLength >= 2) return offset + nameLength / 2
+                    offset += nameLength
+                }
+                return null
+            }
+            offset = extensionEnd
+        }
+        return null
+    }
+
+    // Keep incomplete TLS records buffered across flushes; a TLS write can arrive in pieces.
+    override fun flush() = delegate.flush()
+
+    override fun close() {
+        try { flush() } finally { delegate.close() }
+    }
 }
