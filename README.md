@@ -47,7 +47,14 @@ Aether provides configurable carriers, optional fragmentation, and scan and tran
 
 ### Saturn · Tor-backed transport
 
-Saturn supports **Automatic obfs4**, **Custom obfs4**, and direct Tor connections (by specifying `DIRECT` as custom bridge or in profile configuration). All modes use the configured DoH resolver and a session-owned local SOCKS proxy. Following [SlipNet](https://github.com/anonvector/SlipNet), direct mode sets Tor to use that proxy without obfs4 bridges or transport plugins. DoH resolves DNS; TCP relay traffic is not carried inside DNS requests. The Android VPN still routes traffic through Tor, and direct mode requires a network that allows Tor.
+Saturn supports **Automatic obfs4**, **Custom obfs4**, and **Direct Tor** connections. All modes use the configured DoH resolver and a session-owned local SOCKS proxy. Following [SlipNet](https://github.com/anonvector/SlipNet), direct mode sets Tor to use that proxy without obfs4 bridges or transport plugins. DoH resolves DNS; TCP relay traffic is not carried inside DNS requests. The Android VPN still routes traffic through Tor.
+
+#### When to use DIRECT mode:
+- **Unrestricted or lightly filtered networks:** If your network does not block standard Tor relays and directory authorities, DIRECT connects faster without the overhead of obfs4 encapsulation.
+- **When obfs4 bridges are slow or blocked:** If bridge distribution or bridge endpoints face disruption or high latency, DIRECT allows Tor to reach public relays directly.
+- **Diagnostic check:** Isolates whether a connection failure stems from the obfs4 transport layer or the underlying Tor circuit.
+
+**How to enable DIRECT mode:** In the Saturn editor, select **Custom** under **Bridge Source** and enter `DIRECT` in the **Bridges** field, then save.
 
 New bridge profiles use **Google DoH** (`https://dns.google/dns-query`) with Cloudflare as an encrypted fallback. Saved profiles retain their DNS settings. A working connection requires successful Tor bootstrap and an exit connection.
 
@@ -143,7 +150,9 @@ behradNG بر پایه v2rayNG و Xray-core ساخته شده و در کنار �
 - حالت VPN و پروکسی، مسیریابی برنامه‌به‌برنامه، قوانین مسیریابی و زنجیره پروکسی.
 - تنظیمات DNS، Fragment، Mux و Sniffing، همراه با تست تأخیر و سرعت.
 - **Aether:** ترنسپورت تطبیقی با تنظیمات Carrier، اسکن و Fragment و راه‌اندازی مجدد هنگام تغییر شبکه.
-- **Saturn:** اتصال مبتنی بر Tor با پشتیبانی از «obfs4 خودکار»، «obfs4 سفارشی» و اتصال مستقیم به Tor (با نوشتن DIRECT در پل‌های سفارشی). همگی از حل‌کننده DoH تنظیم‌شده و پروکسی محلی استفاده می‌کنند. DoH فقط نام دامنه را حل می‌کند و ترافیک TCP را داخل DNS منتقل نمی‌کند. پیش‌فرض DNS پروفایل‌های جدید Google DoH است و تنظیمات ذخیره‌شده حفظ می‌شود.
+- **Saturn:** اتصال مبتنی بر Tor با پشتیبانی از «obfs4 خودکار»، «obfs4 سفارشی» و اتصال «مستقیم (DIRECT)». همگی از حل‌کننده DoH تنظیم‌شده و پروکسی محلی استفاده می‌کنند. DoH فقط نام دامنه را حل می‌کند و ترافیک TCP را داخل DNS منتقل نمی‌کند.
+  - **چه زمانی از حالت DIRECT استفاده کنیم؟** اگر اینترنت شما دسترسی مستقیم به رله‌های Tor را مسدود نکرده است، یا اگر پل‌های obfs4 کند یا فیلتر هستند، حالت DIRECT بدون سربار obfs4 سرعت و پایداری بالاتری فراهم می‌کند. همچنین برای عیب‌یابی اینکه آیا اختلال از پل است یا شبکه Tor بسیار کارآمد است.
+  - **نحوه فعال‌سازی DIRECT:** در ویرایشگر Saturn، منبع پل را روی «سفارشی» قرار داده و در کادر پل‌ها عبارت `DIRECT` را بنویسید و ذخیره کنید.
 
 ### ساخت و مشارکت
 
