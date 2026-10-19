@@ -2,6 +2,7 @@
 <resources>
     <string name="saturn_title">Saturn</string>
     <string name="saturn_doh">نشانی DNS روی HTTPS</string>
+    <string name="saturn_carrier">نسخه HTTP</string>
     <string name="saturn_bootstrap">آی‌پی‌های راه‌انداز DoH (با ویرگول)</string>
     <string name="saturn_bridges">پل‌های سفارشی obfs4 (هر خط یک پل)</string>
     <string name="saturn_scan">روش بررسی پل‌ها</string>

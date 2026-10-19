@@ -39,6 +39,16 @@ internal fun buildServerRowUiModel(
 }
 
 private fun serverProtocolDescription(profile: ProfileItem): String {
+    if (profile.configType == com.v2ray.ang.enums.EConfigType.SATURN) {
+        val carrier = profile.saturnSettings?.normalizedCarrier()
+            ?: profile.network?.ifBlank { null }
+            ?: "h2"
+        return "${profile.configType.name} / $carrier"
+    }
+    if (profile.configType == com.v2ray.ang.enums.EConfigType.AETHER) {
+        val carrier = profile.aetherSettings?.carrier?.ifBlank { null } ?: "h2"
+        return "${profile.configType.name} / $carrier"
+    }
     if (profile.configType.isComplexType()) return profile.configType.name
     val parts = mutableListOf(profile.configType.name)
     profile.network?.let { network ->

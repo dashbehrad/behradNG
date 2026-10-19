@@ -45,7 +45,7 @@ object SaturnFmt {
         val payload = gson.fromJson(String(cipher.doFinal(bytes.copyOfRange(12, bytes.size)), Charsets.UTF_8), Payload::class.java)
         require(payload.version == 1 && payload.remarks.isNotBlank() && payload.remarks.length <= 256 && payload.settings.isValid())
         ProfileItem.create(EConfigType.SATURN).copy(remarks = payload.remarks, server = "127.0.0.1",
-            serverPort = AppConfig.PORT_SOCKS, saturnSettings = payload.settings)
+            serverPort = AppConfig.PORT_SOCKS, network = payload.settings.normalizedCarrier(), saturnSettings = payload.settings)
     }.getOrNull()
 
     private fun key(secret: ByteArray) = SecretKeySpec(MessageDigest.getInstance("SHA-256").digest(secret), "AES")

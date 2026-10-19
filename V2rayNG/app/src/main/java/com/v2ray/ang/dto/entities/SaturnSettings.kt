@@ -11,10 +11,16 @@ data class SaturnSettings(
     val country: String = "auto",
     // Missing in 3.0.0 links: retain custom bridges; empty profiles use automatic discovery.
     val bridgeSource: String? = null,
+    val carrier: String? = null,
 ) {
     fun usesAutomaticBridges(): Boolean = bridgeSource == "auto" || (bridgeSource == null && bridges.isBlank())
 
     fun usesDirectConnection(): Boolean = bridgeSource == "direct" || (!usesAutomaticBridges() && bridges.trim().equals("DIRECT", ignoreCase = true))
+
+    fun normalizedCarrier(): String = when (carrier?.lowercase()?.trim()) {
+        "h3", "http3", "http/3" -> "h3"
+        else -> "h2"
+    }
 
     fun bridgeLines(): List<String> = bridges.lineSequence().map { it.trim().removePrefix("Bridge ") }
         .filter { it.isNotEmpty() }.distinct().toList()
@@ -29,6 +35,7 @@ data class SaturnSettings(
         require(country == "auto" || country.matches(Regex("[a-z]{2}")))
         require(bridges.length <= 32768)
         require(bridgeSource == null || bridgeSource in setOf("auto", "custom", "direct"))
+        require(carrier == null || carrier.lowercase().trim() in setOf("h2", "h3", "http2", "http3"))
         val lines = bridgeLines()
         if (!usesAutomaticBridges() && !usesDirectConnection()) require(lines.size in 1..64 && lines.all(::validBridge))
         true

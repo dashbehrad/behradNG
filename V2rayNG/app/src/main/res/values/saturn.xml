@@ -2,6 +2,11 @@
 <resources>
     <string name="saturn_title">Saturn</string>
     <string name="saturn_doh">DNS over HTTPS URL</string>
+    <string name="saturn_carrier">HTTP version</string>
+    <string-array name="saturn_carrier_options" translatable="false">
+        <item>h2</item>
+        <item>h3</item>
+    </string-array>
     <string name="saturn_bootstrap">DoH bootstrap IPs (comma separated)</string>
     <string name="saturn_bridges">Custom obfs4 bridges (one per line)</string>
     <string name="saturn_scan">Bridge testing mode</string>

@@ -103,7 +103,7 @@ class SaturnEditorViewModelTest {
         viewModel.initialize("server-guid", "another-group")
         withTimeout(3_000) { viewModel.state.first { !it.loading } }
         viewModel.changeRemarks("edited")
-        viewModel.changeSettings { it.copy(country = "de", scanMode = "deep") }
+        viewModel.changeSettings { it.copy(country = "de", scanMode = "deep", carrier = "h3") }
         viewModel.save()
         withTimeout(3_000) { viewModel.state.first { it.savedGuid != null } }
         assertEquals("server-guid", receivedGuid)
@@ -112,6 +112,8 @@ class SaturnEditorViewModelTest {
         assertEquals("edited", receivedProfile?.remarks)
         assertEquals("de", receivedProfile?.saturnSettings?.country)
         assertEquals("deep", receivedProfile?.saturnSettings?.scanMode)
+        assertEquals("h3", receivedProfile?.saturnSettings?.carrier)
+        assertEquals("h3", receivedProfile?.network)
     }
 
     @Test

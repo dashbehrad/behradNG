@@ -107,6 +107,7 @@ class SaturnEditorViewModel @JvmOverloads constructor(
                     val profile = initial.copy(
                         remarks = snapshot.remarks.trim(), server = "127.0.0.1",
                         serverPort = AppConfig.PORT_SOCKS,
+                        network = snapshot.settings.normalizedCarrier(),
                         saturnSettings = snapshot.settings,
                     )
                     saveProfile(guid, profile)

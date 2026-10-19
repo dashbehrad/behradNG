@@ -2,6 +2,7 @@
 <resources>
     <string name="saturn_title">Saturn</string>
     <string name="saturn_doh">Địa chỉ DNS qua HTTPS</string>
+    <string name="saturn_carrier">Phiên bản HTTP</string>
     <string name="saturn_bootstrap">IP khởi tạo DoH (phân cách bằng dấu phẩy)</string>
     <string name="saturn_bridges">Cầu obfs4 tùy chỉnh (mỗi dòng một cầu)</string>
     <string name="saturn_scan">Chế độ kiểm tra cầu</string>

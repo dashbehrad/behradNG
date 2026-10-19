@@ -2,6 +2,7 @@
 <resources>
     <string name="saturn_title">Saturn</string>
     <string name="saturn_doh">DNS over HTTPS 地址</string>
+    <string name="saturn_carrier">HTTP 版本</string>
     <string name="saturn_bootstrap">DoH 引导 IP（逗号分隔）</string>
     <string name="saturn_bridges">自定义 obfs4 网桥（每行一个）</string>
     <string name="saturn_scan">网桥测试模式</string>

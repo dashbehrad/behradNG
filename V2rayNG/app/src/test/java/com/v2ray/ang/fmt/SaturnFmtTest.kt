@@ -14,11 +14,14 @@ class SaturnFmtTest {
         assertTrue(released.isValid())
         assertTrue(released.usesAutomaticBridges())
         assertFalse(released.usesDirectConnection())
+        assertEquals("h2", released.normalizedCarrier())
         assertEquals("https://doh.nineline.workers.dev/dns-query", released.dohUrl)
         assertEquals("1.1.1.1,1.0.0.1", released.bootstrapIps)
-        val direct = profile().copy(saturnSettings = SaturnSettings(bridgeSource = "direct", country = "nl"))
+        val direct = profile().copy(saturnSettings = SaturnSettings(bridgeSource = "direct", country = "nl", carrier = "h3"))
         val restored = SaturnFmt.parse("saturn://" + SaturnFmt.toUri(direct))!!
         assertEquals(direct.saturnSettings, restored.saturnSettings)
+        assertEquals("h3", restored.network)
+        assertEquals("h3", restored.saturnSettings!!.normalizedCarrier())
         assertTrue(restored.saturnSettings!!.usesDirectConnection())
     }
 

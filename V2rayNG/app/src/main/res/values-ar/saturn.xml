@@ -2,6 +2,7 @@
 <resources>
     <string name="saturn_title">Saturn</string>
     <string name="saturn_doh">عنوان DNS عبر HTTPS</string>
+    <string name="saturn_carrier">إصدار HTTP</string>
     <string name="saturn_bootstrap">عناوين IP لبدء DoH (مفصولة بفواصل)</string>
     <string name="saturn_bridges">جسور obfs4 مخصصة (جسر لكل سطر)</string>
     <string name="saturn_scan">وضع اختبار الجسور</string>

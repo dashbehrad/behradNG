@@ -10,6 +10,22 @@ class SaturnSettingsTest {
     @Test fun defaultsUseGoogleDoHAndBootstrapAddresses() {
         assertEquals("https://dns.google/dns-query", SaturnSettings().dohUrl)
         assertEquals("8.8.8.8,8.8.4.4", SaturnSettings().bootstrapIps)
+        assertEquals("h2", SaturnSettings().normalizedCarrier())
+    }
+
+    @Test fun carrierDefaultsToH2AndNormalizesSupportedHttpProtocols() {
+        assertEquals("h2", SaturnSettings().normalizedCarrier())
+        assertEquals("h2", SaturnSettings(carrier = "h2").normalizedCarrier())
+        assertEquals("h3", SaturnSettings(carrier = "h3").normalizedCarrier())
+        assertEquals("h2", SaturnSettings(carrier = "http2").normalizedCarrier())
+        assertEquals("h3", SaturnSettings(carrier = "http3").normalizedCarrier())
+        assertEquals("h3", SaturnSettings(carrier = "HTTP/3").normalizedCarrier())
+        assertTrue(SaturnSettings(carrier = "h2").isValid())
+        assertTrue(SaturnSettings(carrier = "h3").isValid())
+        assertTrue(SaturnSettings(carrier = "http2").isValid())
+        assertTrue(SaturnSettings(carrier = "http3").isValid())
+        assertFalse(SaturnSettings(carrier = "invalid").isValid())
+        assertFalse(SaturnSettings(carrier = "quic").isValid())
     }
 
     @Test fun directModeNeedsNoBridgesAndRetainsCustomBridgesForSwitchingBack() {

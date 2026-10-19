@@ -330,6 +330,16 @@ fun ExpressConnectDashboard(
                         // Protocol badge
                         val proto = when {
                             selectedProfile == null -> "v2ray"
+                            selectedProfile.configType == com.v2ray.ang.enums.EConfigType.SATURN -> {
+                                val carrier = selectedProfile.saturnSettings?.normalizedCarrier()
+                                    ?: selectedProfile.network?.ifBlank { null }
+                                    ?: "h2"
+                                "${selectedProfile.configType.name} / $carrier"
+                            }
+                            selectedProfile.configType == com.v2ray.ang.enums.EConfigType.AETHER -> {
+                                val carrier = selectedProfile.aetherSettings?.carrier?.ifBlank { null } ?: "h2"
+                                "${selectedProfile.configType.name} / $carrier"
+                            }
                             selectedProfile.configType.isComplexType() -> selectedProfile.configType.name
                             else -> selectedProfile.configType.name
                         }

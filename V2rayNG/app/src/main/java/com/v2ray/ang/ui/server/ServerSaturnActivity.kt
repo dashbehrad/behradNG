@@ -59,6 +59,10 @@ class ServerSaturnActivity : BaseComponentActivity() {
                 FormTextField(stringResource(R.string.server_lab_remarks), state.remarks, viewModel::changeRemarks, enabled = state.editable)
                 FormTextField(stringResource(R.string.saturn_doh), settings.dohUrl,
                     { value -> viewModel.changeSettings { it.copy(dohUrl = value) } }, enabled = state.editable)
+                FormDropdownField(stringResource(R.string.saturn_carrier), settings.normalizedCarrier(),
+                    listOf("h2", "h3"),
+                    { value -> viewModel.changeSettings { it.copy(carrier = value) } }, enabled = state.editable,
+                    optionLabel = { when (it.lowercase()) { "h3", "http3" -> "HTTP/3 (h3)"; else -> "HTTP/2 (h2)" } })
                 FormDropdownField(stringResource(R.string.saturn_bridge_source),
                     if (settings.usesDirectConnection()) "direct" else if (settings.usesAutomaticBridges()) "auto" else "custom",
                     listOf("auto", "custom", "direct"),
