@@ -51,8 +51,10 @@ class SaturnSession {
     @Volatile private var bootstrapProgress = -1
     private var directConnection = false
 
+    val currentProgress: Int get() = bootstrapProgress
+
     suspend fun start(context: Context, guid: String, settings: SaturnSettings, reservedPorts: Set<Int>,
-        owner: CoroutineScope): Int = withContext(Dispatchers.IO) {
+        owner: CoroutineScope, onProgress: ((Int) -> Unit)? = null): Int = withContext(Dispatchers.IO) {
         check(child == null && doh == null)
         stage = Stage.NATIVE
         exitReady = false
@@ -82,6 +84,7 @@ class SaturnSession {
         doh = proxy
         stage = Stage.DNS
         LogUtil.i(AppConfig.TAG, "Saturn: mode=transport guid=$guid startup stage=DNS operation=initialize DoH resolver")
+        onProgress?.invoke(5)
         currentCoroutineContext().ensureActive()
         if (directConnection) {
             // Like SlipNet, initialize the DoH-backed proxy before Tor without probing an
@@ -92,6 +95,7 @@ class SaturnSession {
             // Do not gate IP-literal bridges on an unrelated DoH lookup; DoH is used only for hostnames.
             stage = Stage.BRIDGES
             LogUtil.i(AppConfig.TAG, "Saturn: mode=transport guid=$guid startup stage=BRIDGES operation=discover bridge candidates")
+            onProgress?.invoke(10)
             val bundled = if (settings.usesAutomaticBridges()) context.assets.open("saturn/builtin-bridges.json")
                 .bufferedReader().use { SaturnBridgeSelector.parseBuiltins(it.readText()) } else emptyList()
             val refreshed = if (settings.usesAutomaticBridges()) try {
@@ -146,6 +150,7 @@ class SaturnSession {
                                     LogUtil.i(AppConfig.TAG, "Saturn: mode=transport guid=$guid startup stage=BOOTSTRAP progress=$progress%")
                                 }
                                 bootstrapProgress = progress
+                                onProgress?.invoke(progress)
                             }
                             line.setLength(0)
                         } else if (line.length < 2048) line.append(buffer[index])
@@ -170,20 +175,26 @@ class SaturnSession {
         // Require a real SOCKS CONNECT through Tor before the service reports a working tunnel.
         stage = Stage.EXIT
         LogUtil.i(AppConfig.TAG, "Saturn: mode=transport guid=$guid startup stage=EXIT operation=verify exit stream country=${settings.country}")
+        onProgress?.invoke(95)
         check(awaitExit(60_000) {
             check(transportProcessesAlive(directConnection, process.isAlive, obfs4Process?.isAlive == true)) { "Saturn process exited during exit check" }
             try {
                 probeExit(port)
             } catch (e: IOException) {
-                // SOCKS exceptions can include destination details; retain only the failure type.
-                LogUtil.w(AppConfig.TAG, "Saturn: mode=transport guid=$guid startup stage=EXIT operation=exit stream failed country=${settings.country}",
-                    IOException(e.javaClass.simpleName))
-                throw e
+                try {
+                    probeExit(port, "www.google.com")
+                } catch (_: IOException) {
+                    // SOCKS exceptions can include destination details; retain only the failure type.
+                    LogUtil.w(AppConfig.TAG, "Saturn: mode=transport guid=$guid startup stage=EXIT operation=exit stream failed country=${settings.country}",
+                        IOException(e.javaClass.simpleName))
+                    throw e
+                }
             }
         }) { "Saturn could not open an exit stream" }
         exitReady = true
         check(isAlive())
         stage = Stage.READY
+        onProgress?.invoke(100)
         port
     }
 
@@ -288,13 +299,13 @@ class SaturnSession {
             withTimeoutOrNull(BRIDGE_REFRESH_TIMEOUT_MILLIS) { discover() }.orEmpty()
 
         /** Probe a public HTTPS port using remote DNS through Tor, never a direct connection. */
-        internal suspend fun probeExit(port: Int): Unit = coroutineScope {
+        internal suspend fun probeExit(port: Int, host: String = "www.torproject.org"): Unit = coroutineScope {
             val socket = Socket(Proxy(Proxy.Type.SOCKS, InetSocketAddress("127.0.0.1", port)))
             suspendCancellableCoroutine { continuation ->
                 val probe = launch(Dispatchers.IO + CoroutineName("SaturnExitProbe")) {
                     try {
                         socket.use {
-                            it.connect(InetSocketAddress.createUnresolved("www.torproject.org", 443), 15_000)
+                            it.connect(InetSocketAddress.createUnresolved(host, 443), 15_000)
                         }
                         continuation.resume(Unit)
                     } catch (e: IOException) {
@@ -367,12 +378,12 @@ class SaturnSession {
                 appendLine("CircuitBuildTimeout 60")
                 appendLine("LearnCircuitBuildTimeout 0")
                 appendLine("KeepalivePeriod 30")
-                appendLine("NumEntryGuards 1")
                 appendLine("ConnectionPadding 1")
                 appendLine("ReducedConnectionPadding 0")
                 appendLine("ClientUseIPv4 1")
-                appendLine("ClientUseIPv6 1")
-                appendLine("ClientPreferIPv6ORPort auto")
+                appendLine("ClientUseIPv6 0")
+                appendLine("ClientPreferIPv6ORPort 0")
+                appendLine("ClientPreferIPv6DirPort 0")
                 appendLine("UseBridges ${if (settings.usesDirectConnection()) 0 else 1}")
                 if (settings.usesDirectConnection()) appendLine("Socks5Proxy 127.0.0.1:$dohProxyPort")
                 // Tor rejects Socks5Proxy alongside ClientTransportPlugin. Lyrebird owns the upstream

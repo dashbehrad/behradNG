@@ -70,8 +70,11 @@ class SaturnService : VpnService(), ServiceControl {
             if (ownsCore) return
             when (intent?.getIntExtra("key", 0)) {
                 AppConfig.MSG_REGISTER_CLIENT -> {
+                    val progress = session?.currentProgress ?: -1
+                    val progressStr = if (progress in 0..100) "$progress%" else ""
                     if (!lifecycle.isStopping()) MessageHelper.sendMsg2UI(this@SaturnService,
-                        if (isConnecting()) AppConfig.MSG_STATE_CONNECTING else AppConfig.MSG_STATE_NOT_RUNNING, "")
+                        if (isConnecting()) AppConfig.MSG_STATE_CONNECTING else AppConfig.MSG_STATE_NOT_RUNNING,
+                        if (isConnecting()) progressStr else "")
                 }
                 AppConfig.MSG_STATE_STOP -> stopService()
                 AppConfig.MSG_STATE_RESTART -> {
@@ -120,8 +123,14 @@ class SaturnService : VpnService(), ServiceControl {
                 CoreServiceManager.serviceControl = SoftReference(this@SaturnService)
                 session = SaturnSession()
                 failure = R.string.saturn_start_error
+                val progressCallback: (Int) -> Unit = { pct ->
+                    val progressStr = "$pct%"
+                    NotificationHelper.startForeground(this@SaturnService, NotificationChannelType.SATURN,
+                        getString(R.string.saturn_title), "${getString(R.string.connection_connecting)} ($progressStr)")
+                    MessageHelper.sendMsg2UI(this@SaturnService, AppConfig.MSG_STATE_CONNECTING, progressStr)
+                }
                 internalProxyPort = session!!.start(this@SaturnService, guid, settings,
-                    setOf(SettingsManager.getSocksPort(), SettingsManager.getHttpPort()), serviceScope)
+                    setOf(SettingsManager.getSocksPort(), SettingsManager.getHttpPort()), serviceScope, progressCallback)
                 startupSettings = settings
                 if (SettingsManager.isVpnMode()) {
                     failure = R.string.saturn_permission_error

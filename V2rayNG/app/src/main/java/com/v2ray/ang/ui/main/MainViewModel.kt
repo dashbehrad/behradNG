@@ -127,9 +127,9 @@ class MainViewModel(
 
     private fun handleServiceEvent(event: MainServiceEvent) {
         when (event) {
-            MainServiceEvent.StateConnecting -> {
+            is MainServiceEvent.StateConnecting -> {
                 testRequests.invalidateCurrent()
-                _uiState.update { it.connectionState(running = false, connecting = true).copy(isTesting = false) }
+                _uiState.update { it.connectionState(running = false, connecting = true, progress = event.progress).copy(isTesting = false) }
             }
             MainServiceEvent.StateRunning -> updateRunningState(true, clearTestingText = false)
             MainServiceEvent.StateNotRunning -> updateRunningState(false, clearTestingText = false)
@@ -223,7 +223,7 @@ class MainViewModel(
     }
 
     internal fun formatStatus(status: MainStatus): String = when (status) {
-        MainStatus.Connecting -> dataSource.getString(R.string.connection_connecting)
+        is MainStatus.Connecting -> if (status.progress.isNotBlank()) "${dataSource.getString(R.string.connection_connecting)} (${status.progress})" else dataSource.getString(R.string.connection_connecting)
         MainStatus.Disconnected -> dataSource.getString(R.string.connection_not_connected)
         MainStatus.Connected -> dataSource.getString(R.string.connection_connected)
         MainStatus.Testing -> dataSource.getString(R.string.connection_test_testing)
@@ -826,7 +826,7 @@ class MainViewModel(
         _uiState.update {
             it.copy(
                 isTesting = testRequests.isTesting,
-                status = if (it.isConnecting) MainStatus.Connecting
+                status = if (it.isConnecting) (it.status as? MainStatus.Connecting ?: MainStatus.Connecting())
                 else if (testRequests.isTesting) MainStatus.Testing
                 else if (it.isRunning) MainStatus.Connected else MainStatus.Disconnected
             )

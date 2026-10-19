@@ -330,7 +330,9 @@ class CoreVpnService : VpnService(), ServiceControl {
 
         RootLanSharing.stopClientSharing(this)
 
-        CoreServiceManager.stopCoreLoop()
+        if (CoreServiceManager.getService() === this) {
+            CoreServiceManager.stopCoreLoop()
+        }
 
         if (isForced) {
             //stopSelf has to be called ahead of mInterface.close(). otherwise v2ray core cannot be stooped

@@ -11,7 +11,7 @@ class MainConnectionStateTest {
         val connecting = initial.connectionState(running = false, connecting = true)
         assertTrue(connecting.isConnecting)
         assertFalse(connecting.isRunning)
-        assertEquals(MainStatus.Connecting, connecting.status)
+        assertEquals(MainStatus.Connecting(), connecting.status)
         val running = connecting.connectionState(running = true)
         assertTrue(running.isRunning)
         assertFalse(running.isConnecting)
@@ -41,5 +41,13 @@ class MainConnectionStateTest {
         assertEquals(result, running.connectionState(true, preserveStatus = true).status)
         assertEquals(MainStatus.Connected, testingDuringStartup.connectionState(true).status)
         assertThrows(IllegalArgumentException::class.java) { running.connectionState(true, connecting = true) }
+    }
+
+    @Test fun connectingStatePreservesAndFormatsBootstrapProgress() {
+        val connectingWithProgress = MainUiState().connectionState(false, connecting = true, progress = "45%")
+        assertTrue(connectingWithProgress.isConnecting)
+        assertFalse(connectingWithProgress.isRunning)
+        assertEquals(MainStatus.Connecting("45%"), connectingWithProgress.status)
+        assertEquals("45%", (connectingWithProgress.status as MainStatus.Connecting).progress)
     }
 }
