@@ -158,7 +158,7 @@ class SaturnDohProxyTest {
         try {
             val resolvers = SaturnDohProxy.createResolvers(settings, client) { _, _ -> }
             val preferred = AtomicInteger()
-            assertEquals(2, resolvers.size)
+            assertEquals(4, resolvers.size)
             assertEquals("192.0.2.7", SaturnDohProxy.lookupWithFallback("bridge.example", resolvers,
                 preferred, { false }) { _, _ -> }.single().hostAddress)
             assertTrue(requests.any { it.url.host == defaultHost && it.method == "GET" })

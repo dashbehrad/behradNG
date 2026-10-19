@@ -367,6 +367,10 @@ class SaturnSession {
                 appendLine("KeepalivePeriod 30")
                 appendLine("NumEntryGuards 1")
                 appendLine("ConnectionPadding 1")
+                appendLine("ClientUseIPv4 1")
+                appendLine("ClientUseIPv6 0")
+                appendLine("ClientPreferIPv6ORPort 0")
+                appendLine("ClientPreferIPv6DirPort 0")
                 appendLine("UseBridges ${if (settings.usesDirectConnection()) 0 else 1}")
                 if (settings.usesDirectConnection()) appendLine("Socks5Proxy 127.0.0.1:$dohProxyPort")
                 // Tor rejects Socks5Proxy alongside ClientTransportPlugin. Lyrebird owns the upstream
@@ -376,6 +380,8 @@ class SaturnSession {
                 appendLine("SafeLogging 1")
                 // Start Tor's consensus fetch immediately; Tor otherwise waits before contacting authorities.
                 appendLine("ClientBootstrapConsensusAuthorityDownloadInitialDelay 0")
+                appendLine("ClientBootstrapConsensusFallbackDownloadSchedule 0, 1, 2, 4, 8")
+                appendLine("ClientBootstrapConsensusAuthorityDownloadSchedule 0, 2, 4, 8, 16")
                 appendLine("Log notice stdout")
                 appendLine("__OwningControllerProcess $ownerPid")
                 if (settings.country != "auto") appendLine("ExitNodes {${settings.country}}")

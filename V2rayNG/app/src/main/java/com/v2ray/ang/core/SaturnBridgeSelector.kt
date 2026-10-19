@@ -40,7 +40,9 @@ internal object SaturnBridgeSelector {
                     val port = endpoint.substringAfterLast(':')
                     val addresses = try {
                         if (SaturnSettings.isIpLiteral(host)) listOf(InetAddress.getByName(host))
-                        else withTimeoutOrNull(resolveTimeoutMillis) { resolve(host).take(2) }.orEmpty()
+                        else withTimeoutOrNull(resolveTimeoutMillis) {
+                            resolve(host).sortedBy { if (it is java.net.Inet4Address) 0 else 1 }.take(2)
+                        }.orEmpty()
                     } catch (e: CancellationException) {
                         throw e
                     } catch (_: Exception) {

@@ -98,6 +98,7 @@ internal class SaturnDohProxy(private val settings: SaturnSettings, private val 
             override fun lookup(hostname: String): List<InetAddress> =
                 if (SaturnSettings.isIpLiteral(hostname)) listOf(InetAddress.getByName(hostname))
                 else lookupWithFallback(hostname, refreshResolvers, refreshPreferred, isRefreshStopped, reportRefreshFailure)
+                    .sortedBy { if (it is java.net.Inet4Address) 0 else 1 }
         }).socketFactory(DoHFragmentingSocketFactory()).callTimeout(5, TimeUnit.SECONDS).build()
         val call = refreshClient.newCall(Request.Builder()
             .url("https://bridges.torproject.org/moat/circumvention/builtin").build())
@@ -170,11 +171,30 @@ internal class SaturnDohProxy(private val settings: SaturnSettings, private val 
             }
             val destPort = input.readUnsignedShort()
             require(destPort in 1..65535 && (directConnection || host to destPort in allowed))
-            val remote = Socket()
-            sockets.add(remote)
+            val addresses = resolve(host).sortedBy { if (it is java.net.Inet4Address) 0 else 1 }
+            require(addresses.isNotEmpty()) { "No addresses resolved for $host" }
+            var connectedSocket: Socket? = null
+            var lastFailure: IOException? = null
+            for (address in addresses) {
+                if (listener.isClosed) break
+                val candidate = Socket()
+                sockets.add(candidate)
+                try {
+                    candidate.connect(InetSocketAddress(address, destPort), 15000)
+                    connectedSocket = candidate
+                    break
+                } catch (e: IOException) {
+                    lastFailure = e
+                    sockets.remove(candidate)
+                    runCatching { candidate.close() }
+                } catch (e: Throwable) {
+                    sockets.remove(candidate)
+                    runCatching { candidate.close() }
+                    throw e
+                }
+            }
+            val remote = connectedSocket ?: throw (lastFailure ?: IOException("Connection failed to $host:$destPort"))
             try {
-                check(!listener.isClosed)
-                remote.connect(InetSocketAddress(resolve(host).first(), destPort), 10000)
                 remote.tcpNoDelay = true
                 output.write(byteArrayOf(5, 0, 0, 1, 0, 0, 0, 0, 0, 0)); output.flush()
                 socket.soTimeout = 0
@@ -222,6 +242,8 @@ internal class SaturnDohProxy(private val settings: SaturnSettings, private val 
             val defaults = SaturnSettings()
             if (settings.dohUrl == defaults.dohUrl && settings.bootstrapIps == defaults.bootstrapIps) {
                 endpoints += "https://cloudflare-dns.com/dns-query" to listOf("162.159.36.1", "162.159.46.1", "1.1.1.1", "1.0.0.1")
+                endpoints += "https://dns.alidns.com/dns-query" to listOf("223.5.5.5", "223.6.6.6")
+                endpoints += "https://dns.quad9.net/dns-query" to listOf("9.9.9.9", "149.112.112.112")
             }
             return endpoints.mapIndexed { index, (url, ips) ->
                 val preferGet = AtomicBoolean()

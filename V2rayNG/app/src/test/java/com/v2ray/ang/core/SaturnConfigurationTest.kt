@@ -16,6 +16,8 @@ class SaturnConfigurationTest {
         assertTrue(config.contains("__OwningControllerProcess 1234\n"))
         assertFalse(config.contains("ClientTransportPlugin"))
         assertTrue(config.contains("Socks5Proxy 127.0.0.1:19052\n"))
+        assertTrue(config.contains("ClientUseIPv4 1\n"))
+        assertTrue(config.contains("ClientUseIPv6 0\n"))
         assertFalse(config.lineSequence().any { it.startsWith("Bridge ") })
         assertThrows(IllegalArgumentException::class.java) {
             SaturnSession.configuration(settings, File("state"), File("geoip"), "", 0, emptyList(), 1234, 19052)
@@ -54,6 +56,7 @@ class SaturnConfigurationTest {
         assertTrue(config.contains("ExitNodes {de}\n"))
         assertTrue(config.contains("UseBridges 1\n"))
         assertTrue(config.contains("ClientBootstrapConsensusAuthorityDownloadInitialDelay 0\n"))
+        assertTrue(config.contains("ClientBootstrapConsensusFallbackDownloadSchedule 0, 1, 2, 4, 8\n"))
         assertTrue(config.contains("__OwningControllerProcess 1234\n"))
         assertTrue(config.contains("Bridge $bridge\n"))
         assertThrows(IllegalArgumentException::class.java) {
