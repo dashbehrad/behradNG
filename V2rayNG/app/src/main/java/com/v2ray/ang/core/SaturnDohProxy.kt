@@ -42,8 +42,8 @@ import java.util.concurrent.atomic.AtomicBoolean
 /** Daemon-session-owned, loopback-only SOCKS5 CONNECT bridge. DoH never carries TCP payloads. */
 internal class SaturnDohProxy(private val settings: SaturnSettings, private val owner: CoroutineScope, reservedPorts: Set<Int> = emptySet(),
     private val profileGuid: String? = null, private val client: OkHttpClient = OkHttpClient.Builder()
-        .connectTimeout(8, TimeUnit.SECONDS)
-        .readTimeout(8, TimeUnit.SECONDS).callTimeout(12, TimeUnit.SECONDS)
+        .connectTimeout(10, TimeUnit.SECONDS)
+        .readTimeout(10, TimeUnit.SECONDS).callTimeout(15, TimeUnit.SECONDS)
         .followRedirects(false).followSslRedirects(false).proxy(java.net.Proxy.NO_PROXY).build()) {
     private val stopped = AtomicBoolean()
     private val resolvers = createResolvers(settings, client, stopped::get, ::reportDnsFailure)
@@ -141,7 +141,7 @@ internal class SaturnDohProxy(private val settings: SaturnSettings, private val 
             try {
                 while (!listener.isClosed) {
                     val socket = listener.accept()
-                    if (active.incrementAndGet() > 32) { active.decrementAndGet(); socket.close(); continue }
+                    if (active.incrementAndGet() > 128) { active.decrementAndGet(); socket.close(); continue }
                     sockets.add(socket)
                     if (listener.isClosed) { active.decrementAndGet(); sockets.remove(socket); socket.close(); continue }
                     launch { try { connect(socket) } finally { active.decrementAndGet(); sockets.remove(socket); socket.close() } }
@@ -196,15 +196,17 @@ internal class SaturnDohProxy(private val settings: SaturnSettings, private val 
             val remote = connectedSocket ?: throw (lastFailure ?: IOException("Connection failed to $host:$destPort"))
             try {
                 remote.tcpNoDelay = true
+                remote.keepAlive = true
                 output.write(byteArrayOf(5, 0, 0, 1, 0, 0, 0, 0, 0, 0)); output.flush()
                 socket.soTimeout = 0
                 socket.tcpNoDelay = true
+                socket.keepAlive = true
                 kotlinx.coroutines.coroutineScope {
                     val upload = launch(Dispatchers.IO) {
-                        try { input.copyTo(remote.getOutputStream(), 32768) }
+                        try { input.copyTo(remote.getOutputStream(), 65536) }
                         finally { remote.close(); socket.close() }
                     }
-                    try { remote.getInputStream().copyTo(output, 32768) }
+                    try { remote.getInputStream().copyTo(output, 65536) }
                     finally { remote.close(); socket.close(); upload.cancelAndJoin() }
                 }
             } finally { sockets.remove(remote); remote.close() }
@@ -284,8 +286,9 @@ internal class SaturnDohProxy(private val settings: SaturnSettings, private val 
             }
             return endpoints.mapIndexed { index, (url, ips) ->
                 val preferGet = AtomicBoolean()
-                val dnsClient = client.newBuilder().connectTimeout(4, TimeUnit.SECONDS)
-                    .readTimeout(4, TimeUnit.SECONDS).callTimeout(5, TimeUnit.SECONDS).apply {
+                val preferFragmented = AtomicBoolean()
+                val dnsClient = client.newBuilder().connectTimeout(6, TimeUnit.SECONDS)
+                    .readTimeout(6, TimeUnit.SECONDS).callTimeout(8, TimeUnit.SECONDS).apply {
                         interceptors().add(0, Interceptor { chain ->
                             fun getRequest(request: Request): Request {
                                 val buffer = Buffer()
@@ -315,8 +318,19 @@ internal class SaturnDohProxy(private val settings: SaturnSettings, private val 
                 val fragmented = resolverFor(dnsClient.newBuilder().socketFactory(DoHFragmentingSocketFactory()).build())
                 object : Dns {
                     override fun lookup(hostname: String): List<InetAddress> =
-                        lookupWithTlsFallback(hostname, standard, fragmented, isStopped) { failure ->
-                            onFailure(index, IOException("DoH HTTPS transport failed; retrying with fragmented TLS", failure))
+                        if (preferFragmented.get()) {
+                            try {
+                                fragmented.lookup(hostname)
+                            } catch (_: IOException) {
+                                lookupWithTlsFallback(hostname, standard, fragmented, isStopped) { failure ->
+                                    onFailure(index, IOException("DoH HTTPS transport failed; retrying with fragmented TLS", failure))
+                                }
+                            }
+                        } else {
+                            lookupWithTlsFallback(hostname, standard, fragmented, isStopped) { failure ->
+                                preferFragmented.set(true)
+                                onFailure(index, IOException("DoH HTTPS transport failed; retrying with fragmented TLS", failure))
+                            }
                         }
                 }
             }
