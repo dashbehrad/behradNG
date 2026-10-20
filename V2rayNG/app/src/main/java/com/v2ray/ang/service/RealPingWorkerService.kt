@@ -108,6 +108,18 @@ class RealPingWorkerService(
         val retFailure = -1L
 
         val config = MmkvManager.decodeServerConfig(guid) ?: return retFailure
+        if (config.configType == EConfigType.SATURN) {
+            val httpPort = SettingsManager.getHttpPort()
+            if (httpPort in 1..65535 && MmkvManager.getSelectServer() == guid) {
+                return try {
+                    val result = SpeedtestManager.measureSaturnConnection(guid, "realping")
+                    result.delayMillis
+                } catch (_: Exception) {
+                    retFailure
+                }
+            }
+            return retFailure
+        }
         if (!config.configType.isComplexType()
             && config.configType != EConfigType.HYSTERIA2
             && config.configType != EConfigType.WIREGUARD
