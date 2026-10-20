@@ -26,6 +26,7 @@ class SaturnEditorViewModelTest {
         viewModel.initialize("", "group-guid")
         withTimeout(3_000) { viewModel.state.first { !it.loading } }
         assertEquals("https://dns.google/dns-query", viewModel.state.value.settings.dohUrl)
+        assertEquals("9.9.9.9", viewModel.state.value.settings.bootstrapIps)
         viewModel.changeSettings { it.copy(bridgeSource = "direct", country = "de") }
         assertEquals(true, viewModel.state.value.settings.usesDirectConnection())
         val restored = SaturnEditorViewModel(mock<Application>(), savedState, Dispatchers.Unconfined,

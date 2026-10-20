@@ -5,7 +5,7 @@ import java.net.URI
 /** Saturn owns only its Tor/DoH settings; native identity and runtime ports are never shared. */
 data class SaturnSettings(
     val dohUrl: String = "https://dns.google/dns-query",
-    val bootstrapIps: String = "8.8.8.8,8.8.4.4",
+    val bootstrapIps: String = "9.9.9.9",
     val bridges: String = "",
     val scanMode: String = "turbo",
     val country: String = "auto",

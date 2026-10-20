@@ -9,7 +9,7 @@ class SaturnSettingsTest {
 
     @Test fun defaultsUseGoogleDoHAndBootstrapAddresses() {
         assertEquals("https://dns.google/dns-query", SaturnSettings().dohUrl)
-        assertEquals("8.8.8.8,8.8.4.4", SaturnSettings().bootstrapIps)
+        assertEquals("9.9.9.9", SaturnSettings().bootstrapIps)
         assertEquals("h2", SaturnSettings().normalizedCarrier())
     }
 

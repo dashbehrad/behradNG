@@ -275,12 +275,12 @@ internal class SaturnDohProxy(private val settings: SaturnSettings, private val 
             val dohHost = try { settings.dohUrl.toHttpUrl().host } catch (_: Exception) { "" }
             val primaryCandidates = if (userIps.isNotEmpty()) userIps
                 else KNOWN_DOH_POOLS[dohHost] ?: (if (SaturnSettings.isIpLiteral(dohHost)) listOf(dohHost) else emptyList())
-            val endpoints = mutableListOf(settings.dohUrl to scanBestIps(primaryCandidates))
+            val endpoints = mutableListOf(settings.dohUrl to primaryCandidates)
             val defaults = SaturnSettings()
             if (settings.dohUrl == defaults.dohUrl && (settings.bootstrapIps == defaults.bootstrapIps || settings.bootstrapIps.isBlank())) {
-                endpoints += "https://cloudflare-dns.com/dns-query" to scanBestIps(KNOWN_DOH_POOLS["cloudflare-dns.com"] ?: listOf("162.159.36.1", "1.1.1.1"))
-                endpoints += "https://dns.alidns.com/dns-query" to scanBestIps(KNOWN_DOH_POOLS["dns.alidns.com"] ?: listOf("223.5.5.5", "223.6.6.6"))
-                endpoints += "https://dns.quad9.net/dns-query" to scanBestIps(KNOWN_DOH_POOLS["dns.quad9.net"] ?: listOf("9.9.9.9", "149.112.112.112"))
+                endpoints += "https://cloudflare-dns.com/dns-query" to (KNOWN_DOH_POOLS["cloudflare-dns.com"] ?: listOf("162.159.36.1", "1.1.1.1"))
+                endpoints += "https://dns.alidns.com/dns-query" to (KNOWN_DOH_POOLS["dns.alidns.com"] ?: listOf("223.5.5.5", "223.6.6.6"))
+                endpoints += "https://dns.quad9.net/dns-query" to (KNOWN_DOH_POOLS["dns.quad9.net"] ?: listOf("9.9.9.9", "149.112.112.112"))
             }
             return endpoints.mapIndexed { index, (url, ips) ->
                 val preferGet = AtomicBoolean()
