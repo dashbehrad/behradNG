@@ -743,7 +743,7 @@ object CoreConfigManager {
         val levels = policy.levels.toMutableMap()
         levels.putIfAbsent("0", V2rayConfig.PolicyBean.LevelBean())
         policy.levels = levels.mapValues { (_, level) ->
-            level.copy(handshake = maxOf(level.handshake ?: 4, 30))
+            level.copy(handshake = maxOf(level.handshake ?: 4, 30), bufferSize = maxOf(level.bufferSize ?: 512, 1024))
         }
     }
 

@@ -51,6 +51,7 @@ internal class SaturnDohProxy(private val settings: SaturnSettings, private val 
     private val sockets = ConcurrentHashMap.newKeySet<Socket>()
     private val refreshDispatchers = ConcurrentHashMap.newKeySet<Dispatcher>()
     private val active = AtomicInteger()
+    private val dnsCache = ConcurrentHashMap<String, Pair<Long, List<InetAddress>>>()
     private val listener = (1..16).asSequence().map {
         ServerSocket(0, 16, InetAddress.getByName("127.0.0.1"))
     }.firstOrNull { socket ->
@@ -61,8 +62,19 @@ internal class SaturnDohProxy(private val settings: SaturnSettings, private val 
     private val directConnection = settings.usesDirectConnection()
     val port: Int get() = listener.localPort
 
-    fun resolve(host: String): List<InetAddress> = if (SaturnSettings.isIpLiteral(host))
-        listOf(InetAddress.getByName(host)) else lookupWithFallback(host, resolvers, preferredResolver, stopped::get, ::reportDnsFailure)
+    fun resolve(host: String): List<InetAddress> {
+        if (SaturnSettings.isIpLiteral(host)) return listOf(InetAddress.getByName(host))
+        val now = System.currentTimeMillis()
+        val cached = dnsCache[host]
+        if (cached != null && now < cached.first) {
+            return cached.second
+        }
+        val resolved = lookupWithFallback(host, resolvers, preferredResolver, stopped::get, ::reportDnsFailure)
+        if (resolved.isNotEmpty()) {
+            dnsCache[host] = (now + 600_000L) to resolved
+        }
+        return resolved
+    }
 
     private fun reportDnsFailure(index: Int, e: IOException) {
         val source = if (settings.usesDirectConnection()) "direct" else if (settings.usesAutomaticBridges()) "auto" else "custom"
@@ -141,7 +153,7 @@ internal class SaturnDohProxy(private val settings: SaturnSettings, private val 
             try {
                 while (!listener.isClosed) {
                     val socket = listener.accept()
-                    if (active.incrementAndGet() > 128) { active.decrementAndGet(); socket.close(); continue }
+                    if (active.incrementAndGet() > 512) { active.decrementAndGet(); socket.close(); continue }
                     sockets.add(socket)
                     if (listener.isClosed) { active.decrementAndGet(); sockets.remove(socket); socket.close(); continue }
                     launch { try { connect(socket) } finally { active.decrementAndGet(); sockets.remove(socket); socket.close() } }
@@ -154,7 +166,13 @@ internal class SaturnDohProxy(private val settings: SaturnSettings, private val 
 
     private suspend fun connect(socket: Socket) {
         try {
-            socket.soTimeout = 15000
+            socket.apply {
+                tcpNoDelay = true
+                keepAlive = true
+                receiveBufferSize = 524288
+                sendBufferSize = 524288
+                soTimeout = 15000
+            }
             val input = DataInputStream(socket.getInputStream())
             val output = socket.getOutputStream()
             require(input.readUnsignedByte() == 5)
@@ -177,7 +195,12 @@ internal class SaturnDohProxy(private val settings: SaturnSettings, private val 
             var lastFailure: IOException? = null
             for (address in addresses) {
                 if (listener.isClosed) break
-                val candidate = Socket()
+                val candidate = Socket().apply {
+                    tcpNoDelay = true
+                    keepAlive = true
+                    receiveBufferSize = 524288
+                    sendBufferSize = 524288
+                }
                 sockets.add(candidate)
                 try {
                     candidate.connect(InetSocketAddress(address, destPort), 15000)
@@ -195,18 +218,21 @@ internal class SaturnDohProxy(private val settings: SaturnSettings, private val 
             }
             val remote = connectedSocket ?: throw (lastFailure ?: IOException("Connection failed to $host:$destPort"))
             try {
-                remote.tcpNoDelay = true
-                remote.keepAlive = true
+                remote.apply {
+                    tcpNoDelay = true
+                    keepAlive = true
+                    receiveBufferSize = 524288
+                    sendBufferSize = 524288
+                    soTimeout = 0
+                }
                 output.write(byteArrayOf(5, 0, 0, 1, 0, 0, 0, 0, 0, 0)); output.flush()
                 socket.soTimeout = 0
-                socket.tcpNoDelay = true
-                socket.keepAlive = true
                 kotlinx.coroutines.coroutineScope {
                     val upload = launch(Dispatchers.IO) {
-                        try { input.copyTo(remote.getOutputStream(), 65536) }
+                        try { input.copyTo(remote.getOutputStream(), 131072) }
                         finally { remote.close(); socket.close() }
                     }
-                    try { remote.getInputStream().copyTo(output, 65536) }
+                    try { remote.getInputStream().copyTo(output, 131072) }
                     finally { remote.close(); socket.close(); upload.cancelAndJoin() }
                 }
             } finally { sockets.remove(remote); remote.close() }

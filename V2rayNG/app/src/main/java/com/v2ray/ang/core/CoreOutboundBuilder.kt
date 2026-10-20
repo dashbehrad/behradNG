@@ -26,7 +26,14 @@ object CoreOutboundBuilder {
         val outbound = when (profileItem.configType) {
             EConfigType.SATURN -> toOutboundSocks(profileItem.copy(
                 configType = EConfigType.SOCKS, server = "127.0.0.1", username = null, password = null,
-            ))
+            ))?.apply {
+                streamSettings = (streamSettings ?: V2rayConfig.OutboundBean.StreamSettingsBean()).apply {
+                    sockopt = (sockopt ?: V2rayConfig.OutboundBean.StreamSettingsBean.SockoptBean()).apply {
+                        TcpNoDelay = true
+                        tcpKeepAliveIdle = 15
+                    }
+                }
+            }
             EConfigType.AETHER -> toOutboundSocks(profileItem.copy(
                 configType = EConfigType.SOCKS, server = "127.0.0.1", username = null, password = null,
                 serverPort = (profileItem.aetherSettings ?: com.v2ray.ang.dto.entities.AetherSettings()).socksPort,
