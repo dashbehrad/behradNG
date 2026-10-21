@@ -179,8 +179,8 @@ internal class SaturnDohProxy(private val settings: SaturnSettings, private val 
             socket.apply {
                 tcpNoDelay = true
                 keepAlive = true
-                receiveBufferSize = 524288
-                sendBufferSize = 524288
+                receiveBufferSize = 1048576
+                sendBufferSize = 1048576
                 soTimeout = 15000
             }
             val input = DataInputStream(socket.getInputStream())
@@ -208,8 +208,8 @@ internal class SaturnDohProxy(private val settings: SaturnSettings, private val 
                 val candidate = Socket().apply {
                     tcpNoDelay = true
                     keepAlive = true
-                    receiveBufferSize = 524288
-                    sendBufferSize = 524288
+                    receiveBufferSize = 1048576
+                    sendBufferSize = 1048576
                 }
                 sockets.add(candidate)
                 try {
@@ -231,18 +231,18 @@ internal class SaturnDohProxy(private val settings: SaturnSettings, private val 
                 remote.apply {
                     tcpNoDelay = true
                     keepAlive = true
-                    receiveBufferSize = 524288
-                    sendBufferSize = 524288
+                    receiveBufferSize = 1048576
+                    sendBufferSize = 1048576
                     soTimeout = 0
                 }
                 output.write(byteArrayOf(5, 0, 0, 1, 0, 0, 0, 0, 0, 0)); output.flush()
                 socket.soTimeout = 0
                 kotlinx.coroutines.coroutineScope {
                     val upload = launch(Dispatchers.IO) {
-                        try { input.copyTo(remote.getOutputStream(), 131072) }
+                        try { input.copyTo(remote.getOutputStream(), 262144) }
                         finally { remote.close(); socket.close() }
                     }
-                    try { remote.getInputStream().copyTo(output, 131072) }
+                    try { remote.getInputStream().copyTo(output, 262144) }
                     finally { remote.close(); socket.close(); upload.cancelAndJoin() }
                 }
             } finally { sockets.remove(remote); remote.close() }

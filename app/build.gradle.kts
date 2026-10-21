@@ -13,7 +13,7 @@ android {
         applicationId = "com.v2ray.ang.behradng"
         minSdk = 24
         targetSdk = 36
-        versionCode = 755
+        versionCode = 4000757
         versionName = "3.0.0"
         buildConfigField("String", "DISTRIBUTION", "\"behradNG\"")
 
@@ -27,12 +27,16 @@ android {
             storePassword = System.getenv("APP_KEYSTORE_PASSWORD")
             keyAlias = System.getenv("APP_KEYSTORE_ALIAS")
             keyPassword = System.getenv("APP_KEY_PASSWORD")
+            v1SigningEnabled = true
+            v2SigningEnabled = true
         }
         getByName("debug") {
             storeFile = file("${rootDir}/debug.keystore")
             storePassword = "android"
             keyAlias = "androiddebugkey"
             keyPassword = "android"
+            v1SigningEnabled = true
+            v2SigningEnabled = true
         }
     }
 

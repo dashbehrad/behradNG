@@ -219,6 +219,8 @@ object HttpUtil {
         }
     }
 
+    private val sharedConnectionPool = okhttp3.ConnectionPool(16, 5, TimeUnit.MINUTES)
+
     private fun buildOkHttpClient(
         timeout: Int,
         httpPort: Int,
@@ -227,6 +229,8 @@ object HttpUtil {
         followRedirects: Boolean
     ): OkHttpClient {
         val builder = OkHttpClient.Builder()
+            .connectionPool(sharedConnectionPool)
+            .retryOnConnectionFailure(true)
             .connectTimeout(timeout.toLong(), TimeUnit.MILLISECONDS)
             .readTimeout(timeout.toLong(), TimeUnit.MILLISECONDS)
             .followRedirects(followRedirects)

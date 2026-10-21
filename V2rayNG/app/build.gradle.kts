@@ -12,8 +12,8 @@ android {
     defaultConfig {
         applicationId = "com.v2ray.ang"
         minSdk = 24
-        targetSdk = 37
-        versionCode = 755
+        targetSdk = 36
+        versionCode = 4000757
         versionName = "3.0.0"
 
         val abiFilterList = (properties["ABI_FILTERS"] as? String)?.split(';')

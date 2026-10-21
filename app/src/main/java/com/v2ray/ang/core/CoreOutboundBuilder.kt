@@ -37,7 +37,14 @@ object CoreOutboundBuilder {
             EConfigType.AETHER -> toOutboundSocks(profileItem.copy(
                 configType = EConfigType.SOCKS, server = "127.0.0.1", username = null, password = null,
                 serverPort = (profileItem.aetherSettings ?: com.v2ray.ang.dto.entities.AetherSettings()).socksPort,
-            ))
+            ))?.apply {
+                streamSettings = (streamSettings ?: OutboundBean.StreamSettingsBean()).apply {
+                    sockopt = (sockopt ?: OutboundBean.StreamSettingsBean.SockoptBean()).apply {
+                        TcpNoDelay = true
+                        tcpKeepAliveIdle = 15
+                    }
+                }
+            }
             EConfigType.VMESS -> toOutboundVmess(profileItem)
             EConfigType.SHADOWSOCKS -> toOutboundShadowsocks(profileItem)
             EConfigType.SOCKS -> toOutboundSocks(profileItem)
@@ -84,6 +91,16 @@ object CoreOutboundBuilder {
             } else {
                 outbound.mux?.enabled = false
                 outbound.mux?.concurrency = -1
+            }
+
+            outbound.streamSettings?.let { stream ->
+                val sockopt = stream.sockopt ?: OutboundBean.StreamSettingsBean.SockoptBean().also { stream.sockopt = it }
+                if (sockopt.TcpNoDelay == null) {
+                    sockopt.TcpNoDelay = true
+                }
+                if (sockopt.tcpKeepAliveIdle == null) {
+                    sockopt.tcpKeepAliveIdle = 15
+                }
             }
 
         } catch (e: Exception) {
