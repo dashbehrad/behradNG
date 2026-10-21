@@ -2,6 +2,7 @@ package com.v2ray.ang.core
 
 import com.google.gson.JsonParser
 import com.v2ray.ang.dto.entities.SaturnSettings
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.CancellationException
@@ -29,24 +30,30 @@ internal object SaturnBridgeSelector {
         else settings.bridgeLines()
 
     suspend fun resolveCandidates(lines: List<String>, resolve: suspend (String) -> List<InetAddress>,
-        resolveTimeoutMillis: Long = 3_000L): List<String> =
+        resolveTimeoutMillis: Long = 1_500L): List<String> =
         coroutineScope {
-            val permits = Semaphore(12)
-            lines.distinct().take(64).map { bridge -> async {
-                permits.withPermit {
-                    val parts = bridge.split(Regex("\\s+"))
-                    val endpoint = parts[1]
-                    val host = endpoint.substringBeforeLast(':').removeSurrounding("[", "]")
-                    val port = endpoint.substringAfterLast(':')
-                    val addresses = try {
-                        if (SaturnSettings.isIpLiteral(host)) listOf(InetAddress.getByName(host))
-                        else withTimeoutOrNull(resolveTimeoutMillis) {
-                            resolve(host).sortedBy { if (it is java.net.Inet4Address) 0 else 1 }.take(2)
-                        }.orEmpty()
-                    } catch (e: CancellationException) {
-                        throw e
-                    } catch (_: Exception) {
-                        emptyList()
+            val permits = Semaphore(32)
+            lines.distinct().take(64).map { bridge -> async(Dispatchers.IO) {
+                val parts = bridge.split(Regex("\\s+"))
+                val endpoint = parts[1]
+                val host = endpoint.substringBeforeLast(':').removeSurrounding("[", "]")
+                val port = endpoint.substringAfterLast(':')
+                if (SaturnSettings.isIpLiteral(host)) {
+                    val address = InetAddress.getByName(host)
+                    val ip = address.hostAddress!!.substringBefore('%')
+                    listOf(listOf(parts[0], (if (ip.contains(':')) "[$ip]" else ip) + ":$port")
+                        .plus(parts.drop(2)).joinToString(" "))
+                } else {
+                    val addresses = permits.withPermit {
+                        try {
+                            withTimeoutOrNull(resolveTimeoutMillis) {
+                                resolve(host).sortedBy { if (it is java.net.Inet4Address) 0 else 1 }.take(2)
+                            }.orEmpty()
+                        } catch (e: CancellationException) {
+                            throw e
+                        } catch (_: Exception) {
+                            emptyList()
+                        }
                     }
                     addresses.map { address ->
                         val ip = address.hostAddress!!.substringBefore('%')

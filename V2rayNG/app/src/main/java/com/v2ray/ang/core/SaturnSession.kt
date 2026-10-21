@@ -96,16 +96,28 @@ class SaturnSession {
             stage = Stage.BRIDGES
             LogUtil.i(AppConfig.TAG, "Saturn: mode=transport guid=$guid startup stage=BRIDGES operation=discover bridge candidates")
             onProgress?.invoke(10)
-            val bundled = if (settings.usesAutomaticBridges()) context.assets.open("saturn/builtin-bridges.json")
-                .bufferedReader().use { SaturnBridgeSelector.parseBuiltins(it.readText()) } else emptyList()
-            val refreshed = if (settings.usesAutomaticBridges()) try {
-                discoverBridgesWithTimeout { proxy.discoverBridges() }
-            } catch (e: CancellationException) {
-                throw e
-            } catch (e: Exception) {
-                LogUtil.w(AppConfig.TAG, "Saturn: mode=transport guid=$guid bridge refresh failed; using bundled pool",
-                    e)
-                emptyList()
+            val bundled = if (settings.usesAutomaticBridges()) {
+                cachedBundledBridges ?: context.assets.open("saturn/builtin-bridges.json")
+                    .bufferedReader().use { SaturnBridgeSelector.parseBuiltins(it.readText()) }
+                    .also { cachedBundledBridges = it }
+            } else emptyList()
+            val refreshed = if (settings.usesAutomaticBridges()) {
+                val now = System.currentTimeMillis()
+                val cached = cachedRefreshedBridges
+                if (cached != null && now < cached.first && cached.second.isNotEmpty()) {
+                    cached.second
+                } else {
+                    try {
+                        discoverBridgesWithTimeout { proxy.discoverBridges() }
+                            .also { if (it.isNotEmpty()) cachedRefreshedBridges = (now + 3_600_000L) to it }
+                    } catch (e: CancellationException) {
+                        throw e
+                    } catch (e: Exception) {
+                        LogUtil.w(AppConfig.TAG, "Saturn: mode=transport guid=$guid bridge refresh failed; using bundled pool",
+                            e)
+                        emptyList()
+                    }
+                }
             } else emptyList()
             currentCoroutineContext().ensureActive()
             val bridges = SaturnBridgeSelector.resolveCandidates(SaturnBridgeSelector.candidates(settings, bundled, refreshed), proxy::resolve)
@@ -293,7 +305,13 @@ class SaturnSession {
         internal fun transportProcessesAlive(direct: Boolean, torAlive: Boolean, obfs4Alive: Boolean): Boolean =
             torAlive && (direct || obfs4Alive)
 
-        internal const val BRIDGE_REFRESH_TIMEOUT_MILLIS = 3_000L
+        internal const val BRIDGE_REFRESH_TIMEOUT_MILLIS = 1_000L
+
+        @Volatile
+        internal var cachedBundledBridges: List<String>? = null
+
+        @Volatile
+        internal var cachedRefreshedBridges: Pair<Long, List<String>>? = null
 
         internal suspend fun discoverBridgesWithTimeout(discover: suspend () -> List<String>): List<String> =
             withTimeoutOrNull(BRIDGE_REFRESH_TIMEOUT_MILLIS) { discover() }.orEmpty()

@@ -52,6 +52,7 @@ internal class SaturnDohProxy(private val settings: SaturnSettings, private val 
     private val refreshDispatchers = ConcurrentHashMap.newKeySet<Dispatcher>()
     private val active = AtomicInteger()
     private val dnsCache = ConcurrentHashMap<String, Pair<Long, List<InetAddress>>>()
+    private val hostLocks = ConcurrentHashMap<String, Any>()
     private val listener = (1..16).asSequence().map {
         ServerSocket(0, 16, InetAddress.getByName("127.0.0.1"))
     }.firstOrNull { socket ->
@@ -69,11 +70,20 @@ internal class SaturnDohProxy(private val settings: SaturnSettings, private val 
         if (cached != null && now < cached.first) {
             return cached.second
         }
-        val resolved = lookupWithFallback(host, resolvers, preferredResolver, stopped::get, ::reportDnsFailure)
-        if (resolved.isNotEmpty()) {
-            dnsCache[host] = (now + 600_000L) to resolved
+        val lock = hostLocks.computeIfAbsent(host) { Any() }
+        val result = synchronized(lock) {
+            val secondCheck = dnsCache[host]
+            if (secondCheck != null && System.currentTimeMillis() < secondCheck.first) {
+                return@synchronized secondCheck.second
+            }
+            val resolved = lookupWithFallback(host, resolvers, preferredResolver, stopped::get, ::reportDnsFailure)
+            if (resolved.isNotEmpty()) {
+                dnsCache[host] = (System.currentTimeMillis() + 1_800_000L) to resolved
+            }
+            resolved
         }
-        return resolved
+        hostLocks.remove(host, lock)
+        return result
     }
 
     private fun reportDnsFailure(index: Int, e: IOException) {
@@ -111,7 +121,7 @@ internal class SaturnDohProxy(private val settings: SaturnSettings, private val 
                 if (SaturnSettings.isIpLiteral(hostname)) listOf(InetAddress.getByName(hostname))
                 else lookupWithFallback(hostname, refreshResolvers, refreshPreferred, isRefreshStopped, reportRefreshFailure)
                     .sortedBy { if (it is java.net.Inet4Address) 0 else 1 }
-        }).socketFactory(DoHFragmentingSocketFactory()).callTimeout(5, TimeUnit.SECONDS).build()
+        }).socketFactory(DoHFragmentingSocketFactory()).callTimeout(1500, TimeUnit.MILLISECONDS).build()
         val call = refreshClient.newCall(Request.Builder()
             .url("https://bridges.torproject.org/moat/circumvention/builtin").build())
         call.enqueue(object : Callback {
@@ -203,7 +213,7 @@ internal class SaturnDohProxy(private val settings: SaturnSettings, private val 
                 }
                 sockets.add(candidate)
                 try {
-                    candidate.connect(InetSocketAddress(address, destPort), 15000)
+                    candidate.connect(InetSocketAddress(address, destPort), 4000)
                     connectedSocket = candidate
                     break
                 } catch (e: IOException) {
@@ -301,20 +311,22 @@ internal class SaturnDohProxy(private val settings: SaturnSettings, private val 
             isStopped: () -> Boolean = { false }, onFailure: (Int, IOException) -> Unit): List<Dns> {
             val userIps = settings.bootstrapIps.split(',').map { it.trim() }.filter { it.isNotEmpty() }
             val dohHost = try { settings.dohUrl.toHttpUrl().host } catch (_: Exception) { "" }
-            val primaryCandidates = if (userIps.isNotEmpty()) userIps
-                else KNOWN_DOH_POOLS[dohHost] ?: (if (SaturnSettings.isIpLiteral(dohHost)) listOf(dohHost) else emptyList())
+            val primaryCandidates = if (userIps.isNotEmpty() && dohHost in KNOWN_DOH_POOLS && !userIps.any { it in (KNOWN_DOH_POOLS[dohHost] ?: emptyList()) }) {
+                (KNOWN_DOH_POOLS[dohHost] ?: emptyList()) + userIps
+            } else if (userIps.isNotEmpty()) userIps
+            else KNOWN_DOH_POOLS[dohHost] ?: (if (SaturnSettings.isIpLiteral(dohHost)) listOf(dohHost) else emptyList())
             val endpoints = mutableListOf(settings.dohUrl to primaryCandidates)
             val defaults = SaturnSettings()
             if (settings.dohUrl == defaults.dohUrl && (settings.bootstrapIps == defaults.bootstrapIps || settings.bootstrapIps.isBlank())) {
                 endpoints += "https://cloudflare-dns.com/dns-query" to (KNOWN_DOH_POOLS["cloudflare-dns.com"] ?: listOf("162.159.36.1", "1.1.1.1"))
                 endpoints += "https://dns.alidns.com/dns-query" to (KNOWN_DOH_POOLS["dns.alidns.com"] ?: listOf("223.5.5.5", "223.6.6.6"))
-                endpoints += "https://dns.quad9.net/dns-query" to (KNOWN_DOH_POOLS["dns.quad9.net"] ?: listOf("9.9.9.9", "149.112.112.112"))
+                endpoints += "https://dns.quad9.net/dns-query" to (if (userIps.isNotEmpty()) userIps else (KNOWN_DOH_POOLS["dns.quad9.net"] ?: listOf("9.9.9.9", "149.112.112.112")))
             }
             return endpoints.mapIndexed { index, (url, ips) ->
                 val preferGet = AtomicBoolean()
                 val preferFragmented = AtomicBoolean()
-                val dnsClient = client.newBuilder().connectTimeout(6, TimeUnit.SECONDS)
-                    .readTimeout(6, TimeUnit.SECONDS).callTimeout(8, TimeUnit.SECONDS).apply {
+                val dnsClient = client.newBuilder().connectTimeout(1500, TimeUnit.MILLISECONDS)
+                    .readTimeout(1500, TimeUnit.MILLISECONDS).callTimeout(2000, TimeUnit.MILLISECONDS).apply {
                         interceptors().add(0, Interceptor { chain ->
                             fun getRequest(request: Request): Request {
                                 val buffer = Buffer()
