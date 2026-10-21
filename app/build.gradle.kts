@@ -27,16 +27,12 @@ android {
             storePassword = System.getenv("APP_KEYSTORE_PASSWORD")
             keyAlias = System.getenv("APP_KEYSTORE_ALIAS")
             keyPassword = System.getenv("APP_KEY_PASSWORD")
-            v1SigningEnabled = true
-            v2SigningEnabled = true
         }
         getByName("debug") {
             storeFile = file("${rootDir}/debug.keystore")
             storePassword = "android"
             keyAlias = "androiddebugkey"
             keyPassword = "android"
-            v1SigningEnabled = true
-            v2SigningEnabled = true
         }
     }
 
