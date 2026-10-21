@@ -109,6 +109,13 @@ object MmkvManager {
         return "$KEY_SUB_SERVER_PREFIX${getSubscriptionId(subscriptionId)}"
     }
 
+    internal object FreshStartResetPlanner {
+        fun mainKeysToClear(keys: Collection<String>): List<String> =
+            keys.filter { key ->
+                key == KEY_SELECTED_SERVER || key == KEY_ANG_CONFIGS || key.startsWith(KEY_SUB_SERVER_PREFIX)
+            }
+    }
+
     /**
      * Returns every server referenced outside the target group, or null if the raw indexes
      * cannot provide a complete view.
@@ -621,6 +628,23 @@ object MmkvManager {
             encodeServerList(mutableListOf(), sub.guid)
         }
         return count
+    }
+
+    /**
+     * One-time startup reset: remove persisted proxy profiles and profile-index keys only.
+     */
+    fun resetProxyProfilesForFreshStart(): Int {
+        return withProfileIndexLock {
+            val count = profileFullStorage.allKeys()?.count() ?: 0
+            profileFullStorage.clearAll()
+            serverAffStorage.clearAll()
+            serverRawStorage.clearAll()
+            val keys = FreshStartResetPlanner.mainKeysToClear(mainStorage.allKeys().orEmpty())
+            if (keys.isNotEmpty()) {
+                mainStorage.removeValuesForKeys(keys.toTypedArray())
+            }
+            count
+        }
     }
 
     /**

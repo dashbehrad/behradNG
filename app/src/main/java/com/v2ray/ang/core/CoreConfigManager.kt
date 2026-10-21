@@ -26,6 +26,12 @@ object CoreConfigManager {
     private var initConfigCache: String? = null
     private var initConfigCacheWithTun: String? = null
 
+    @Synchronized
+    fun clearInMemoryConfigCaches() {
+        initConfigCache = null
+        initConfigCacheWithTun = null
+    }
+
     //region get config function
 
     /**
@@ -737,7 +743,7 @@ object CoreConfigManager {
         val levels = policy.levels.toMutableMap()
         levels.putIfAbsent("0", V2rayConfig.PolicyBean.LevelBean())
         policy.levels = levels.mapValues { (_, level) ->
-            level.copy(handshake = maxOf(level.handshake ?: 4, 30))
+            level.copy(handshake = maxOf(level.handshake ?: 4, 30), bufferSize = maxOf(level.bufferSize ?: 512, 1024))
         }
     }
 

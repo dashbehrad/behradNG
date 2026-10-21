@@ -87,7 +87,21 @@ object SpeedtestManager {
         try {
             val ipUrl = MmkvManager.decodeSettingsString(AppConfig.PREF_IP_API_URL)
                 .takeIf { !it.isNullOrBlank() } ?: AppConfig.IP_API_URL
-            runSaturnProbes(listOf(SettingsManager.getDelayTestUrl(), SettingsManager.getDelayTestUrl(true)), ipUrl,
+            val primaryUrl = SettingsManager.getDelayTestUrl()
+            val fallbackUrl = SettingsManager.getDelayTestUrl(true)
+            val httpPrimary = primaryUrl.replaceFirst("https://", "http://")
+            val httpFallback = fallbackUrl.replaceFirst("https://", "http://")
+            // Warm up Tor circuit stream on the primary probe endpoint so the
+            // measured latency reflects genuine tunnel RTT without cold stream/TLS setup inflation.
+            runCatching { fetchSaturnUrl(client, httpPrimary, false) }
+            val delayUrls = listOf(
+                httpPrimary,
+                primaryUrl,
+                httpFallback,
+                fallbackUrl,
+                "http://cp.cloudflare.com/generate_204"
+            ).distinct()
+            runSaturnProbes(delayUrls, ipUrl,
                 request = { url, readBody -> fetchSaturnUrl(client, url, readBody) },
                 reportFailure = { operation, failure ->
                     // URLs may be customized and contain secrets; log only the operation and failure type.
