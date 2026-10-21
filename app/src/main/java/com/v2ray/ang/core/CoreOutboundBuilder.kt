@@ -27,8 +27,8 @@ object CoreOutboundBuilder {
             EConfigType.SATURN -> toOutboundSocks(profileItem.copy(
                 configType = EConfigType.SOCKS, server = "127.0.0.1", username = null, password = null,
             ))?.apply {
-                streamSettings = (streamSettings ?: V2rayConfig.OutboundBean.StreamSettingsBean()).apply {
-                    sockopt = (sockopt ?: V2rayConfig.OutboundBean.StreamSettingsBean.SockoptBean()).apply {
+                streamSettings = (streamSettings ?: OutboundBean.StreamSettingsBean()).apply {
+                    sockopt = (sockopt ?: OutboundBean.StreamSettingsBean.SockoptBean()).apply {
                         TcpNoDelay = true
                         tcpKeepAliveIdle = 15
                     }

@@ -114,6 +114,11 @@ object MmkvManager {
             keys.filter { key ->
                 key == KEY_SELECTED_SERVER || key == KEY_ANG_CONFIGS || key.startsWith(KEY_SUB_SERVER_PREFIX)
             }
+
+        fun mainKeysToClear(keys: Array<out String>?): List<String> =
+            keys?.filter { key ->
+                key == KEY_SELECTED_SERVER || key == KEY_ANG_CONFIGS || key.startsWith(KEY_SUB_SERVER_PREFIX)
+            }.orEmpty()
     }
 
     /**
@@ -639,7 +644,7 @@ object MmkvManager {
             profileFullStorage.clearAll()
             serverAffStorage.clearAll()
             serverRawStorage.clearAll()
-            val keys = FreshStartResetPlanner.mainKeysToClear(mainStorage.allKeys().orEmpty())
+            val keys = FreshStartResetPlanner.mainKeysToClear(mainStorage.allKeys()?.toList().orEmpty())
             if (keys.isNotEmpty()) {
                 mainStorage.removeValuesForKeys(keys.toTypedArray())
             }
