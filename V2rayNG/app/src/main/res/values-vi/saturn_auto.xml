@@ -4,8 +4,8 @@
     <string name="saturn_custom">Cầu nối tùy chỉnh</string>
     <string name="saturn_bridge_source">Nguồn cầu nối</string>
     <string name="saturn_country_list">Quốc gia thoát</string>
-    <string name="saturn_auto_hint">Tự động cập nhật và kiểm tra cầu nối obfs4 công khai. Dùng cầu nối tùy chỉnh nếu cầu nối công khai bị chặn. Chọn quốc gia tự động để có nhiều nút thoát Tor hơn. DoH chỉ phân giải DNS, không tạo đường hầm lưu lượng. Chỉ TCP. Kết nối lại sau khi thay đổi.</string>
-    <string name="saturn_dns_error">Saturn không thể kết nối DoH. Kiểm tra URL DoH và IP khởi tạo.</string>
+    <string name="saturn_auto_hint">Kết nối trước tới đường hầm Cloudflare (Miễn phí), sau đó tới Tor với cầu obfs4 tự động và chọn quốc gia thoát. Chỉ TCP. Kết nối lại sau khi thay đổi.</string>
+    <string name="saturn_dns_error">Saturn không thể kết nối đường hầm Cloudflare. Kiểm tra URL đường hầm và IP khởi tạo.</string>
     <string name="saturn_bridges_error">Không có cầu nối obfs4 truy cập được. Thử quét sâu hoặc cầu nối tùy chỉnh.</string>
     <string name="saturn_bootstrap_error">Không thể hoàn tất kết nối Tor. Thử quốc gia tự động, quét sâu hoặc cầu nối tùy chỉnh.</string>
     <string name="saturn_core_exit">Lõi Saturn dừng khi khởi động Tor (mã thoát %1$d).</string>

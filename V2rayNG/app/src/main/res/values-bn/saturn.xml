@@ -1,19 +1,19 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string name="saturn_title">Saturn</string>
-    <string name="saturn_doh">HTTPS দিয়ে DNS ঠিকানা</string>
+    <string name="saturn_doh">Cloudflare টানেল (ফ্রি) ঠিকানা</string>
     <string name="saturn_carrier">HTTP সংস্করণ</string>
-    <string name="saturn_bootstrap">DoH শুরুর IP (কমা দিয়ে আলাদা)</string>
+    <string name="saturn_bootstrap">Cloudflare টানেল শুরুর IP (কমা দিয়ে আলাদা)</string>
     <string name="saturn_bridges">কাস্টম obfs4 ব্রিজ (প্রতি লাইনে একটি)</string>
     <string name="saturn_scan">ব্রিজ পরীক্ষার ধরন</string>
     <string name="saturn_turbo">দ্রুত স্ক্যান</string>
     <string name="saturn_deep">গভীর স্ক্যান</string>
     <string name="saturn_country">বহির্গমন দেশ (auto বা দুই অক্ষরের কোড)</string>
-    <string name="saturn_hint">DoH শুধু DNS-এর জন্য। তারপর দেওয়া obfs4 ব্রিজ ও Tor দিয়ে সংযোগ হয়। শুধু TCP। সেটিং বদলালে আবার সংযোগ দিন।</string>
+    <string name="saturn_hint">প্রথমে Cloudflare টানেল (ফ্রি) এবং তারপর Tor দিয়ে বহির্গমন দেশে সংযোগ হয়। শুধু TCP। সেটিং বদলালে আবার সংযোগ দিন।</string>
     <string name="saturn_loading">Saturn লোড হচ্ছে…</string>
     <string name="saturn_starting">Saturn চালু হচ্ছে…</string>
-    <string name="saturn_start_error">Saturn সংযোগ হয়নি। DoH, ব্রিজ ও দেশ পরীক্ষা করুন।</string>
-    <string name="saturn_invalid_settings">নাম, HTTPS ঠিকানা, IP, obfs4 ব্রিজ ও দেশের কোড পরীক্ষা করুন।</string>
+    <string name="saturn_start_error">Saturn সংযোগ হয়নি। Cloudflare টানেল, ব্রিজ ও দেশ পরীক্ষা করুন।</string>
+    <string name="saturn_invalid_settings">নাম, Cloudflare টানেল ঠিকানা, IP, obfs4 ব্রিজ ও দেশের কোড পরীক্ষা করুন।</string>
     <string name="saturn_load_error">Saturn প্রোফাইল লোড করা যায়নি।</string>
     <string name="saturn_save_error">Saturn প্রোফাইল সংরক্ষণ করা যায়নি।</string>
     <string name="saturn_unavailable">Saturn-এর জন্য Android 8+ ও ডিভাইসের উপযুক্ত কোর দরকার।</string>

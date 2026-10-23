@@ -147,7 +147,7 @@ class SaturnDohProxyTest {
         } finally { client.dispatcher.executorService.shutdown(); client.connectionPool.evictAll() }
     }
 
-    @Test fun blockedGoogleDefaultFallsBackToCloudflareAndReusesTheWorkingProvider() {
+    @Test fun blockedCloudflareDefaultFallsBackToGoogleAndReusesTheWorkingProvider() {
         val settings = SaturnSettings()
         val defaultHost = settings.dohUrl.toHttpUrl().host
         val requests = Collections.synchronizedList(mutableListOf<Request>())
@@ -166,7 +166,7 @@ class SaturnDohProxyTest {
             requests.clear()
             SaturnDohProxy.lookupWithFallback("other.example", resolvers, preferred, { false }) { _, _ -> }
             assertTrue(requests.isNotEmpty())
-            assertTrue(requests.all { it.url.host == "cloudflare-dns.com" })
+            assertTrue(requests.all { it.url.host == "dns.google" })
         } finally { client.dispatcher.executorService.shutdown(); client.connectionPool.evictAll() }
     }
 

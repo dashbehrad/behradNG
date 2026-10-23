@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string name="saturn_direct">Direct</string>
-    <string name="saturn_direct_hint">Connects directly to Tor via DoH without obfs4 bridges. Reconnect after changing settings.</string>
+    <string name="saturn_direct_hint">Connects first to Cloudflare Tunnel (Free), then directly to Tor without obfs4 bridges to the exit country. Reconnect after changing settings.</string>
 </resources>
 

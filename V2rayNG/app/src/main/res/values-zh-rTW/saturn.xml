@@ -1,19 +1,19 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string name="saturn_title">Saturn</string>
-    <string name="saturn_doh">DNS over HTTPS 位址</string>
+    <string name="saturn_doh">Cloudflare 通道（免費）網址</string>
     <string name="saturn_carrier">HTTP 版本</string>
-    <string name="saturn_bootstrap">DoH 引導 IP（逗號分隔）</string>
+    <string name="saturn_bootstrap">Cloudflare 通道引導 IP（逗號分隔）</string>
     <string name="saturn_bridges">自訂 obfs4 橋接（每行一個）</string>
     <string name="saturn_scan">橋接測試模式</string>
     <string name="saturn_turbo">快速掃描</string>
     <string name="saturn_deep">深度掃描</string>
     <string name="saturn_country">出口國家（auto 或兩字母代碼）</string>
-    <string name="saturn_hint">DoH 僅用於 DNS，然後透過提供的 obfs4 橋接連線 Tor。僅支援 TCP。修改設定後請重新連線。</string>
+    <string name="saturn_hint">先連線至 Cloudflare 通道（免費），然後透過 Tor 連線至出口國家。僅支援 TCP。修改設定後請重新連線。</string>
     <string name="saturn_loading">正在載入 Saturn…</string>
     <string name="saturn_starting">正在啟動 Saturn…</string>
-    <string name="saturn_start_error">Saturn 連線失敗。請檢查 DoH、橋接和出口國家。</string>
-    <string name="saturn_invalid_settings">請檢查名稱、HTTPS 位址、引導 IP、obfs4 橋接和國家代碼。</string>
+    <string name="saturn_start_error">Saturn 連線失敗。請檢查 Cloudflare 通道、橋接和出口國家。</string>
+    <string name="saturn_invalid_settings">請檢查名稱、Cloudflare 通道網址、引導 IP、obfs4 橋接和國家代碼。</string>
     <string name="saturn_load_error">無法載入 Saturn 設定。</string>
     <string name="saturn_save_error">無法儲存 Saturn 設定。</string>
     <string name="saturn_unavailable">Saturn 需要 Android 8+ 及支援此裝置的核心。</string>

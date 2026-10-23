@@ -4,8 +4,8 @@
     <string name="saturn_custom">নিজস্ব ব্রিজ</string>
     <string name="saturn_bridge_source">ব্রিজের উৎস</string>
     <string name="saturn_country_list">প্রস্থান দেশ</string>
-    <string name="saturn_auto_hint">সর্বজনীন obfs4 ব্রিজ স্বয়ংক্রিয়ভাবে হালনাগাদ ও পরীক্ষা করা হয়। সেগুলি অবরুদ্ধ হলে নিজস্ব ব্রিজ ব্যবহার করুন। স্বয়ংক্রিয় দেশ নির্বাচন বেশি Tor প্রস্থান দেয়। DoH শুধু DNS সমাধান করে, ট্রাফিক টানেল করে না। শুধু TCP। পরিবর্তনের পরে আবার সংযোগ করুন।</string>
-    <string name="saturn_dns_error">Saturn DoH সার্ভারে পৌঁছাতে পারেনি। DoH URL এবং প্রারম্ভিক IP পরীক্ষা করুন।</string>
+    <string name="saturn_auto_hint">প্রথমে Cloudflare টানেল (ফ্রি) এবং তারপর স্বয়ংক্রিয় obfs4 ব্রিজ ও দেশ নির্বাচন সহ Tor-এ সংযোগ করে। শুধু TCP। পরিবর্তনের পরে আবার সংযোগ করুন।</string>
+    <string name="saturn_dns_error">Saturn Cloudflare টানেল সার্ভারে পৌঁছাতে পারেনি। টানেল URL এবং প্রারম্ভিক IP পরীক্ষা করুন।</string>
     <string name="saturn_bridges_error">কোনো obfs4 ব্রিজে পৌঁছানো যাচ্ছে না। গভীর স্ক্যান বা নিজস্ব ব্রিজ চেষ্টা করুন।</string>
     <string name="saturn_bootstrap_error">Tor সংযোগ সম্পূর্ণ হয়নি। স্বয়ংক্রিয় দেশ, গভীর স্ক্যান বা নিজস্ব ব্রিজ চেষ্টা করুন।</string>
     <string name="saturn_core_exit">Tor চালুর সময় Saturn কোর থেমেছে (প্রস্থান কোড %1$d)।</string>

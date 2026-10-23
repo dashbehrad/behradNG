@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string name="saturn_direct">直連（不使用通道）</string>
-    <string name="saturn_direct_hint">直接連線至 Tor，不使用 obfs4 橋接或傳輸通道。Android VPN 仍會透過 Tor 路由流量。你的網路可能會封鎖直連 Tor。</string>
+    <string name="saturn_direct_hint">先連線至 Cloudflare 通道（免費），然後不使用 obfs4 橋接直接連線 Tor 至出口國家。變更設定後請重新連線。</string>
 </resources>
 

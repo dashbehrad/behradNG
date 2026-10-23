@@ -1,19 +1,19 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string name="saturn_title">Saturn</string>
-    <string name="saturn_doh">نشانی DNS روی HTTPS</string>
+    <string name="saturn_doh">نشانی تونل کلودفلر (رایگان)</string>
     <string name="saturn_carrier">نسخه HTTP</string>
-    <string name="saturn_bootstrap">آی‌پی‌های راه‌انداز DoH (با ویرگول)</string>
+    <string name="saturn_bootstrap">آی‌پی‌های راه‌انداز تونل کلودفلر (با ویرگول)</string>
     <string name="saturn_bridges">پل‌های سفارشی obfs4 (هر خط یک پل)</string>
     <string name="saturn_scan">روش بررسی پل‌ها</string>
     <string name="saturn_turbo">جست‌وجوی سریع</string>
     <string name="saturn_deep">جست‌وجوی عمیق</string>
     <string name="saturn_country">کشور خروجی (auto یا کد دوحرفی)</string>
-    <string name="saturn_hint">DoH فقط برای DNS است؛ سپس به پل‌های obfs4 واردشده و Tor متصل می‌شود. فقط TCP. پس از تغییر تنظیمات دوباره متصل شوید.</string>
+    <string name="saturn_hint">ابتدا به تونل کلودفلر (رایگان) و سپس از طریق پل‌های obfs4 به Tor و کشور خروجی متصل می‌شود. فقط TCP. پس از تغییر تنظیمات دوباره متصل شوید.</string>
     <string name="saturn_loading">در حال بارگذاری Saturn…</string>
     <string name="saturn_starting">در حال راه‌اندازی Saturn…</string>
-    <string name="saturn_start_error">اتصال Saturn برقرار نشد. DoH، پل‌ها و کشور خروجی را بررسی کنید.</string>
-    <string name="saturn_invalid_settings">نام، نشانی HTTPS، آی‌پی‌ها، پل‌های obfs4 و کد کشور را بررسی کنید.</string>
+    <string name="saturn_start_error">اتصال Saturn برقرار نشد. تونل کلودفلر، پل‌ها و کشور خروجی را بررسی کنید.</string>
+    <string name="saturn_invalid_settings">نام، نشانی تونل کلودفلر، آی‌پی‌ها، پل‌های obfs4 و کد کشور را بررسی کنید.</string>
     <string name="saturn_load_error">بارگذاری نمایه Saturn انجام نشد.</string>
     <string name="saturn_save_error">ذخیره نمایه Saturn انجام نشد.</string>
     <string name="saturn_unavailable">Saturn به اندروید ۸ یا جدیدتر و هسته سازگار با دستگاه نیاز دارد.</string>

@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string name="saturn_direct">مستقیم (بدون تونل)</string>
-    <string name="saturn_direct_hint">مستقیماً و بدون پل obfs4 یا تونل انتقال به تور متصل می‌شود. وی‌پی‌ان اندروید همچنان ترافیک را از تور عبور می‌دهد. ممکن است اتصال مستقیم به تور در شبکه شما مسدود باشد.</string>
+    <string name="saturn_direct_hint">ابتدا به تونل کلودفلر (رایگان) و سپس مستقیماً و بدون پل obfs4 به Tor و کشور خروجی متصل می‌شود. پس از تغییر تنظیمات دوباره متصل شوید.</string>
 </resources>
 

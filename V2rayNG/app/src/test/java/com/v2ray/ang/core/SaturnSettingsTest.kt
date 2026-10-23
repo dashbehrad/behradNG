@@ -7,9 +7,9 @@ import org.junit.jupiter.api.Test
 class SaturnSettingsTest {
     private val bridge = "obfs4 192.0.2.1:443 " + "A".repeat(40) + " cert=" + "B".repeat(70) + " iat-mode=0"
 
-    @Test fun defaultsUseGoogleDoHAndBootstrapAddresses() {
-        assertEquals("https://dns.google/dns-query", SaturnSettings().dohUrl)
-        assertEquals("9.9.9.9", SaturnSettings().bootstrapIps)
+    @Test fun defaultsUseCloudflareTunnelFreeAndBootstrapAddresses() {
+        assertEquals("https://cloudflare-dns.com/dns-query", SaturnSettings().dohUrl)
+        assertEquals("1.1.1.1, 1.0.0.1", SaturnSettings().bootstrapIps)
         assertEquals("h2", SaturnSettings().normalizedCarrier())
     }
 

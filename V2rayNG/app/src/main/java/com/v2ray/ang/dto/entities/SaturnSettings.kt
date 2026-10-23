@@ -2,10 +2,10 @@ package com.v2ray.ang.dto.entities
 
 import java.net.URI
 
-/** Saturn owns only its Tor/DoH settings; native identity and runtime ports are never shared. */
+/** Saturn owns only its Tor/Cloudflare Tunnel settings; native identity and runtime ports are never shared. */
 data class SaturnSettings(
-    val dohUrl: String = "https://dns.google/dns-query",
-    val bootstrapIps: String = "9.9.9.9",
+    val dohUrl: String = "https://cloudflare-dns.com/dns-query",
+    val bootstrapIps: String = "1.1.1.1, 1.0.0.1",
     val bridges: String = "",
     val scanMode: String = "turbo",
     val country: String = "auto",

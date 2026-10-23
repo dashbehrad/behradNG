@@ -4,8 +4,8 @@
     <string name="saturn_custom">Свои мосты</string>
     <string name="saturn_bridge_source">Источник мостов</string>
     <string name="saturn_country_list">Страна выхода</string>
-    <string name="saturn_auto_hint">Автоматическое обновление и проверка публичных мостов obfs4. Если они заблокированы, используйте свои мосты. Автовыбор страны расширяет выбор выходов Tor. DoH разрешает DNS, но не передаёт трафик туннелем. Только TCP. После изменений переподключитесь.</string>
-    <string name="saturn_dns_error">Не удалось подключиться к DoH. Проверьте URL и начальные IP-адреса.</string>
+    <string name="saturn_auto_hint">Сначала подключается к туннелю Cloudflare (бесплатно), затем к Tor с автоматическими мостами obfs4 и выбором страны выхода. Только TCP. После изменений переподключитесь.</string>
+    <string name="saturn_dns_error">Не удалось подключиться к туннелю Cloudflare. Проверьте URL и начальные IP-адреса.</string>
     <string name="saturn_bridges_error">Нет доступных мостов obfs4. Попробуйте глубокую проверку или свои мосты.</string>
     <string name="saturn_bootstrap_error">Не удалось завершить подключение Tor. Попробуйте автовыбор страны, глубокую проверку или свои мосты.</string>
     <string name="saturn_core_exit">Ядро Saturn остановилось при запуске Tor (код %1$d).</string>

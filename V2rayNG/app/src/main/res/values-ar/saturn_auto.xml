@@ -4,8 +4,8 @@
     <string name="saturn_custom">جسور مخصصة</string>
     <string name="saturn_bridge_source">مصدر الجسور</string>
     <string name="saturn_country_list">بلد الخروج</string>
-    <string name="saturn_auto_hint">يحدّث جسور obfs4 العامة ويرتبها تلقائيًا. استخدم جسورًا مخصصة إذا كانت محجوبة. اختر البلد التلقائي لتوسيع خيارات خروج Tor. يحل DoH أسماء DNS فقط ولا ينقل البيانات كنفق. TCP فقط. أعد الاتصال بعد التغيير.</string>
-    <string name="saturn_dns_error">تعذر الوصول إلى محلل DoH. تحقق من عنوان DoH وعناوين IP للتهيئة.</string>
+    <string name="saturn_auto_hint">يتصل أولاً بنفق Cloudflare (المجاني) ثم بـ Tor مع جسور obfs4 التلقائية واختيار بلد الخروج. TCP فقط. أعد الاتصال بعد التغيير.</string>
+    <string name="saturn_dns_error">تعذر الوصول إلى نفق Cloudflare. تحقق من عنوان النفق وعناوين IP للتهيئة.</string>
     <string name="saturn_bridges_error">لا يمكن الوصول إلى أي جسر obfs4. جرّب الفحص العميق أو جسورًا مخصصة.</string>
     <string name="saturn_bootstrap_error">تعذر إكمال اتصال Tor. جرّب البلد التلقائي أو الفحص العميق أو جسورًا مخصصة.</string>
     <string name="saturn_core_exit">توقفت نواة Saturn أثناء بدء Tor (رمز الخروج %1$d).</string>

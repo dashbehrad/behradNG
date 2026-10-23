@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string name="saturn_direct">সরাসরি (টানেল ছাড়া)</string>
-    <string name="saturn_direct_hint">obfs4 ব্রিজ বা পরিবহন টানেল ছাড়াই সরাসরি Tor-এ সংযোগ করে। Android VPN এখনও Tor-এর মাধ্যমে ট্রাফিক পাঠায়। আপনার নেটওয়ার্ক সরাসরি Tor সংযোগ বন্ধ করতে পারে।</string>
+    <string name="saturn_direct_hint">প্রথমে Cloudflare টানেল (ফ্রি) এবং তারপর obfs4 ব্রিজ ছাড়া সরাসরি Tor ও বহির্গমন দেশে সংযোগ করে। পরিবর্তনের পরে আবার সংযোগ করুন।</string>
 </resources>
 

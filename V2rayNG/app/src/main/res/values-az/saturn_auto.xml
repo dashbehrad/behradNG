@@ -4,8 +4,8 @@
     <string name="saturn_custom">Fərdi körpülər</string>
     <string name="saturn_bridge_source">Körpü mənbəyi</string>
     <string name="saturn_country_list">Çıxış ölkəsi</string>
-    <string name="saturn_auto_hint">İctimai obfs4 körpüləri avtomatik yenilənir və yoxlanılır. Bloklanarsa fərdi körpülərdən istifadə edin. Avtomatik ölkə daha çox Tor çıxışı seçir. DoH yalnız DNS həll edir, trafiki tunelləmir. Yalnız TCP. Dəyişiklikdən sonra yenidən qoşulun.</string>
-    <string name="saturn_dns_error">Saturn DoH xidmətinə qoşula bilmədi. DoH URL və başlanğıc IP ünvanlarını yoxlayın.</string>
+    <string name="saturn_auto_hint">Əvvəlcə Cloudflare Tunelinə (Pulsuz), sonra avtomatik obfs4 körpüləri və çıxış ölkəsi seçimi ilə Tor-a qoşulur. Yalnız TCP. Dəyişiklikdən sonra yenidən qoşulun.</string>
+    <string name="saturn_dns_error">Saturn Cloudflare Tunelinə qoşula bilmədi. Tunel URL və başlanğıc IP ünvanlarını yoxlayın.</string>
     <string name="saturn_bridges_error">Əlçatan obfs4 körpüsü yoxdur. Dərin skan və ya fərdi körpüləri sınayın.</string>
     <string name="saturn_bootstrap_error">Tor bağlantısı tamamlanmadı. Avtomatik ölkə, dərin skan və ya fərdi körpüləri sınayın.</string>
     <string name="saturn_core_exit">Saturn nüvəsi Tor başlayarkən dayandı (çıxış kodu %1$d).</string>

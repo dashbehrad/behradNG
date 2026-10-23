@@ -4,8 +4,8 @@
     <string name="saturn_custom">自定义网桥</string>
     <string name="saturn_bridge_source">网桥来源</string>
     <string name="saturn_country_list">出口国家或地区</string>
-    <string name="saturn_auto_hint">自动更新并测试公共 obfs4 网桥。如果公共网桥被封锁，可使用自定义网桥。自动选择出口可增加 Tor 出口选择。DoH 仅解析 DNS，不传输隧道流量。仅支持 TCP。更改设置后请重新连接。</string>
-    <string name="saturn_dns_error">Saturn 无法连接 DoH 解析器。请检查 DoH 地址和引导 IP。</string>
+    <string name="saturn_auto_hint">先连接到 Cloudflare 隧道（免费），然后通过自动 obfs4 网桥与所选出口国家连接 Tor。仅支持 TCP。更改设置后请重新连接。</string>
+    <string name="saturn_dns_error">Saturn 无法连接 Cloudflare 隧道。请检查隧道地址和引导 IP。</string>
     <string name="saturn_bridges_error">没有可用的 obfs4 网桥。请尝试深度扫描或自定义网桥。</string>
     <string name="saturn_bootstrap_error">无法完成 Tor 连接。请尝试自动选择出口、深度扫描或自定义网桥。</string>
     <string name="saturn_core_exit">Saturn 核心在 Tor 启动时停止（退出码 %1$d）。</string>

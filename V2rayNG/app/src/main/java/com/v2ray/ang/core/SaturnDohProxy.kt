@@ -318,7 +318,7 @@ internal class SaturnDohProxy(private val settings: SaturnSettings, private val 
             val endpoints = mutableListOf(settings.dohUrl to primaryCandidates)
             val defaults = SaturnSettings()
             if (settings.dohUrl == defaults.dohUrl && (settings.bootstrapIps == defaults.bootstrapIps || settings.bootstrapIps.isBlank())) {
-                endpoints += "https://cloudflare-dns.com/dns-query" to (KNOWN_DOH_POOLS["cloudflare-dns.com"] ?: listOf("162.159.36.1", "1.1.1.1"))
+                endpoints += "https://dns.google/dns-query" to (KNOWN_DOH_POOLS["dns.google"] ?: listOf("8.8.8.8", "8.8.4.4"))
                 endpoints += "https://dns.alidns.com/dns-query" to (KNOWN_DOH_POOLS["dns.alidns.com"] ?: listOf("223.5.5.5", "223.6.6.6"))
                 endpoints += "https://dns.quad9.net/dns-query" to (if (userIps.isNotEmpty()) userIps else (KNOWN_DOH_POOLS["dns.quad9.net"] ?: listOf("9.9.9.9", "149.112.112.112")))
             }

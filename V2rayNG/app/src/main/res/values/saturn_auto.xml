@@ -4,8 +4,8 @@
     <string name="saturn_custom">Custom bridges</string>
     <string name="saturn_bridge_source">Bridge source</string>
     <string name="saturn_country_list">Exit country</string>
-    <string name="saturn_auto_hint">Automatically refreshes and ranks public obfs4 bridges. Custom bridges remain available if public bridges are blocked. Use Automatic country for the widest choice of Tor exits. DoH resolves DNS; it does not tunnel traffic. TCP only. Reconnect after changing settings.</string>
-    <string name="saturn_dns_error">Saturn could not reach the DoH resolver. Check the DoH URL and bootstrap IPs.</string>
+    <string name="saturn_auto_hint">Connects first to Cloudflare Tunnel (Free), then Tor with automatic obfs4 bridges and exit country selection. TCP only. Reconnect after changing settings.</string>
+    <string name="saturn_dns_error">Saturn could not reach Cloudflare Tunnel. Check the Tunnel URL and bootstrap IPs.</string>
     <string name="saturn_bridges_error">No obfs4 bridge is reachable. Try Deep scan or custom bridges.</string>
     <string name="saturn_bootstrap_error">Saturn could not finish the Tor connection. Try Automatic country, Deep scan or custom bridges.</string>
     <string name="saturn_core_exit">Saturn core stopped during Tor startup (exit code %1$d).</string>

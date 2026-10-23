@@ -56,7 +56,7 @@ Saturn supports **Automatic obfs4**, **Custom obfs4**, and **Direct Tor** connec
 
 **How to enable DIRECT mode:** In the Saturn editor, select **Direct** from the **Bridge source** dropdown (or enter `DIRECT` in custom bridges), then save.
 
-New bridge profiles use **Google DoH** (`https://dns.google/dns-query`) with Cloudflare as an encrypted fallback. Saved profiles retain their DNS settings. A working connection requires successful Tor bootstrap and an exit connection.
+New bridge profiles connect through **Cloudflare Tunnel (Free)** (`https://cloudflare-dns.com/dns-query`) before Tor, with Google as an encrypted fallback. Saved profiles retain their DNS settings. A working connection requires successful Tor bootstrap and an exit connection.
 
 [Automatic bridges →](SATURN-AUTOMATIC-BRIDGES.md) · [Release notes →](RELEASE-3.0.0.md)
 

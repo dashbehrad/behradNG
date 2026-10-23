@@ -4,8 +4,8 @@
     <string name="saturn_custom">پل‌های سفارشی</string>
     <string name="saturn_bridge_source">منبع پل</string>
     <string name="saturn_country_list">کشور خروجی</string>
-    <string name="saturn_auto_hint">پل‌های عمومی obfs4 به‌صورت خودکار به‌روز و رتبه‌بندی می‌شوند. اگر مسدود بودند از پل سفارشی استفاده کنید. کشور خودکار خروجی‌های بیشتری دارد. DoH فقط DNS را حل می‌کند و تونل ترافیک نیست. فقط TCP. پس از تغییر دوباره وصل شوید.</string>
-    <string name="saturn_dns_error">اتصال Saturn به DoH ممکن نشد. نشانی DoH و IPهای راه‌اندازی را بررسی کنید.</string>
+    <string name="saturn_auto_hint">اول وە تونل کلودفلر (رایگان) و بعد وە Tor با پل‌های obfs4 خودکار و انتخاب کشور خروج وصل ابوه. فقط TCP. بعد تغییر دوبارە وصل بوین.</string>
+    <string name="saturn_dns_error">اتصال Saturn وە تونل کلودفلر ممکن نەبو. نشونی تونل و IPهای شروع ن بررسی کنین.</string>
     <string name="saturn_bridges_error">هیچ پل obfs4 در دسترس نیست. اسکن عمیق یا پل سفارشی را امتحان کنید.</string>
     <string name="saturn_bootstrap_error">اتصال Tor کامل نشد. کشور خودکار، اسکن عمیق یا پل سفارشی را امتحان کنید.</string>
     <string name="saturn_core_exit">هسته Saturn هنگام راه‌اندازی Tor متوقف شد (کد خروج %1$d).</string>
