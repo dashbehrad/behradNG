@@ -22,11 +22,13 @@ function Checkout-Source([string]$Url, [string]$Revision, [string]$Destination) 
 }
 $torSource = Join-Path $workPath 'tor-android'
 $obfsSource = Join-Path $workPath 'lyrebird'
+$cfSource = Join-Path $workPath 'cloudflared'
 Checkout-Source 'https://github.com/guardianproject/tor-android.git' $lock.tor.sourceRevision $torSource
 Invoke-Native 'git.exe' @('-C', $torSource, 'submodule', 'update', '--init', '--recursive')
 $actualTor = (& git.exe -C (Join-Path $torSource 'external/tor') rev-parse HEAD).Trim()
 if ($LASTEXITCODE -ne 0 -or $actualTor -ne $lock.tor.torRevision) { throw 'Embedded Tor source revision mismatch.' }
 Checkout-Source $lock.obfs4.repository $lock.obfs4.sourceRevision $obfsSource
+Checkout-Source $lock.cloudflared.repository $lock.cloudflared.sourceRevision $cfSource
 foreach ($moduleFile in @('go.mod', 'go.sum')) {
     Copy-Item -LiteralPath (Join-Path $obfsSource $moduleFile) -Destination $noticePath -Force
 }
@@ -49,6 +51,7 @@ function Copy-Notices([string]$Source, [string]$Destination) {
 }
 Copy-Notices $torSource (Join-Path $noticePath 'tor-android')
 Copy-Notices $obfsSource (Join-Path $noticePath 'lyrebird')
+Copy-Notices $cfSource (Join-Path $noticePath 'cloudflared')
 Get-ChildItem -LiteralPath (Join-Path $torSource 'external') -Directory | ForEach-Object {
     Copy-Notices $_.FullName (Join-Path $noticePath $_.Name)
 }
@@ -83,6 +86,11 @@ try {
             foreach ($module in $moduleDirs) {
                 if ($module) { Copy-Notices $module (Join-Path $noticePath "go/$index"); $index++ }
             }
+        } finally { Pop-Location }
+        Push-Location $cfSource
+        try {
+            Invoke-Native 'go.exe' @('mod', 'download')
+            Invoke-Native 'go.exe' @('build', '-trimpath', '-buildmode=pie', '-ldflags=-s -w -buildid= -extldflags=-Wl,-z,max-page-size=16384', '-o', (Join-Path $destination 'libsaturn-cloudflared.so'), './cmd/cloudflared')
         } finally { Pop-Location }
         Invoke-Native $clang @("--target=$($abi.target)26", '-O2', '-fPIE', '-pie', '-Wl,-z,max-page-size=16384', (Join-Path $PSScriptRoot 'native/saturn-launcher.c'), '-o', (Join-Path $destination 'libsaturn-core.so'))
     }

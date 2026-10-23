@@ -2,16 +2,16 @@ package com.v2ray.ang.dto.entities
 
 import java.net.URI
 
-/** Saturn owns only its Tor/Cloudflare Tunnel settings; native identity and runtime ports are never shared. */
+/** Saturn owns only its Tor/cloudflared tunnel settings; native identity and runtime ports are never shared. */
 data class SaturnSettings(
-    val dohUrl: String = "https://cloudflare-dns.com/dns-query",
-    val bootstrapIps: String = "1.1.1.1, 1.0.0.1",
+    val dohUrl: String = "",
+    val bootstrapIps: String = "",
     val bridges: String = "",
     val scanMode: String = "turbo",
     val country: String = "auto",
     // Missing in 3.0.0 links: retain custom bridges; empty profiles use automatic discovery.
     val bridgeSource: String? = null,
-    val carrier: String? = null,
+    val carrier: String? = "h2",
 ) {
     fun usesAutomaticBridges(): Boolean = bridgeSource == "auto" || (bridgeSource == null && bridges.isBlank())
 
@@ -26,16 +26,20 @@ data class SaturnSettings(
         .filter { it.isNotEmpty() }.distinct().toList()
 
     fun isValid(): Boolean = runCatching {
-        val uri = URI(dohUrl)
-        require(dohUrl.length <= 2048 && uri.scheme == "https" && !uri.host.isNullOrEmpty())
-        require(uri.userInfo == null && uri.fragment == null && uri.port in listOf(-1, 443))
-        val ips = bootstrapIps.split(',').map { it.trim() }.filter { it.isNotEmpty() }
-        require(ips.size <= 8 && ips.all(::isIpLiteral))
+        if (dohUrl.isNotBlank()) {
+            val uri = URI(dohUrl)
+            require(dohUrl.length <= 2048 && uri.scheme == "https" && !uri.host.isNullOrEmpty())
+            require(uri.userInfo == null && uri.fragment == null && uri.port in listOf(-1, 443))
+        }
+        if (bootstrapIps.isNotBlank()) {
+            val ips = bootstrapIps.split(',').map { it.trim() }.filter { it.isNotEmpty() }
+            require(ips.size <= 8 && ips.all(::isIpLiteral))
+        }
         require(scanMode in setOf("turbo", "deep"))
         require(country == "auto" || country.matches(Regex("[a-z]{2}")))
         require(bridges.length <= 32768)
         require(bridgeSource == null || bridgeSource in setOf("auto", "custom", "direct"))
-        require(carrier == null || carrier.lowercase().trim() in setOf("h2", "h3", "http2", "http3"))
+        require(carrier == null || carrier.lowercase().trim() in setOf("h2", "h3", "http2", "http3", "http/3"))
         val lines = bridgeLines()
         if (!usesAutomaticBridges() && !usesDirectConnection()) require(lines.size in 1..64 && lines.all(::validBridge))
         true

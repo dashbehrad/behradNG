@@ -13,6 +13,11 @@
     "repository": "https://gitlab.torproject.org/tpo/anti-censorship/pluggable-transports/lyrebird.git",
     "sourceRevision": "0b10edbb61e0ca6fb70c7d57aeaabf315f1fade1"
   },
+  "cloudflared": {
+    "repository": "https://github.com/cloudflare/cloudflared.git",
+    "version": "2024.12.2",
+    "sourceRevision": "ac57ed97092671e584c857a0f5064422fb5db838"
+  },
   "abis": [
     {
       "abi": "arm64-v8a",

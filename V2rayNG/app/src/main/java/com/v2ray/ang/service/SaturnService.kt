@@ -111,7 +111,8 @@ class SaturnService : VpnService(), ServiceControl {
                 }
                 if (!File(applicationInfo.nativeLibraryDir, "libsaturn-core.so").isFile ||
                     !File(applicationInfo.nativeLibraryDir, "libsaturn-tor.so").isFile ||
-                    !File(applicationInfo.nativeLibraryDir, "libsaturn-obfs4.so").isFile) {
+                    !File(applicationInfo.nativeLibraryDir, "libsaturn-obfs4.so").isFile ||
+                    !File(applicationInfo.nativeLibraryDir, "libsaturn-cloudflared.so").isFile) {
                     failure = R.string.saturn_unavailable
                     error("Saturn core is not packaged for this ABI")
                 }
@@ -166,7 +167,7 @@ class SaturnService : VpnService(), ServiceControl {
                     e)
                 val message = if (failure != R.string.saturn_start_error) getString(failure) else when (stage) {
                     SaturnSession.Stage.NATIVE -> getString(R.string.saturn_native_error)
-                    SaturnSession.Stage.DNS -> getString(R.string.saturn_dns_error)
+                    SaturnSession.Stage.CLOUDFLARED -> getString(R.string.saturn_dns_error)
                     SaturnSession.Stage.BRIDGES -> getString(R.string.saturn_bridges_error)
                     SaturnSession.Stage.BOOTSTRAP -> if (exitCode != null) getString(R.string.saturn_core_exit, exitCode)
                         else getString(R.string.saturn_bootstrap_error)

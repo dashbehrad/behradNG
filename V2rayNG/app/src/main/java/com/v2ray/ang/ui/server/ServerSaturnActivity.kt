@@ -57,10 +57,6 @@ class ServerSaturnActivity : BaseComponentActivity() {
                 Text(stringResource(if (settings.usesDirectConnection()) R.string.saturn_direct_hint else R.string.saturn_auto_hint), Modifier.padding(horizontal = 16.dp))
                 if (state.loading) Text(stringResource(R.string.saturn_loading), Modifier.padding(16.dp))
                 FormTextField(stringResource(R.string.server_lab_remarks), state.remarks, viewModel::changeRemarks, enabled = state.editable)
-                FormTextField(stringResource(R.string.saturn_doh), settings.dohUrl,
-                    { value -> viewModel.changeSettings { it.copy(dohUrl = value) } }, enabled = state.editable)
-                FormTextField(stringResource(R.string.saturn_bootstrap), settings.bootstrapIps,
-                    { value -> viewModel.changeSettings { it.copy(bootstrapIps = value) } }, enabled = state.editable)
                 FormDropdownField(stringResource(R.string.saturn_carrier), settings.normalizedCarrier(),
                     listOf("h2", "h3"),
                     { value -> viewModel.changeSettings { it.copy(carrier = value) } }, enabled = state.editable,

@@ -33,10 +33,10 @@ import java.net.ServerSocket
 import java.net.Socket
 import java.util.concurrent.TimeUnit
 
-/** saturn-core: one daemon-owned DoH proxy and Tor process, with optional managed obfs4 transport. */
+/** saturn-core: one daemon-owned Cloudflare Tunnel and Tor process, with optional managed obfs4 transport. */
 @RequiresApi(26)
 class SaturnSession {
-    enum class Stage { NATIVE, DNS, BRIDGES, BOOTSTRAP, EXIT, READY }
+    enum class Stage { NATIVE, CLOUDFLARED, BRIDGES, BOOTSTRAP, EXIT, READY }
     @Volatile var stage: Stage = Stage.NATIVE
         private set
     @Volatile var nativeExitCode: Int? = null
@@ -44,8 +44,10 @@ class SaturnSession {
     private var child: java.lang.Process? = null
     private var obfs4Process: java.lang.Process? = null
     private var obfs4OutputJob: Job? = null
+    private var cloudflaredProcess: java.lang.Process? = null
+    private var cloudflaredOutputJob: Job? = null
+    private var cloudflaredPort: Int = 0
     private var outputJob: Job? = null
-    private var doh: SaturnDohProxy? = null
     @Volatile private var bootstrapped = false
     @Volatile private var exitReady = false
     @Volatile private var bootstrapProgress = -1
@@ -55,7 +57,7 @@ class SaturnSession {
 
     suspend fun start(context: Context, guid: String, settings: SaturnSettings, reservedPorts: Set<Int>,
         owner: CoroutineScope, onProgress: ((Int) -> Unit)? = null): Int = withContext(Dispatchers.IO) {
-        check(child == null && doh == null)
+        check(child == null && cloudflaredProcess == null)
         stage = Stage.NATIVE
         exitReady = false
         nativeExitCode = null
@@ -65,7 +67,8 @@ class SaturnSession {
         val launcher = File(nativeDir, "libsaturn-core.so")
         val tor = File(nativeDir, "libsaturn-tor.so")
         val obfs4 = File(nativeDir, "libsaturn-obfs4.so")
-        check((if (directConnection) listOf(launcher, tor) else listOf(launcher, tor, obfs4)).all { it.isFile }) { "Saturn native inputs unavailable" }
+        val cloudflared = File(nativeDir, "libsaturn-cloudflared.so")
+        check((if (directConnection) listOf(launcher, tor, cloudflared) else listOf(launcher, tor, obfs4, cloudflared)).all { it.isFile }) { "Saturn native inputs unavailable" }
         val directory = File(context.noBackupFilesDir, "saturn/$guid")
         check(directory.isDirectory || directory.mkdirs())
         val geoip = File(directory, "geoip")
@@ -79,20 +82,21 @@ class SaturnSession {
                 } finally { pending.delete() }
             }
         }
-        var obfs4Proxy = ""
-        val proxy = SaturnDohProxy(settings, owner, reservedPorts, guid)
-        doh = proxy
-        stage = Stage.DNS
-        LogUtil.i(AppConfig.TAG, "Saturn: mode=transport guid=$guid startup stage=DNS operation=initialize DoH resolver")
+
+        stage = Stage.CLOUDFLARED
+        LogUtil.i(AppConfig.TAG, "Saturn: mode=transport guid=$guid startup stage=CLOUDFLARED operation=initialize Cloudflare Tunnel")
         onProgress?.invoke(5)
         currentCoroutineContext().ensureActive()
-        if (directConnection) {
-            // Like SlipNet, initialize the DoH-backed proxy before Tor without probing an
-            // unrelated hostname. IP-literal Tor relays do not require a DNS lookup.
-            proxy.start(emptyList())
-        }
+
+        val cfPort = (1..16).asSequence().map {
+            ServerSocket(0, 1, InetAddress.getByName("127.0.0.1")).use { it.localPort }
+        }.first { it in 1024..65535 && it !in reservedPorts }
+        cloudflaredPort = cfPort
+
+        startCloudflaredTransport(cloudflared, launcher, directory, settings.normalizedCarrier(), cfPort, guid, owner)
+
+        var obfs4Proxy = ""
         val bridges = if (directConnection) emptyList() else {
-            // Do not gate IP-literal bridges on an unrelated DoH lookup; DoH is used only for hostnames.
             stage = Stage.BRIDGES
             LogUtil.i(AppConfig.TAG, "Saturn: mode=transport guid=$guid startup stage=BRIDGES operation=discover bridge candidates")
             onProgress?.invoke(10)
@@ -101,41 +105,24 @@ class SaturnSession {
                     .bufferedReader().use { SaturnBridgeSelector.parseBuiltins(it.readText()) }
                     .also { cachedBundledBridges = it }
             } else emptyList()
-            val refreshed = if (settings.usesAutomaticBridges()) {
-                val now = System.currentTimeMillis()
-                val cached = cachedRefreshedBridges
-                if (cached != null && now < cached.first && cached.second.isNotEmpty()) {
-                    cached.second
-                } else {
-                    try {
-                        discoverBridgesWithTimeout { proxy.discoverBridges() }
-                            .also { if (it.isNotEmpty()) cachedRefreshedBridges = (now + 3_600_000L) to it }
-                    } catch (e: CancellationException) {
-                        throw e
-                    } catch (e: Exception) {
-                        LogUtil.w(AppConfig.TAG, "Saturn: mode=transport guid=$guid bridge refresh failed; using bundled pool",
-                            e)
-                        emptyList()
-                    }
-                }
-            } else emptyList()
             currentCoroutineContext().ensureActive()
-            val bridges = SaturnBridgeSelector.resolveCandidates(SaturnBridgeSelector.candidates(settings, bundled, refreshed), proxy::resolve)
-            // Let Tor authenticate every candidate. TCP probe latency cannot establish obfs4
-            // usability or bandwidth, and pre-filtering can discard the only working bridge.
+            val bridges = SaturnBridgeSelector.resolveCandidates(
+                SaturnBridgeSelector.candidates(settings, bundled, emptyList()),
+                { host -> withContext(Dispatchers.IO) { runCatching { InetAddress.getAllByName(host).toList() }.getOrDefault(emptyList()) } }
+            )
             check(bridges.isNotEmpty()) { "No Saturn bridge could be resolved" }
-            proxy.start(bridges)
             LogUtil.i(AppConfig.TAG, "Saturn: mode=transport guid=$guid startup stage=BRIDGES operation=bridge pool ready candidates=${bridges.size}")
             stage = Stage.NATIVE
-            obfs4Proxy = startObfs4Transport(obfs4, directory, proxy.port, guid, owner)
+            obfs4Proxy = startObfs4Transport(obfs4, directory, cfPort, guid, owner)
             bridges
         }
+
         val port = (1..16).asSequence().map {
             ServerSocket(0, 1, InetAddress.getByName("127.0.0.1")).use { it.localPort }
-        }.first { it in 1024..65535 && it !in reservedPorts && it != doh?.port }
+        }.first { it in 1024..65535 && it !in reservedPorts && it != cloudflaredPort }
         val torrc = File(directory, "torrc")
         stage = Stage.NATIVE
-        torrc.writeText(configuration(settings, directory, geoip, obfs4Proxy, port, bridges, Process.myPid(), proxy.port))
+        torrc.writeText(configuration(settings, directory, geoip, obfs4Proxy, port, bridges, Process.myPid(), cloudflaredPort))
         currentCoroutineContext().ensureActive()
         val command = listOf(launcher.absolutePath, tor.absolutePath, "-f", torrc.absolutePath)
         val builder = ProcessBuilder(command).directory(directory).redirectErrorStream(true)
@@ -146,7 +133,6 @@ class SaturnSession {
         stage = Stage.BOOTSTRAP
         process.outputStream.close()
         outputJob = owner.launch(Dispatchers.IO) {
-            // Native output can contain bridge addresses. Retain and log only numeric progress.
             try { process.inputStream.bufferedReader().use { reader ->
                 val buffer = CharArray(512)
                 val line = StringBuilder()
@@ -169,7 +155,6 @@ class SaturnSession {
                     }
                 }
             } } catch (_: java.io.IOException) {
-                // Teardown closes the process pipe; native contents are never persisted.
             }
         }
         try {
@@ -183,20 +168,17 @@ class SaturnSession {
         } finally {
             if (!process.isAlive) nativeExitCode = process.exitValue()
         }
-        // A bridge and a directory circuit can bootstrap while ExitNodes has no usable exit.
-        // Require a real SOCKS CONNECT through Tor before the service reports a working tunnel.
         stage = Stage.EXIT
         LogUtil.i(AppConfig.TAG, "Saturn: mode=transport guid=$guid startup stage=EXIT operation=verify exit stream country=${settings.country}")
         onProgress?.invoke(95)
         check(awaitExit(60_000) {
-            check(transportProcessesAlive(directConnection, process.isAlive, obfs4Process?.isAlive == true)) { "Saturn process exited during exit check" }
+            check(transportProcessesAlive(directConnection, process.isAlive, obfs4Process?.isAlive == true, cloudflaredProcess?.isAlive == true)) { "Saturn process exited during exit check" }
             try {
                 probeExit(port)
             } catch (e: IOException) {
                 try {
                     probeExit(port, "www.google.com")
                 } catch (_: IOException) {
-                    // SOCKS exceptions can include destination details; retain only the failure type.
                     LogUtil.w(AppConfig.TAG, "Saturn: mode=transport guid=$guid startup stage=EXIT operation=exit stream failed country=${settings.country}",
                         IOException(e.javaClass.simpleName))
                     throw e
@@ -208,6 +190,46 @@ class SaturnSession {
         stage = Stage.READY
         onProgress?.invoke(100)
         port
+    }
+
+    private suspend fun startCloudflaredTransport(binary: File, launcher: File, directory: File, carrier: String,
+        port: Int, guid: String, owner: CoroutineScope) {
+        val protocol = if (carrier == "h3") "quic" else "http2"
+        val command = listOf(launcher.absolutePath, binary.absolutePath, "tunnel", "--protocol", protocol, "--socks5", "--url", "127.0.0.1:$port")
+        val process = ProcessBuilder(command).directory(directory).redirectErrorStream(true).apply {
+            environment()["TUNNEL_TRANSPORT_PROTOCOL"] = protocol
+            environment()["TUNNEL_SOCKS"] = "true"
+        }.start()
+        cloudflaredProcess = process
+        cloudflaredOutputJob = owner.launch(Dispatchers.IO) {
+            try {
+                process.inputStream.bufferedReader().useLines { lines ->
+                    for (line in lines) {
+                        LogUtil.d(AppConfig.TAG, "Saturn: cloudflared: $line")
+                    }
+                }
+            } catch (_: IOException) {
+            }
+        }
+        delay(500)
+        check(process.isAlive) { "Cloudflare Tunnel process failed to start" }
+        LogUtil.i(AppConfig.TAG, "Saturn: mode=transport guid=$guid startup stage=CLOUDFLARED operation=Cloudflare Tunnel ready protocol=$protocol port=$port")
+    }
+
+    private suspend fun stopCloudflaredTransport() = withContext(Dispatchers.IO) {
+        val process = cloudflaredProcess
+        try {
+            if (process != null) {
+                runCatching { process.outputStream.close() }
+                if (!process.waitFor(2, TimeUnit.SECONDS)) process.destroy()
+                if (!process.waitFor(1, TimeUnit.SECONDS)) process.destroyForcibly()
+                check(process.waitFor(1, TimeUnit.SECONDS)) { "Cloudflare Tunnel process did not exit" }
+            }
+        } finally {
+            cloudflaredProcess = null
+            cloudflaredOutputJob?.cancelAndJoin()
+            cloudflaredOutputJob = null
+        }
     }
 
     private suspend fun startObfs4Transport(binary: File, directory: File, proxyPort: Int, guid: String,
@@ -274,7 +296,7 @@ class SaturnSession {
     }
 
     fun isAlive(): Boolean = bootstrapped && exitReady &&
-        transportProcessesAlive(directConnection, child?.isAlive == true, obfs4Process?.isAlive == true)
+        transportProcessesAlive(directConnection, child?.isAlive == true, obfs4Process?.isAlive == true, cloudflaredProcess?.isAlive == true)
 
     suspend fun stop() = withContext(Dispatchers.IO) {
         bootstrapped = false
@@ -291,9 +313,8 @@ class SaturnSession {
                 stopObfs4Transport()
             } finally {
                 try {
-                    doh?.stop()
+                    stopCloudflaredTransport()
                 } finally {
-                    doh = null
                     outputJob?.cancelAndJoin()
                     outputJob = null
                 }
@@ -302,8 +323,8 @@ class SaturnSession {
     }
 
     companion object {
-        internal fun transportProcessesAlive(direct: Boolean, torAlive: Boolean, obfs4Alive: Boolean): Boolean =
-            torAlive && (direct || obfs4Alive)
+        internal fun transportProcessesAlive(direct: Boolean, torAlive: Boolean, obfs4Alive: Boolean, cloudflaredAlive: Boolean = true): Boolean =
+            torAlive && cloudflaredAlive && (direct || obfs4Alive)
 
         internal const val BRIDGE_REFRESH_TIMEOUT_MILLIS = 1_000L
 
@@ -376,10 +397,10 @@ class SaturnSession {
             } == true
 
         internal fun configuration(settings: SaturnSettings, directory: File, geoip: File, obfs4Proxy: String,
-            port: Int, bridges: List<String>, ownerPid: Int, dohProxyPort: Int? = null): String {
+            port: Int, bridges: List<String>, ownerPid: Int, cloudflaredPort: Int? = null): String {
             require(settings.isValid() && port in 1024..65535)
             if (settings.usesDirectConnection()) {
-                require(bridges.isEmpty() && dohProxyPort != null && dohProxyPort in 1024..65535 && dohProxyPort != port)
+                require(bridges.isEmpty() && cloudflaredPort != null && cloudflaredPort in 1024..65535 && cloudflaredPort != port)
             }
             else require(parseObfs4Cmethod("CMETHOD obfs4 socks5 $obfs4Proxy") != null && bridges.isNotEmpty())
             require(bridges.all(SaturnSettings::validBridge))
@@ -407,13 +428,10 @@ class SaturnSession {
                 appendLine("ClientPreferIPv6ORPort 0")
                 appendLine("ClientPreferIPv6DirPort 0")
                 appendLine("UseBridges ${if (settings.usesDirectConnection()) 0 else 1}")
-                if (settings.usesDirectConnection()) appendLine("Socks5Proxy 127.0.0.1:$dohProxyPort")
-                // Tor rejects Socks5Proxy alongside ClientTransportPlugin. Lyrebird owns the upstream
-                // SOCKS proxy via TOR_PT_PROXY; Tor connects to Lyrebird's managed local SOCKS endpoint.
+                if (settings.usesDirectConnection()) appendLine("Socks5Proxy 127.0.0.1:$cloudflaredPort")
                 if (!settings.usesDirectConnection()) appendLine("ClientTransportPlugin obfs4 socks5 $obfs4Proxy")
                 appendLine("RunAsDaemon 0")
                 appendLine("SafeLogging 0")
-                // Start Tor's consensus fetch immediately; Tor otherwise waits before contacting authorities.
                 appendLine("ClientBootstrapConsensusAuthorityDownloadInitialDelay 0")
                 appendLine("ClientBootstrapConsensusFallbackDownloadSchedule 0, 1, 2, 4, 8")
                 appendLine("ClientBootstrapConsensusAuthorityDownloadSchedule 0, 2, 4, 8, 16")

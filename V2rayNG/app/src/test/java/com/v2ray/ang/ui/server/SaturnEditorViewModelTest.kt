@@ -25,8 +25,7 @@ class SaturnEditorViewModelTest {
             { _, profile -> saved = profile; "new-guid" })
         viewModel.initialize("", "group-guid")
         withTimeout(3_000) { viewModel.state.first { !it.loading } }
-        assertEquals("https://cloudflare-dns.com/dns-query", viewModel.state.value.settings.dohUrl)
-        assertEquals("1.1.1.1, 1.0.0.1", viewModel.state.value.settings.bootstrapIps)
+        assertEquals("h2", viewModel.state.value.settings.normalizedCarrier())
         viewModel.changeSettings { it.copy(bridgeSource = "direct", country = "de") }
         assertEquals(true, viewModel.state.value.settings.usesDirectConnection())
         val restored = SaturnEditorViewModel(mock<Application>(), savedState, Dispatchers.Unconfined,
@@ -57,11 +56,11 @@ class SaturnEditorViewModelTest {
         viewModel.save()
         assertEquals(R.string.saturn_invalid_settings, viewModel.state.value.errorRes)
         assertEquals(0, saves)
-        viewModel.changeSettings { it.copy(country = "auto", dohUrl = "") }
+        viewModel.changeSettings { it.copy(country = "auto", carrier = "invalid") }
         viewModel.save()
         assertEquals(R.string.saturn_invalid_settings, viewModel.state.value.errorRes)
         assertEquals(0, saves)
-        viewModel.changeSettings { it.copy(dohUrl = "https://dns.google/dns-query") }
+        viewModel.changeSettings { it.copy(carrier = "h2") }
         viewModel.save()
         withTimeout(3_000) { viewModel.state.first { it.errorRes != null } }
         assertEquals(R.string.saturn_save_error, viewModel.state.value.errorRes)

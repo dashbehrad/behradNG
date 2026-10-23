@@ -225,7 +225,7 @@ jobs:
       shell: bash
       run: |
         for ABI in $(jq -r '.abis[].abi' saturn-core.lock.json); do
-          for LIBRARY in libsaturn-core.so libsaturn-tor.so libsaturn-obfs4.so; do
+          for LIBRARY in libsaturn-core.so libsaturn-tor.so libsaturn-obfs4.so libsaturn-cloudflared.so; do
             unzip -l "$APK_FILE" "lib/$ABI/$LIBRARY" | grep -F "lib/$ABI/$LIBRARY"
           done
         done

@@ -7,9 +7,7 @@ import org.junit.jupiter.api.Test
 class SaturnSettingsTest {
     private val bridge = "obfs4 192.0.2.1:443 " + "A".repeat(40) + " cert=" + "B".repeat(70) + " iat-mode=0"
 
-    @Test fun defaultsUseCloudflareTunnelFreeAndBootstrapAddresses() {
-        assertEquals("https://cloudflare-dns.com/dns-query", SaturnSettings().dohUrl)
-        assertEquals("1.1.1.1, 1.0.0.1", SaturnSettings().bootstrapIps)
+    @Test fun defaultsUseH2Carrier() {
         assertEquals("h2", SaturnSettings().normalizedCarrier())
     }
 
@@ -32,13 +30,7 @@ class SaturnSettingsTest {
         val direct = SaturnSettings(bridgeSource = "direct")
         assertTrue(direct.isValid())
         assertTrue(direct.usesDirectConnection())
-        assertFalse(direct.copy(dohUrl = "", bootstrapIps = "").isValid())
-        assertFalse(direct.copy(dohUrl = "http://dns.google/dns-query").isValid())
-        assertFalse(direct.copy(bootstrapIps = "invalid").isValid())
-        assertFalse(direct.copy(dohUrl = "", bootstrapIps = "", bridgeSource = "auto").isValid())
         assertFalse(direct.copy(country = "invalid").isValid())
-        assertTrue(direct.copy(bootstrapIps = "").isValid())
-        assertTrue(SaturnSettings(bootstrapIps = "").isValid())
         assertFalse(direct.usesAutomaticBridges())
         assertFalse(SaturnSettings().usesDirectConnection())
         val withBridges = direct.copy(bridges = bridge)
@@ -64,12 +56,11 @@ class SaturnSettingsTest {
         assertTrue(SaturnSettings(bridges = bridge, bridgeSource = "auto").usesAutomaticBridges())
         assertFalse(SaturnSettings(bridgeSource = "unknown").isValid())
     }
-    @Test fun invalidDohBootstrapModesAndCountriesAreRejected() {
+    @Test fun invalidModesAndCountriesAreRejected() {
         val good = SaturnSettings(bridges = bridge)
-        listOf(good.copy(dohUrl = "http://dns.google/dns-query"), good.copy(dohUrl = "https://user:password@dns.google/dns-query"),
-            good.copy(bootstrapIps = "dns.google"), good.copy(bootstrapIps = "999.2.3.4"), good.copy(scanMode = "anything"),
+        listOf(good.copy(scanMode = "anything"),
             good.copy(country = "us}\nExitNodes {gb")).forEach { assertFalse(it.isValid()) }
-        assertTrue(good.copy(bootstrapIps = "2001:4860:4860::8888", country = "de", scanMode = "deep").isValid())
+        assertTrue(good.copy(country = "de", scanMode = "deep").isValid())
     }
     @Test fun bridgeParserRejectsInjectionMalformedKeysAndUnboundedInputs() {
         val good = SaturnSettings(bridges = "Bridge $bridge\n$bridge\n")
