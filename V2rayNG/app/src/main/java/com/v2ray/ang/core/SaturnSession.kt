@@ -14,17 +14,22 @@ import kotlinx.coroutines.CoroutineName
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.cancelAndJoin
+import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.suspendCancellableCoroutine
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.withTimeout
 import kotlinx.coroutines.withTimeoutOrNull
 import kotlinx.coroutines.currentCoroutineContext
-import kotlinx.coroutines.ensureActive
+import kotlin.coroutines.resume
+import kotlin.coroutines.resumeWithException
 import java.io.File
 import java.io.IOException
 import java.net.InetAddress
 import java.net.InetSocketAddress
+import java.net.Proxy
 import java.net.ServerSocket
 import java.net.Socket
 import java.util.concurrent.TimeUnit
@@ -307,25 +312,24 @@ class SaturnSession {
         internal fun transportProcessesAlive(direct: Boolean, torAlive: Boolean, obfs4Alive: Boolean, cloudflaredAlive: Boolean = true): Boolean =
             torAlive && cloudflaredAlive && (direct || obfs4Alive)
 
-        internal fun probeExit(socksPort: Int, destinationHost: String = "check.torproject.org", destinationPort: Int = 80) {
-            Socket().use { socket ->
-                socket.soTimeout = 10_000
-                socket.connect(InetSocketAddress("127.0.0.1", socksPort), 5_000)
-                val output = socket.getOutputStream()
-                val input = socket.getInputStream()
-                output.write(byteArrayOf(5, 1, 0))
-                output.flush()
-                val version = input.read()
-                val method = input.read()
-                check(version == 5 && method == 0) { "SOCKS greeting rejected (version=$version, method=$method)" }
-                val hostBytes = destinationHost.toByteArray(Charsets.US_ASCII)
-                check(hostBytes.size in 1..255)
-                output.write(byteArrayOf(5, 1, 0, 3, hostBytes.size.toByte()) + hostBytes +
-                    byteArrayOf((destinationPort shr 8).toByte(), destinationPort.toByte()))
-                output.flush()
-                val respVer = input.read()
-                val respStatus = input.read()
-                check(respVer == 5 && respStatus == 0) { "SOCKS CONNECT failed (status=$respStatus)" }
+        /** Probe a public HTTPS port using remote DNS through Tor, never a direct connection. */
+        internal suspend fun probeExit(port: Int, host: String = "www.torproject.org"): Unit = coroutineScope {
+            val socket = Socket(Proxy(Proxy.Type.SOCKS, InetSocketAddress("127.0.0.1", port)))
+            suspendCancellableCoroutine { continuation ->
+                val probe = launch(Dispatchers.IO + CoroutineName("SaturnExitProbe")) {
+                    try {
+                        socket.use {
+                            it.connect(InetSocketAddress.createUnresolved(host, 443), 15_000)
+                        }
+                        continuation.resume(Unit)
+                    } catch (e: IOException) {
+                        if (continuation.isActive) continuation.resumeWithException(e)
+                    }
+                }
+                continuation.invokeOnCancellation {
+                    runCatching { socket.close() }
+                    probe.cancel()
+                }
             }
         }
 
@@ -336,9 +340,7 @@ class SaturnSession {
                     try {
                         probe()
                         connected = true
-                    } catch (e: CancellationException) {
-                        throw e
-                    } catch (_: Exception) {
+                    } catch (_: IOException) {
                         delay(1_000)
                     }
                 }
