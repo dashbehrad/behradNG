@@ -112,7 +112,8 @@ class SaturnService : VpnService(), ServiceControl {
                 if (!File(applicationInfo.nativeLibraryDir, "libsaturn-core.so").isFile ||
                     !File(applicationInfo.nativeLibraryDir, "libsaturn-tor.so").isFile ||
                     !File(applicationInfo.nativeLibraryDir, "libsaturn-obfs4.so").isFile ||
-                    !File(applicationInfo.nativeLibraryDir, "libsaturn-cloudflared.so").isFile) {
+                    (!File(applicationInfo.nativeLibraryDir, "libsaturn-cloudflared.so").isFile &&
+                     !File(applicationInfo.nativeLibraryDir, "libaether-core.so").isFile)) {
                     failure = R.string.saturn_unavailable
                     error("Saturn core is not packaged for this ABI")
                 }

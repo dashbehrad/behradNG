@@ -73,14 +73,18 @@ while IFS=$'\t' read -r abi arch arm target; do
             copy_notices "$module" "$notice_dir"
         done
     )
-    (
-        cd "$work/cloudflared"
-        export GOOS=android GOARCH="$arch" CGO_ENABLED=1 CC="$toolchain/${target}26-clang"
-        if [ "$arm" != '-' ]; then export GOARM="$arm"; fi
-        go mod download
-        go build -trimpath -buildmode=pie -ldflags='-s -w -buildid= -extldflags=-Wl,-z,max-page-size=16384' \
-            -o "$app_dir/libs/$abi/libsaturn-cloudflared.so" ./cmd/cloudflared
-    )
+    if [ -f "$app_dir/libs/$abi/libaether-core.so" ]; then
+        cp "$app_dir/libs/$abi/libaether-core.so" "$app_dir/libs/$abi/libsaturn-cloudflared.so"
+    else
+        (
+            cd "$work/cloudflared"
+            export GOOS=android GOARCH="$arch" CGO_ENABLED=1 CC="$toolchain/${target}26-clang"
+            if [ "$arm" != '-' ]; then export GOARM="$arm"; fi
+            go mod download
+            go build -trimpath -buildmode=pie -ldflags='-s -w -buildid= -extldflags=-Wl,-z,max-page-size=16384' \
+                -o "$app_dir/libs/$abi/libsaturn-cloudflared.so" ./cmd/cloudflared
+        )
+    fi
     "$toolchain/${target}26-clang" -O2 -fPIE -pie -Wl,-z,max-page-size=16384 \
         "$repo_dir/native/saturn-launcher.c" -o "$app_dir/libs/$abi/libsaturn-core.so"
 done < <(jq -r '.abis[] | [.abi,.goarch,.goarm,.target] | @tsv' "$lock")

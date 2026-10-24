@@ -68,7 +68,21 @@ class SaturnSession {
         val tor = File(nativeDir, "libsaturn-tor.so")
         val obfs4 = File(nativeDir, "libsaturn-obfs4.so")
         val cloudflared = File(nativeDir, "libsaturn-cloudflared.so")
-        check((if (directConnection) listOf(launcher, tor, cloudflared) else listOf(launcher, tor, obfs4, cloudflared)).all { it.isFile }) { "Saturn native inputs unavailable" }
+        val aetherCore = File(nativeDir, "libaether-core.so")
+        val aetherLauncher = File(nativeDir, "libaether-launcher.so")
+
+        val cfBinary = when {
+            aetherCore.isFile -> aetherCore
+            cloudflared.isFile -> cloudflared
+            else -> null
+        }
+        val cfLauncher = when {
+            aetherLauncher.isFile -> aetherLauncher
+            launcher.isFile -> launcher
+            else -> null
+        }
+        check(launcher.isFile && tor.isFile && cfBinary != null && cfLauncher != null &&
+            (directConnection || obfs4.isFile)) { "Saturn native inputs unavailable" }
         val directory = File(context.noBackupFilesDir, "saturn/$guid")
         check(directory.isDirectory || directory.mkdirs())
         val geoip = File(directory, "geoip")
@@ -93,7 +107,10 @@ class SaturnSession {
         }.first { it in 1024..65535 && it !in reservedPorts }
         cloudflaredPort = cfPort
 
-        startCloudflaredTransport(cloudflared, launcher, directory, settings.normalizedCarrier(), cfPort, guid, owner)
+        val cfDirectory = File(directory, "cf")
+        check(cfDirectory.isDirectory || cfDirectory.mkdirs())
+
+        startCloudflaredTransport(cfBinary, cfLauncher, cfDirectory, settings.normalizedCarrier(), cfPort, guid, owner)
 
         var obfs4Proxy = ""
         val bridges = if (directConnection) emptyList() else {
@@ -194,26 +211,55 @@ class SaturnSession {
 
     private suspend fun startCloudflaredTransport(binary: File, launcher: File, directory: File, carrier: String,
         port: Int, guid: String, owner: CoroutineScope) {
-        val protocol = if (carrier == "h3") "quic" else "http2"
-        val command = listOf(launcher.absolutePath, binary.absolutePath, "tunnel", "--protocol", protocol, "--socks5", "--url", "127.0.0.1:$port")
-        val process = ProcessBuilder(command).directory(directory).redirectErrorStream(true).apply {
-            environment()["TUNNEL_TRANSPORT_PROTOCOL"] = protocol
-            environment()["TUNNEL_SOCKS"] = "true"
-        }.start()
+        val protocolArg = if (carrier == "h3") "--h3" else "--h2"
+        val command = listOf(
+            launcher.absolutePath,
+            binary.absolutePath,
+            "--protocol", "masque",
+            "--scan", "balanced",
+            "--ip", "v4",
+            "--noize", "firewall",
+            "--dns", "1.1.1.1,1.0.0.1",
+            "--bind", "127.0.0.1:$port",
+            "--config", "${directory.absolutePath}/cf.toml",
+            "--masque-config", "${directory.absolutePath}/masque.toml",
+            protocolArg,
+            "--fragment",
+            "--fragment-size", "16-32",
+            "--fragment-delay", "2-10"
+        )
+        val builder = ProcessBuilder(command).directory(directory).redirectErrorStream(true)
+        builder.environment().apply {
+            keys.removeAll { it.startsWith("AETHER_") }
+            put("AETHER_LOG_LEVEL", "info")
+            put("RUST_LOG", "warn,aether=info")
+        }
+        val process = builder.start()
         cloudflaredProcess = process
         cloudflaredOutputJob = owner.launch(Dispatchers.IO) {
             try {
                 process.inputStream.bufferedReader().useLines { lines ->
                     for (line in lines) {
-                        LogUtil.d(AppConfig.TAG, "Saturn: cloudflared: $line")
+                        LogUtil.i(AppConfig.TAG, "Saturn: cloudflared: $line")
                     }
                 }
             } catch (_: IOException) {
             }
         }
-        delay(500)
-        check(process.isAlive) { "Cloudflare Tunnel process failed to start" }
-        LogUtil.i(AppConfig.TAG, "Saturn: mode=transport guid=$guid startup stage=CLOUDFLARED operation=Cloudflare Tunnel ready protocol=$protocol port=$port")
+        process.outputStream.close()
+        val ready = withTimeoutOrNull(20_000) {
+            while (true) {
+                check(process.isAlive) {
+                    val exit = runCatching { process.exitValue() }.getOrNull()
+                    "Cloudflare Tunnel process exited prematurely (exit=$exit)"
+                }
+                if (proxyReady(port)) return@withTimeoutOrNull true
+                delay(100)
+            }
+            false
+        } == true
+        check(ready) { "Cloudflare Tunnel SOCKS5 listener did not become ready in time" }
+        LogUtil.i(AppConfig.TAG, "Saturn: mode=transport guid=$guid startup stage=CLOUDFLARED operation=Cloudflare Tunnel ready carrier=$carrier port=$port")
     }
 
     private suspend fun stopCloudflaredTransport() = withContext(Dispatchers.IO) {
@@ -221,9 +267,8 @@ class SaturnSession {
         try {
             if (process != null) {
                 runCatching { process.outputStream.close() }
-                if (!process.waitFor(2, TimeUnit.SECONDS)) process.destroy()
-                if (!process.waitFor(1, TimeUnit.SECONDS)) process.destroyForcibly()
-                check(process.waitFor(1, TimeUnit.SECONDS)) { "Cloudflare Tunnel process did not exit" }
+                process.destroyForcibly()
+                check(process.waitFor(2, TimeUnit.SECONDS)) { "Cloudflare Tunnel process did not exit" }
             }
         } finally {
             cloudflaredProcess = null
@@ -336,6 +381,17 @@ class SaturnSession {
 
         internal suspend fun discoverBridgesWithTimeout(discover: suspend () -> List<String>): List<String> =
             withTimeoutOrNull(BRIDGE_REFRESH_TIMEOUT_MILLIS) { discover() }.orEmpty()
+
+        internal fun proxyReady(port: Int): Boolean = runCatching {
+            Socket().use { socket ->
+                socket.soTimeout = 500
+                socket.connect(InetSocketAddress("127.0.0.1", port), 500)
+                socket.getOutputStream().write(byteArrayOf(5, 1, 0))
+                socket.getOutputStream().flush()
+                val input = socket.getInputStream()
+                input.read() == 5 && input.read() == 0
+            }
+        }.getOrDefault(false)
 
         /** Probe a public HTTPS port using remote DNS through Tor, never a direct connection. */
         internal suspend fun probeExit(port: Int, host: String = "www.torproject.org"): Unit = coroutineScope {

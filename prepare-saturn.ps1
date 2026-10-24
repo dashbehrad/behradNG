@@ -87,11 +87,16 @@ try {
                 if ($module) { Copy-Notices $module (Join-Path $noticePath "go/$index"); $index++ }
             }
         } finally { Pop-Location }
-        Push-Location $cfSource
-        try {
-            Invoke-Native 'go.exe' @('mod', 'download')
-            Invoke-Native 'go.exe' @('build', '-trimpath', '-buildmode=pie', '-ldflags=-s -w -buildid= -extldflags=-Wl,-z,max-page-size=16384', '-o', (Join-Path $destination 'libsaturn-cloudflared.so'), './cmd/cloudflared')
-        } finally { Pop-Location }
+        $aetherPath = Join-Path $destination 'libaether-core.so'
+        if (Test-Path -LiteralPath $aetherPath) {
+            Copy-Item -LiteralPath $aetherPath -Destination (Join-Path $destination 'libsaturn-cloudflared.so') -Force
+        } else {
+            Push-Location $cfSource
+            try {
+                Invoke-Native 'go.exe' @('mod', 'download')
+                Invoke-Native 'go.exe' @('build', '-trimpath', '-buildmode=pie', '-ldflags=-s -w -buildid= -extldflags=-Wl,-z,max-page-size=16384', '-o', (Join-Path $destination 'libsaturn-cloudflared.so'), './cmd/cloudflared')
+            } finally { Pop-Location }
+        }
         Invoke-Native $clang @("--target=$($abi.target)26", '-O2', '-fPIE', '-pie', '-Wl,-z,max-page-size=16384', (Join-Path $PSScriptRoot 'native/saturn-launcher.c'), '-o', (Join-Path $destination 'libsaturn-core.so'))
     }
     Copy-Item -LiteralPath (Join-Path $PSScriptRoot 'saturn-core.lock.json') -Destination (Join-Path $noticePath 'source-pins.json') -Force
