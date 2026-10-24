@@ -268,8 +268,7 @@ class SaturnSession {
     }
 
     fun isAlive(): Boolean = bootstrapped && exitReady &&
-        (cfSession?.isAlive() == true) &&
-        transportProcessesAlive(directConnection, child?.isAlive == true, obfs4Process?.isAlive == true)
+        transportProcessesAlive(directConnection, child?.isAlive == true, obfs4Process?.isAlive == true, cfSession?.isAlive() == true)
 
     suspend fun stop() = withContext(Dispatchers.IO) {
         bootstrapped = false
@@ -298,9 +297,15 @@ class SaturnSession {
 
     companion object {
         @Volatile private var cachedBundledBridges: List<String>? = null
+        internal const val BRIDGE_REFRESH_TIMEOUT_MILLIS = 1_000L
 
-        internal fun transportProcessesAlive(direct: Boolean, torAlive: Boolean, obfs4Alive: Boolean): Boolean =
-            torAlive && (direct || obfs4Alive)
+        internal suspend fun discoverBridgesWithTimeout(discover: suspend () -> List<String>): List<String> =
+            withTimeoutOrNull(BRIDGE_REFRESH_TIMEOUT_MILLIS) {
+                discover()
+            } ?: emptyList()
+
+        internal fun transportProcessesAlive(direct: Boolean, torAlive: Boolean, obfs4Alive: Boolean, cloudflaredAlive: Boolean = true): Boolean =
+            torAlive && cloudflaredAlive && (direct || obfs4Alive)
 
         internal fun probeExit(socksPort: Int, destinationHost: String = "check.torproject.org", destinationPort: Int = 80) {
             Socket().use { socket ->
