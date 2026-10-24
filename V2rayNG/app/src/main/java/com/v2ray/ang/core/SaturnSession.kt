@@ -3,6 +3,7 @@ package com.v2ray.ang.core
 import android.content.Context
 import android.os.Process
 import androidx.annotation.RequiresApi
+import com.v2ray.ang.dto.entities.AetherSettings
 import com.v2ray.ang.dto.entities.SaturnSettings
 import com.v2ray.ang.AppConfig
 import com.v2ray.ang.util.LogUtil
@@ -20,20 +21,15 @@ import kotlinx.coroutines.withTimeout
 import kotlinx.coroutines.withTimeoutOrNull
 import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.ensureActive
-import kotlinx.coroutines.coroutineScope
-import kotlinx.coroutines.suspendCancellableCoroutine
-import kotlin.coroutines.resume
-import kotlin.coroutines.resumeWithException
 import java.io.File
 import java.io.IOException
 import java.net.InetAddress
 import java.net.InetSocketAddress
-import java.net.Proxy
 import java.net.ServerSocket
 import java.net.Socket
 import java.util.concurrent.TimeUnit
 
-/** saturn-core: one daemon-owned Cloudflare Tunnel and Tor process, with optional managed obfs4 transport. */
+/** saturn-core: Cloudflare Tunnel with TLS SNI fragmentation, followed by Tor and optional obfs4 transport. */
 @RequiresApi(26)
 class SaturnSession {
     enum class Stage { NATIVE, CLOUDFLARED, BRIDGES, BOOTSTRAP, EXIT, READY }
@@ -44,20 +40,19 @@ class SaturnSession {
     private var child: java.lang.Process? = null
     private var obfs4Process: java.lang.Process? = null
     private var obfs4OutputJob: Job? = null
-    private var cloudflaredProcess: java.lang.Process? = null
-    private var cloudflaredOutputJob: Job? = null
-    private var cloudflaredPort: Int = 0
     private var outputJob: Job? = null
+    private var cfSession: AetherSession? = null
     @Volatile private var bootstrapped = false
     @Volatile private var exitReady = false
     @Volatile private var bootstrapProgress = -1
     private var directConnection = false
+    private var cloudflaredPort: Int = 0
 
     val currentProgress: Int get() = bootstrapProgress
 
     suspend fun start(context: Context, guid: String, settings: SaturnSettings, reservedPorts: Set<Int>,
         owner: CoroutineScope, onProgress: ((Int) -> Unit)? = null): Int = withContext(Dispatchers.IO) {
-        check(child == null && cloudflaredProcess == null)
+        check(child == null && cfSession == null)
         stage = Stage.NATIVE
         exitReady = false
         nativeExitCode = null
@@ -67,22 +62,12 @@ class SaturnSession {
         val launcher = File(nativeDir, "libsaturn-core.so")
         val tor = File(nativeDir, "libsaturn-tor.so")
         val obfs4 = File(nativeDir, "libsaturn-obfs4.so")
-        val cloudflared = File(nativeDir, "libsaturn-cloudflared.so")
         val aetherCore = File(nativeDir, "libaether-core.so")
         val aetherLauncher = File(nativeDir, "libaether-launcher.so")
-
-        val cfBinary = when {
-            aetherCore.isFile -> aetherCore
-            cloudflared.isFile -> cloudflared
-            else -> null
+        check((if (directConnection) listOf(launcher, tor, aetherCore, aetherLauncher)
+               else listOf(launcher, tor, obfs4, aetherCore, aetherLauncher)).all { it.isFile }) {
+            "Saturn native inputs unavailable"
         }
-        val cfLauncher = when {
-            aetherLauncher.isFile -> aetherLauncher
-            launcher.isFile -> launcher
-            else -> null
-        }
-        check(launcher.isFile && tor.isFile && cfBinary != null && cfLauncher != null &&
-            (directConnection || obfs4.isFile)) { "Saturn native inputs unavailable" }
         val directory = File(context.noBackupFilesDir, "saturn/$guid")
         check(directory.isDirectory || directory.mkdirs())
         val geoip = File(directory, "geoip")
@@ -98,25 +83,34 @@ class SaturnSession {
         }
 
         stage = Stage.CLOUDFLARED
-        LogUtil.i(AppConfig.TAG, "Saturn: mode=transport guid=$guid startup stage=CLOUDFLARED operation=initialize Cloudflare Tunnel")
+        LogUtil.i(AppConfig.TAG, "Saturn: mode=transport guid=$guid startup stage=CLOUDFLARED operation=initialize Cloudflare Tunnel with TLS SNI fragmentation carrier=${settings.normalizedCarrier()}")
         onProgress?.invoke(5)
         currentCoroutineContext().ensureActive()
 
-        val cfPort = (1..16).asSequence().map {
-            ServerSocket(0, 1, InetAddress.getByName("127.0.0.1")).use { it.localPort }
-        }.first { it in 1024..65535 && it !in reservedPorts }
+        val cf = AetherSession()
+        cfSession = cf
+        val cfSettings = AetherSettings(
+            protocol = "masque",
+            carrier = settings.normalizedCarrier(),
+            scanMode = "turbo",
+            ipVersion = "v4",
+            noise = "firewall",
+            dns = "1.1.1.1,1.0.0.1",
+            fragment = true,
+            fragmentSize = "16-32",
+            fragmentDelay = "2-10"
+        )
+        val cfPort = cf.start(context, "${guid}_cf", cfSettings, reservedPorts, owner, "Saturn")
         cloudflaredPort = cfPort
-
-        val cfDirectory = File(directory, "cf")
-        check(cfDirectory.isDirectory || cfDirectory.mkdirs())
-
-        startCloudflaredTransport(cfBinary, cfLauncher, cfDirectory, settings.normalizedCarrier(), cfPort, guid, owner)
+        LogUtil.i(AppConfig.TAG, "Saturn: mode=transport guid=$guid startup stage=CLOUDFLARED operation=Cloudflare Tunnel ready carrier=${settings.normalizedCarrier()} port=$cfPort")
+        onProgress?.invoke(10)
+        currentCoroutineContext().ensureActive()
 
         var obfs4Proxy = ""
         val bridges = if (directConnection) emptyList() else {
             stage = Stage.BRIDGES
             LogUtil.i(AppConfig.TAG, "Saturn: mode=transport guid=$guid startup stage=BRIDGES operation=discover bridge candidates")
-            onProgress?.invoke(10)
+            onProgress?.invoke(15)
             val bundled = if (settings.usesAutomaticBridges()) {
                 cachedBundledBridges ?: context.assets.open("saturn/builtin-bridges.json")
                     .bufferedReader().use { SaturnBridgeSelector.parseBuiltins(it.readText()) }
@@ -176,7 +170,7 @@ class SaturnSession {
         }
         try {
             check(awaitBootstrap(180_000,
-                { bootstrapped }, { process.isAlive })) { "Saturn bootstrap timed out" }
+                { bootstrapped }, { process.isAlive && (cfSession?.isAlive() == true) })) { "Saturn bootstrap timed out" }
         } catch (e: CancellationException) {
             throw e
         } catch (e: Exception) {
@@ -185,11 +179,12 @@ class SaturnSession {
         } finally {
             if (!process.isAlive) nativeExitCode = process.exitValue()
         }
+
         stage = Stage.EXIT
         LogUtil.i(AppConfig.TAG, "Saturn: mode=transport guid=$guid startup stage=EXIT operation=verify exit stream country=${settings.country}")
         onProgress?.invoke(95)
         check(awaitExit(60_000) {
-            check(transportProcessesAlive(directConnection, process.isAlive, obfs4Process?.isAlive == true, cloudflaredProcess?.isAlive == true)) { "Saturn process exited during exit check" }
+            check(transportProcessesAlive(directConnection, process.isAlive, obfs4Process?.isAlive == true)) { "Saturn process exited during exit check" }
             try {
                 probeExit(port)
             } catch (e: IOException) {
@@ -207,74 +202,6 @@ class SaturnSession {
         stage = Stage.READY
         onProgress?.invoke(100)
         port
-    }
-
-    private suspend fun startCloudflaredTransport(binary: File, launcher: File, directory: File, carrier: String,
-        port: Int, guid: String, owner: CoroutineScope) {
-        val protocolArg = if (carrier == "h3") "--h3" else "--h2"
-        val command = listOf(
-            launcher.absolutePath,
-            binary.absolutePath,
-            "--protocol", "masque",
-            "--scan", "balanced",
-            "--ip", "v4",
-            "--noize", "firewall",
-            "--dns", "1.1.1.1,1.0.0.1",
-            "--bind", "127.0.0.1:$port",
-            "--config", "${directory.absolutePath}/cf.toml",
-            "--masque-config", "${directory.absolutePath}/masque.toml",
-            protocolArg,
-            "--fragment",
-            "--fragment-size", "16-32",
-            "--fragment-delay", "2-10"
-        )
-        val builder = ProcessBuilder(command).directory(directory).redirectErrorStream(true)
-        builder.environment().apply {
-            keys.removeAll { it.startsWith("AETHER_") }
-            put("AETHER_LOG_LEVEL", "info")
-            put("RUST_LOG", "warn,aether=info")
-        }
-        val process = builder.start()
-        cloudflaredProcess = process
-        cloudflaredOutputJob = owner.launch(Dispatchers.IO) {
-            try {
-                process.inputStream.bufferedReader().useLines { lines ->
-                    for (line in lines) {
-                        LogUtil.i(AppConfig.TAG, "Saturn: cloudflared: $line")
-                    }
-                }
-            } catch (_: IOException) {
-            }
-        }
-        process.outputStream.close()
-        val ready = withTimeoutOrNull(20_000) {
-            while (true) {
-                check(process.isAlive) {
-                    val exit = runCatching { process.exitValue() }.getOrNull()
-                    "Cloudflare Tunnel process exited prematurely (exit=$exit)"
-                }
-                if (proxyReady(port)) return@withTimeoutOrNull true
-                delay(100)
-            }
-            false
-        } == true
-        check(ready) { "Cloudflare Tunnel SOCKS5 listener did not become ready in time" }
-        LogUtil.i(AppConfig.TAG, "Saturn: mode=transport guid=$guid startup stage=CLOUDFLARED operation=Cloudflare Tunnel ready carrier=$carrier port=$port")
-    }
-
-    private suspend fun stopCloudflaredTransport() = withContext(Dispatchers.IO) {
-        val process = cloudflaredProcess
-        try {
-            if (process != null) {
-                runCatching { process.outputStream.close() }
-                process.destroyForcibly()
-                check(process.waitFor(2, TimeUnit.SECONDS)) { "Cloudflare Tunnel process did not exit" }
-            }
-        } finally {
-            cloudflaredProcess = null
-            cloudflaredOutputJob?.cancelAndJoin()
-            cloudflaredOutputJob = null
-        }
     }
 
     private suspend fun startObfs4Transport(binary: File, directory: File, proxyPort: Int, guid: String,
@@ -341,7 +268,8 @@ class SaturnSession {
     }
 
     fun isAlive(): Boolean = bootstrapped && exitReady &&
-        transportProcessesAlive(directConnection, child?.isAlive == true, obfs4Process?.isAlive == true, cloudflaredProcess?.isAlive == true)
+        (cfSession?.isAlive() == true) &&
+        transportProcessesAlive(directConnection, child?.isAlive == true, obfs4Process?.isAlive == true)
 
     suspend fun stop() = withContext(Dispatchers.IO) {
         bootstrapped = false
@@ -358,8 +286,9 @@ class SaturnSession {
                 stopObfs4Transport()
             } finally {
                 try {
-                    stopCloudflaredTransport()
+                    cfSession?.stop()
                 } finally {
+                    cfSession = null
                     outputJob?.cancelAndJoin()
                     outputJob = null
                 }
@@ -368,53 +297,33 @@ class SaturnSession {
     }
 
     companion object {
-        internal fun transportProcessesAlive(direct: Boolean, torAlive: Boolean, obfs4Alive: Boolean, cloudflaredAlive: Boolean = true): Boolean =
-            torAlive && cloudflaredAlive && (direct || obfs4Alive)
+        @Volatile private var cachedBundledBridges: List<String>? = null
 
-        internal const val BRIDGE_REFRESH_TIMEOUT_MILLIS = 1_000L
+        internal fun transportProcessesAlive(direct: Boolean, torAlive: Boolean, obfs4Alive: Boolean): Boolean =
+            torAlive && (direct || obfs4Alive)
 
-        @Volatile
-        internal var cachedBundledBridges: List<String>? = null
-
-        @Volatile
-        internal var cachedRefreshedBridges: Pair<Long, List<String>>? = null
-
-        internal suspend fun discoverBridgesWithTimeout(discover: suspend () -> List<String>): List<String> =
-            withTimeoutOrNull(BRIDGE_REFRESH_TIMEOUT_MILLIS) { discover() }.orEmpty()
-
-        internal fun proxyReady(port: Int): Boolean = runCatching {
+        internal fun probeExit(socksPort: Int, destinationHost: String = "check.torproject.org", destinationPort: Int = 80) {
             Socket().use { socket ->
-                socket.soTimeout = 500
-                socket.connect(InetSocketAddress("127.0.0.1", port), 500)
-                socket.getOutputStream().write(byteArrayOf(5, 1, 0))
-                socket.getOutputStream().flush()
+                socket.soTimeout = 10_000
+                socket.connect(InetSocketAddress("127.0.0.1", socksPort), 5_000)
+                val output = socket.getOutputStream()
                 val input = socket.getInputStream()
-                input.read() == 5 && input.read() == 0
-            }
-        }.getOrDefault(false)
-
-        /** Probe a public HTTPS port using remote DNS through Tor, never a direct connection. */
-        internal suspend fun probeExit(port: Int, host: String = "www.torproject.org"): Unit = coroutineScope {
-            val socket = Socket(Proxy(Proxy.Type.SOCKS, InetSocketAddress("127.0.0.1", port)))
-            suspendCancellableCoroutine { continuation ->
-                val probe = launch(Dispatchers.IO + CoroutineName("SaturnExitProbe")) {
-                    try {
-                        socket.use {
-                            it.connect(InetSocketAddress.createUnresolved(host, 443), 15_000)
-                        }
-                        continuation.resume(Unit)
-                    } catch (e: IOException) {
-                        if (continuation.isActive) continuation.resumeWithException(e)
-                    }
-                }
-                continuation.invokeOnCancellation {
-                    runCatching { socket.close() }
-                    probe.cancel()
-                }
+                output.write(byteArrayOf(5, 1, 0))
+                output.flush()
+                val version = input.read()
+                val method = input.read()
+                check(version == 5 && method == 0) { "SOCKS greeting rejected (version=$version, method=$method)" }
+                val hostBytes = destinationHost.toByteArray(Charsets.US_ASCII)
+                check(hostBytes.size in 1..255)
+                output.write(byteArrayOf(5, 1, 0, 3, hostBytes.size.toByte()) + hostBytes +
+                    byteArrayOf((destinationPort shr 8).toByte(), destinationPort.toByte()))
+                output.flush()
+                val respVer = input.read()
+                val respStatus = input.read()
+                check(respVer == 5 && respStatus == 0) { "SOCKS CONNECT failed (status=$respStatus)" }
             }
         }
 
-        /** Retry transient exit failures; owner cancellation and dead processes must propagate. */
         internal suspend fun awaitExit(timeoutMillis: Long, probe: suspend () -> Unit): Boolean =
             withTimeoutOrNull(timeoutMillis) {
                 var connected = false
@@ -422,7 +331,9 @@ class SaturnSession {
                     try {
                         probe()
                         connected = true
-                    } catch (_: IOException) {
+                    } catch (e: CancellationException) {
+                        throw e
+                    } catch (_: Exception) {
                         delay(1_000)
                     }
                 }
@@ -442,7 +353,6 @@ class SaturnSession {
             Regex("(?:^|\\s)Bootstrapped\\s+(\\d{1,3})%")
                 .find(line)?.groupValues?.get(1)?.toIntOrNull()?.takeIf { it in 0..100 }
 
-        /** An owned bootstrap timeout is failure; cancellation by the service still propagates. */
         internal suspend fun awaitBootstrap(timeoutMillis: Long, ready: () -> Boolean, alive: () -> Boolean): Boolean =
             withTimeoutOrNull(timeoutMillis) {
                 while (!ready()) {
@@ -453,10 +363,10 @@ class SaturnSession {
             } == true
 
         internal fun configuration(settings: SaturnSettings, directory: File, geoip: File, obfs4Proxy: String,
-            port: Int, bridges: List<String>, ownerPid: Int, cloudflaredPort: Int? = null): String {
+            port: Int, bridges: List<String>, ownerPid: Int, cloudflaredProxyPort: Int? = null): String {
             require(settings.isValid() && port in 1024..65535)
             if (settings.usesDirectConnection()) {
-                require(bridges.isEmpty() && cloudflaredPort != null && cloudflaredPort in 1024..65535 && cloudflaredPort != port)
+                require(bridges.isEmpty() && cloudflaredProxyPort != null && cloudflaredProxyPort in 1024..65535 && cloudflaredProxyPort != port)
             }
             else require(parseObfs4Cmethod("CMETHOD obfs4 socks5 $obfs4Proxy") != null && bridges.isNotEmpty())
             require(bridges.all(SaturnSettings::validBridge))
@@ -484,7 +394,7 @@ class SaturnSession {
                 appendLine("ClientPreferIPv6ORPort 0")
                 appendLine("ClientPreferIPv6DirPort 0")
                 appendLine("UseBridges ${if (settings.usesDirectConnection()) 0 else 1}")
-                if (settings.usesDirectConnection()) appendLine("Socks5Proxy 127.0.0.1:$cloudflaredPort")
+                if (settings.usesDirectConnection()) appendLine("Socks5Proxy 127.0.0.1:$cloudflaredProxyPort")
                 if (!settings.usesDirectConnection()) appendLine("ClientTransportPlugin obfs4 socks5 $obfs4Proxy")
                 appendLine("RunAsDaemon 0")
                 appendLine("SafeLogging 0")

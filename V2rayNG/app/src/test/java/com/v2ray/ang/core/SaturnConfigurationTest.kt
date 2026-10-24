@@ -48,8 +48,6 @@ class SaturnConfigurationTest {
         assertFalse(SaturnSession.transportProcessesAlive(false, true, false))
         assertFalse(SaturnSession.transportProcessesAlive(false, false, true))
         assertFalse(SaturnSession.transportProcessesAlive(false, false, false))
-        assertFalse(SaturnSession.transportProcessesAlive(true, true, true, false))
-        assertTrue(SaturnSession.transportProcessesAlive(true, true, true, true))
     }
 
     @Test fun torrcUsesLoopbackManagedObfs4AndExplicitCountryWithoutShellCommands() {

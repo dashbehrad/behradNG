@@ -56,12 +56,14 @@ class SaturnSettingsTest {
         assertTrue(SaturnSettings(bridges = bridge, bridgeSource = "auto").usesAutomaticBridges())
         assertFalse(SaturnSettings(bridgeSource = "unknown").isValid())
     }
+
     @Test fun invalidModesAndCountriesAreRejected() {
         val good = SaturnSettings(bridges = bridge)
         listOf(good.copy(scanMode = "anything"),
             good.copy(country = "us}\nExitNodes {gb")).forEach { assertFalse(it.isValid()) }
         assertTrue(good.copy(country = "de", scanMode = "deep").isValid())
     }
+
     @Test fun bridgeParserRejectsInjectionMalformedKeysAndUnboundedInputs() {
         val good = SaturnSettings(bridges = "Bridge $bridge\n$bridge\n")
         assertEquals(listOf(bridge), good.bridgeLines())

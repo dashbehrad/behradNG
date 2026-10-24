@@ -31,7 +31,6 @@ git -C "$work/tor-android" submodule update --init --recursive
 test "$(git -C "$work/tor-android/external/tor" rev-parse HEAD)" = "$(jq -r .tor.torRevision "$lock")"
 checkout "$(jq -r .obfs4.repository "$lock")" "$(jq -r .obfs4.sourceRevision "$lock")" "$work/lyrebird"
 cp "$work/lyrebird/go.mod" "$work/lyrebird/go.sum" "$app_dir/src/main/assets/third_party/saturn/"
-checkout "$(jq -r .cloudflared.repository "$lock")" "$(jq -r .cloudflared.sourceRevision "$lock")" "$work/cloudflared"
 aar_version="$(jq -r .tor.version "$lock")"
 curl --fail --location --retry 3 \
     "https://raw.githubusercontent.com/guardianproject/gpmaven/$(jq -r .tor.mavenRevision "$lock")/info/guardianproject/tor-android/$aar_version/tor-android-$aar_version.aar" \
@@ -42,7 +41,7 @@ for name in geoip geoip6; do
 done
 
 licenses="$app_dir/src/main/assets/third_party/saturn"
-for source in "$work/tor-android" "$work/tor-android"/external/* "$work/lyrebird" "$work/cloudflared"; do
+for source in "$work/tor-android" "$work/tor-android"/external/* "$work/lyrebird"; do
     [ -d "$source" ] || continue
     destination="$licenses/$(basename "$source")"
     copy_notices "$source" "$destination"
@@ -73,18 +72,6 @@ while IFS=$'\t' read -r abi arch arm target; do
             copy_notices "$module" "$notice_dir"
         done
     )
-    if [ -f "$app_dir/libs/$abi/libaether-core.so" ]; then
-        cp "$app_dir/libs/$abi/libaether-core.so" "$app_dir/libs/$abi/libsaturn-cloudflared.so"
-    else
-        (
-            cd "$work/cloudflared"
-            export GOOS=android GOARCH="$arch" CGO_ENABLED=1 CC="$toolchain/${target}26-clang"
-            if [ "$arm" != '-' ]; then export GOARM="$arm"; fi
-            go mod download
-            go build -trimpath -buildmode=pie -ldflags='-s -w -buildid= -extldflags=-Wl,-z,max-page-size=16384' \
-                -o "$app_dir/libs/$abi/libsaturn-cloudflared.so" ./cmd/cloudflared
-        )
-    fi
     "$toolchain/${target}26-clang" -O2 -fPIE -pie -Wl,-z,max-page-size=16384 \
         "$repo_dir/native/saturn-launcher.c" -o "$app_dir/libs/$abi/libsaturn-core.so"
 done < <(jq -r '.abis[] | [.abi,.goarch,.goarm,.target] | @tsv' "$lock")
