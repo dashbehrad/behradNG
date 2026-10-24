@@ -92,7 +92,7 @@ class SaturnSession {
         val cfSettings = AetherSettings(
             protocol = "masque",
             carrier = settings.normalizedCarrier(),
-            scanMode = "turbo",
+            scanMode = "balanced",
             ipVersion = "v4",
             noise = "firewall",
             dns = "1.1.1.1,1.0.0.1",
