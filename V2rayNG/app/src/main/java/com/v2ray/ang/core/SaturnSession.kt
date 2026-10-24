@@ -62,7 +62,7 @@ class SaturnSession {
         exitReady = false
         nativeExitCode = null
         require(guid.matches(Regex("[A-Za-z0-9_-]{1,128}")) && settings.isValid())
-        directConnection = settings.usesDirectConnection()
+        directConnection = settings.usesDirectConnection() || (settings.usesAutomaticBridges() && settings.bridges.isBlank())
         val nativeDir = File(context.applicationInfo.nativeLibraryDir)
         val launcher = File(nativeDir, "libsaturn-core.so")
         val tor = File(nativeDir, "libsaturn-tor.so")
@@ -75,6 +75,8 @@ class SaturnSession {
         }
         val directory = File(context.noBackupFilesDir, "saturn/$guid")
         check(directory.isDirectory || directory.mkdirs())
+        File(directory, "lock").delete()
+        directory.listFiles { file -> file.name.endsWith(".new") || file.name.endsWith(".tmp") }?.forEach { it.delete() }
         val geoip = File(directory, "geoip")
         for (name in listOf("geoip", "geoip6")) {
             val target = File(directory, name)
@@ -138,7 +140,7 @@ class SaturnSession {
         }.first { it in 1024..65535 && it !in reservedPorts && it != cloudflaredPort }
         val torrc = File(directory, "torrc")
         stage = Stage.NATIVE
-        torrc.writeText(configuration(settings, directory, geoip, obfs4Proxy, port, bridges, Process.myPid(), cloudflaredPort))
+        torrc.writeText(configuration(settings, directory, geoip, obfs4Proxy, port, bridges, Process.myPid(), cloudflaredPort, directConnection))
         currentCoroutineContext().ensureActive()
         val command = listOf(launcher.absolutePath, tor.absolutePath, "-f", torrc.absolutePath)
         val builder = ProcessBuilder(command).directory(directory).redirectErrorStream(true)
@@ -157,7 +159,8 @@ class SaturnSession {
                     if (count < 0) break
                     for (index in 0 until count) {
                         if (buffer[index] == '\n') {
-                            val progress = parseBootstrapProgress(line.toString())
+                            val lineStr = line.toString()
+                            val progress = parseBootstrapProgress(lineStr)
                             if (progress != null) {
                                 bootstrapped = progress == 100
                                 if (bootstrapProgress < 0 || progress == 100 || progress / 10 > bootstrapProgress / 10) {
@@ -165,6 +168,8 @@ class SaturnSession {
                                 }
                                 bootstrapProgress = progress
                                 onProgress?.invoke(progress)
+                            } else if (lineStr.contains("[warn]") || lineStr.contains("[err]") || lineStr.contains("Bootstrapped")) {
+                                LogUtil.w(AppConfig.TAG, "Saturn: tor: $lineStr")
                             }
                             line.setLength(0)
                         } else if (line.length < 2048) line.append(buffer[index])
@@ -370,9 +375,11 @@ class SaturnSession {
             } == true
 
         internal fun configuration(settings: SaturnSettings, directory: File, geoip: File, obfs4Proxy: String,
-            port: Int, bridges: List<String>, ownerPid: Int, cloudflaredProxyPort: Int? = null): String {
+            port: Int, bridges: List<String>, ownerPid: Int, cloudflaredProxyPort: Int? = null,
+            isDirect: Boolean = settings.usesDirectConnection()): String {
             require(settings.isValid() && port in 1024..65535)
-            if (settings.usesDirectConnection()) {
+            val direct = isDirect || (settings.usesAutomaticBridges() && bridges.isEmpty())
+            if (direct) {
                 require(bridges.isEmpty() && cloudflaredProxyPort != null && cloudflaredProxyPort in 1024..65535 && cloudflaredProxyPort != port)
             }
             else require(parseObfs4Cmethod("CMETHOD obfs4 socks5 $obfs4Proxy") != null && bridges.isNotEmpty())
@@ -393,16 +400,15 @@ class SaturnSession {
                 appendLine("ConnectionPadding 1")
                 appendLine("ReducedConnectionPadding 0")
                 appendLine("PathsNeededToBuildCircuits 0.25")
-                appendLine("ClientBootstrapConsensusMaxInProgressTries 3")
                 appendLine("DownloadExtraInfo 0")
                 appendLine("OptimisticData 1")
                 appendLine("ClientUseIPv4 1")
                 appendLine("ClientUseIPv6 0")
                 appendLine("ClientPreferIPv6ORPort 0")
                 appendLine("ClientPreferIPv6DirPort 0")
-                appendLine("UseBridges ${if (settings.usesDirectConnection()) 0 else 1}")
-                if (settings.usesDirectConnection()) appendLine("Socks5Proxy 127.0.0.1:$cloudflaredProxyPort")
-                if (!settings.usesDirectConnection()) appendLine("ClientTransportPlugin obfs4 socks5 $obfs4Proxy")
+                appendLine("UseBridges ${if (direct) 0 else 1}")
+                if (direct) appendLine("Socks5Proxy 127.0.0.1:$cloudflaredProxyPort")
+                if (!direct) appendLine("ClientTransportPlugin obfs4 socks5 $obfs4Proxy")
                 appendLine("RunAsDaemon 0")
                 appendLine("SafeLogging 0")
                 appendLine("ClientBootstrapConsensusAuthorityDownloadInitialDelay 0")
