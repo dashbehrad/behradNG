@@ -96,19 +96,22 @@ class SaturnSession {
 
         val cf = AetherSession()
         cfSession = cf
+        val dnsIps = settings.bootstrapIps.split(',').map { it.trim() }.filter { it.isNotEmpty() }.joinToString(",")
+            .ifBlank { "1.1.1.1,1.0.0.1" }
         val cfSettings = AetherSettings(
             protocol = "masque",
             carrier = settings.normalizedCarrier(),
             scanMode = "balanced",
             ipVersion = "v4",
             noise = "firewall",
-            dns = "1.1.1.1,1.0.0.1",
+            dns = dnsIps,
             fragment = true,
             fragmentSize = "16-32",
             fragmentDelay = "2-10"
         )
         val cfPort = cf.start(context, "${guid}_cf", cfSettings, reservedPorts, owner, "Saturn")
         cloudflaredPort = cfPort
+        check(awaitTunnelReady(cfPort, alive = { cf.isAlive() })) { "Cloudflare Tunnel did not route traffic in time" }
         LogUtil.i(AppConfig.TAG, "Saturn: mode=transport guid=$guid startup stage=CLOUDFLARED operation=Cloudflare Tunnel ready carrier=${settings.normalizedCarrier()} port=$cfPort")
         onProgress?.invoke(10)
         currentCoroutineContext().ensureActive()
@@ -138,6 +141,21 @@ class SaturnSession {
         val port = (1..16).asSequence().map {
             ServerSocket(0, 1, InetAddress.getByName("127.0.0.1")).use { it.localPort }
         }.first { it in 1024..65535 && it !in reservedPorts && it != cloudflaredPort }
+
+        // Clean stale Tor consensus and state so Tor does not get trapped in a stale 50% bootstrap state
+        listOf(
+            "cached-microdesc-consensus",
+            "cached-consensus",
+            "cached-descriptors",
+            "cached-microdescs",
+            "diff-cache",
+            "state",
+            "lock"
+        ).forEach { name ->
+            File(directory, name).delete()
+        }
+        directory.listFiles { file -> file.name.endsWith(".tmp") || file.name.endsWith(".new") }?.forEach { it.delete() }
+
         val torrc = File(directory, "torrc")
         stage = Stage.NATIVE
         torrc.writeText(configuration(settings, directory, geoip, obfs4Proxy, port, bridges, Process.myPid(), cloudflaredPort, directConnection))
@@ -168,8 +186,8 @@ class SaturnSession {
                                 }
                                 bootstrapProgress = progress
                                 onProgress?.invoke(progress)
-                            } else if (lineStr.contains("[warn]") || lineStr.contains("[err]") || lineStr.contains("Bootstrapped")) {
-                                LogUtil.w(AppConfig.TAG, "Saturn: tor: $lineStr")
+                            } else if (lineStr.isNotBlank()) {
+                                LogUtil.i(AppConfig.TAG, "Saturn: tor: $lineStr")
                             }
                             line.setLength(0)
                         } else if (line.length < 2048) line.append(buffer[index])
@@ -194,7 +212,7 @@ class SaturnSession {
         LogUtil.i(AppConfig.TAG, "Saturn: mode=transport guid=$guid startup stage=EXIT operation=verify exit stream country=${settings.country}")
         onProgress?.invoke(95)
         check(awaitExit(60_000) {
-            check(transportProcessesAlive(directConnection, process.isAlive, obfs4Process?.isAlive == true)) { "Saturn process exited during exit check" }
+            check(transportProcessesAlive(directConnection, process.isAlive, obfs4Process?.isAlive == true, cfSession?.isAlive() == true)) { "Saturn process exited during exit check" }
             try {
                 probeExit(port)
             } catch (e: IOException) {
@@ -374,6 +392,40 @@ class SaturnSession {
                 true
             } == true
 
+        internal suspend fun testTunnelSocks5(proxyPort: Int, ipBytes: ByteArray = byteArrayOf(1, 1, 1, 1), targetPort: Int = 53): Boolean = withContext(Dispatchers.IO) {
+            runCatching {
+                Socket().use { socket ->
+                    socket.soTimeout = 2500
+                    socket.connect(InetSocketAddress("127.0.0.1", proxyPort), 2500)
+                    val output = socket.getOutputStream()
+                    val input = socket.getInputStream()
+                    output.write(byteArrayOf(5, 1, 0))
+                    output.flush()
+                    if (input.read() != 5 || input.read() != 0) return@runCatching false
+                    output.write(byteArrayOf(5, 1, 0, 1, ipBytes[0], ipBytes[1], ipBytes[2], ipBytes[3],
+                        (targetPort shr 8).toByte(), (targetPort and 0xFF).toByte()))
+                    output.flush()
+                    val ver = input.read()
+                    val rep = input.read()
+                    ver == 5 && rep == 0
+                }
+            }.getOrDefault(false)
+        }
+
+        internal suspend fun awaitTunnelReady(cfPort: Int, timeoutMillis: Long = 45_000L, alive: () -> Boolean = { true }): Boolean =
+            withTimeoutOrNull(timeoutMillis) {
+                while (true) {
+                    check(alive()) { "Cloudflare Tunnel process exited prematurely" }
+                    if (testTunnelSocks5(cfPort, byteArrayOf(1, 1, 1, 1), 53) ||
+                        testTunnelSocks5(cfPort, byteArrayOf(1, 1, 1, 1), 443) ||
+                        testTunnelSocks5(cfPort, byteArrayOf(1, 0, 0, 1), 53)) {
+                        return@withTimeoutOrNull true
+                    }
+                    delay(500)
+                }
+                false
+            } == true
+
         internal fun configuration(settings: SaturnSettings, directory: File, geoip: File, obfs4Proxy: String,
             port: Int, bridges: List<String>, ownerPid: Int, cloudflaredProxyPort: Int? = null,
             isDirect: Boolean = settings.usesDirectConnection()): String {
@@ -401,7 +453,6 @@ class SaturnSession {
                 appendLine("ReducedConnectionPadding 0")
                 appendLine("PathsNeededToBuildCircuits 0.25")
                 appendLine("DownloadExtraInfo 0")
-                appendLine("OptimisticData 1")
                 appendLine("ClientUseIPv4 1")
                 appendLine("ClientUseIPv6 0")
                 appendLine("ClientPreferIPv6ORPort 0")
@@ -413,7 +464,6 @@ class SaturnSession {
                 appendLine("SafeLogging 0")
                 appendLine("ClientBootstrapConsensusAuthorityDownloadInitialDelay 0")
                 appendLine("ClientBootstrapConsensusFallbackDownloadSchedule 0, 1, 2, 4, 8")
-                appendLine("ClientBootstrapConsensusAuthorityDownloadSchedule 0, 2, 4, 8, 16")
                 appendLine("Log notice stdout")
                 appendLine("__OwningControllerProcess $ownerPid")
                 if (settings.country != "auto") appendLine("ExitNodes {${settings.country}}")

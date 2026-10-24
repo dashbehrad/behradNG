@@ -2,11 +2,14 @@ package com.v2ray.ang.core
 
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CompletableDeferred
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.async
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.runBlocking
 import org.junit.jupiter.api.Assertions.*
 import org.junit.jupiter.api.Test
+import java.net.InetAddress
+import java.net.ServerSocket
 
 class SaturnBootstrapTest {
     @Test fun bootstrapProgressParserAcceptsOnlyTorPercentages() {
@@ -43,5 +46,36 @@ class SaturnBootstrapTest {
         assertEquals(listOf("obfs4 bridge.example:443"), SaturnSession.discoverBridgesWithTimeout {
             listOf("obfs4 bridge.example:443")
         })
+    }
+
+    @Test fun testTunnelSocks5VerifiesTunnelConnectivity(): Unit = runBlocking {
+        ServerSocket(0, 1, InetAddress.getByName("127.0.0.1")).use { server ->
+            val job = async(Dispatchers.IO) {
+                server.accept().use { socket ->
+                    val input = socket.getInputStream()
+                    val output = socket.getOutputStream()
+                    assertEquals(5, input.read())
+                    val nmethods = input.read()
+                    for (i in 0 until nmethods) input.read()
+                    output.write(byteArrayOf(5, 0))
+                    output.flush()
+                    assertEquals(5, input.read())
+                    assertEquals(1, input.read())
+                    assertEquals(0, input.read())
+                    assertEquals(1, input.read())
+                    for (i in 0 until 6) input.read()
+                    output.write(byteArrayOf(5, 0, 0, 1, 0, 0, 0, 0, 0, 0))
+                    output.flush()
+                }
+            }
+            assertTrue(SaturnSession.testTunnelSocks5(server.localPort))
+            job.await()
+        }
+    }
+
+    @Test fun awaitTunnelReadyDetectsPrematureDeath(): Unit = runBlocking {
+        assertThrows(IllegalStateException::class.java) {
+            runBlocking { SaturnSession.awaitTunnelReady(12345, 1000, alive = { false }) }
+        }
     }
 }
