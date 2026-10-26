@@ -2,23 +2,54 @@ package com.v2ray.ang.dto.entities
 
 import java.net.URI
 
-/** Saturn owns only its Tor/Cloudflare Tunnel settings; native identity and runtime ports are never shared. */
+/** Saturn owns Aether (Cloudflare Tunnel) and URnetwork settings. */
 data class SaturnSettings(
+    val aetherProtocol: String = "masque",
+    val aetherCarrier: String = "h2",
+    val urAccountId: String? = null,
+    val urAccountToken: String? = null,
+    val urTermsAgreed: Boolean = false,
+    val urMode: String = "web",
+    val urCarrier: String = "h2",
+    val urLocation: String = "auto",
+    // Retain legacy fields for backwards compatibility with previously saved Saturn profiles
     val dohUrl: String = "https://cloudflare-dns.com/dns-query",
     val bootstrapIps: String = "1.1.1.1, 1.0.0.1",
     val bridges: String = "",
-    val scanMode: String = "turbo",
+    val scanMode: String = "balanced",
     val country: String = "auto",
     val bridgeSource: String? = null,
     val carrier: String? = "h2",
 ) {
+    fun hasUrAccount(): Boolean = !urAccountId.isNullOrBlank() && !urAccountToken.isNullOrBlank()
+
+    fun normalizedAetherProtocol(): String = when (aetherProtocol.lowercase().trim()) {
+        "wg", "wireguard" -> "wg"
+        else -> "masque"
+    }
+
+    fun normalizedAetherCarrier(): String = when (aetherCarrier.lowercase().trim()) {
+        "h3", "http3", "http/3" -> "h3"
+        else -> "h2"
+    }
+
+    fun normalizedUrMode(): String = when (urMode.lowercase().trim()) {
+        "streaming" -> "streaming"
+        else -> "web"
+    }
+
+    fun normalizedUrCarrier(): String = when (urCarrier.lowercase().trim()) {
+        "h3", "http3", "http/3" -> "h3"
+        else -> "h2"
+    }
+
     fun usesAutomaticBridges(): Boolean = bridgeSource == "auto" || (bridgeSource == null && bridges.isBlank())
 
     fun usesDirectConnection(): Boolean = bridgeSource == "direct" || (!usesAutomaticBridges() && bridges.trim().equals("DIRECT", ignoreCase = true))
 
     fun normalizedCarrier(): String = when (carrier?.lowercase()?.trim()) {
         "h3", "http3", "http/3" -> "h3"
-        else -> "h2"
+        else -> normalizedAetherCarrier()
     }
 
     fun bridgeLines(): List<String> = bridges.lineSequence().map { it.trim().removePrefix("Bridge ") }
@@ -37,6 +68,16 @@ data class SaturnSettings(
         require(bridges.length <= 32768)
         require(bridgeSource == null || bridgeSource in setOf("auto", "custom", "direct"))
         require(carrier == null || carrier.lowercase().trim() in setOf("h2", "h3", "http2", "http3"))
+        require(aetherProtocol.lowercase().trim() in setOf("wg", "wireguard", "masque"))
+        require(aetherCarrier.lowercase().trim() in setOf("h2", "h3", "http2", "http3"))
+        require(urMode.lowercase().trim() in setOf("web", "streaming"))
+        require(urCarrier.lowercase().trim() in setOf("h2", "h3", "http2", "http3"))
+        require(urLocation.isNotBlank() && urLocation.length <= 32)
+        if (hasUrAccount()) {
+            require(urTermsAgreed)
+            require(urAccountId!!.length in 1..128)
+            require(urAccountToken!!.length in 1..256)
+        }
         val lines = bridgeLines()
         if (!usesAutomaticBridges() && !usesDirectConnection()) require(lines.size in 1..64 && lines.all(::validBridge))
         true

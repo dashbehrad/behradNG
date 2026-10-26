@@ -13,7 +13,7 @@ android {
         applicationId = "com.v2ray.ang.behradng"
         minSdk = 24
         targetSdk = 36
-        versionCode = 4000763
+        versionCode = 4000764
         versionName = "3.0.0"
         buildConfigField("String", "DISTRIBUTION", "\"behradNG\"")
 

@@ -72,4 +72,41 @@ class SaturnSettingsTest {
             .forEach { assertFalse(SaturnSettings(bridges = it).isValid()) }
         assertFalse(SaturnSettings(bridges = bridge.repeat(1000)).isValid())
     }
+
+    @Test fun aetherAndUrnetworkSettingsSupportProtocolsAndQuickAccounts() {
+        val defaultSettings = SaturnSettings()
+        assertEquals("masque", defaultSettings.normalizedAetherProtocol())
+        assertEquals("h2", defaultSettings.normalizedAetherCarrier())
+        assertEquals("web", defaultSettings.normalizedUrMode())
+        assertEquals("h2", defaultSettings.normalizedUrCarrier())
+        assertEquals("auto", defaultSettings.urLocation)
+        assertFalse(defaultSettings.hasUrAccount())
+
+        val customAether = defaultSettings.copy(aetherProtocol = "wg", aetherCarrier = "h3")
+        assertTrue(customAether.isValid())
+        assertEquals("wg", customAether.normalizedAetherProtocol())
+        assertEquals("h3", customAether.normalizedAetherCarrier())
+
+        val withAccount = defaultSettings.copy(
+            urAccountId = "ur_1234567890abcdef",
+            urAccountToken = "urtk_abcdef1234567890",
+            urTermsAgreed = true,
+            urMode = "streaming",
+            urCarrier = "h3",
+            urLocation = "de"
+        )
+        assertTrue(withAccount.isValid())
+        assertTrue(withAccount.hasUrAccount())
+        assertEquals("streaming", withAccount.normalizedUrMode())
+        assertEquals("h3", withAccount.normalizedUrCarrier())
+
+        // Account without terms agreement is rejected
+        assertFalse(withAccount.copy(urTermsAgreed = false).isValid())
+        // Invalid aether protocol or carrier rejected
+        assertFalse(defaultSettings.copy(aetherProtocol = "invalid").isValid())
+        assertFalse(defaultSettings.copy(aetherCarrier = "h1").isValid())
+        // Invalid ur mode or carrier rejected
+        assertFalse(defaultSettings.copy(urMode = "invalid").isValid())
+        assertFalse(defaultSettings.copy(urCarrier = "h1").isValid())
+    }
 }

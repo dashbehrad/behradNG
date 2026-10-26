@@ -203,17 +203,8 @@ try {
                 if ($null -eq $entry -or $entry.Length -eq 0) { throw "APK missing Aether library: $($asset.abi)/$lib" }
             }
         }
-        $saturnLock = Get-Content (Join-Path $repoPath 'saturn-core.lock.json') -Raw | ConvertFrom-Json
-        foreach ($abi in $saturnLock.abis) {
-            foreach ($lib in @('libsaturn-core.so', 'libsaturn-tor.so', 'libsaturn-obfs4.so')) {
-                $entry = $zip.GetEntry("lib/$($abi.abi)/$lib")
-                if ($null -eq $entry -or $entry.Length -eq 0) { throw "APK missing Saturn library: $($abi.abi)/$lib" }
-            }
-        }
-        foreach ($asset in @('assets/saturn/geoip', 'assets/saturn/geoip6', 'assets/third_party/saturn/source-pins.json')) {
-            $entry = $zip.GetEntry($asset)
-            if ($null -eq $entry -or $entry.Length -eq 0) { throw "APK missing Saturn asset: $asset" }
-        }
+        $entry = $zip.GetEntry('assets/third_party/saturn/source-pins.json')
+        if ($null -eq $entry -or $entry.Length -eq 0) { throw "APK missing Saturn asset: assets/third_party/saturn/source-pins.json" }
         $licenseEntry = $zip.GetEntry('assets/third_party/AETHER_LICENSE.txt')
         if ($null -eq $licenseEntry -or $licenseEntry.Length -eq 0) { throw 'APK missing Aether license.' }
     } finally { $zip.Dispose() }

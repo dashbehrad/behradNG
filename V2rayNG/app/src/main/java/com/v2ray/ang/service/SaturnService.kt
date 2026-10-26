@@ -109,11 +109,10 @@ class SaturnService : VpnService(), ServiceControl {
                     failure = R.string.saturn_root_unsupported
                     error("Saturn root mode is unsupported")
                 }
-                if (!File(applicationInfo.nativeLibraryDir, "libsaturn-core.so").isFile ||
-                    !File(applicationInfo.nativeLibraryDir, "libsaturn-tor.so").isFile ||
-                    !File(applicationInfo.nativeLibraryDir, "libsaturn-obfs4.so").isFile) {
+                if (!File(applicationInfo.nativeLibraryDir, "libaether-core.so").isFile ||
+                    !File(applicationInfo.nativeLibraryDir, "libaether-launcher.so").isFile) {
                     failure = R.string.saturn_unavailable
-                    error("Saturn core is not packaged for this ABI")
+                    error("Aether core is not packaged for this ABI")
                 }
                 val profile = MmkvManager.decodeServerConfig(guid) ?: error("Invalid selected profile")
                 check(profile.configType == EConfigType.SATURN)
@@ -150,7 +149,7 @@ class SaturnService : VpnService(), ServiceControl {
                     while (isActive && !lifecycle.isStopping()) {
                         delay(1_000)
                         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O && session?.isAlive() != true) {
-                            LogUtil.e(AppConfig.TAG, "Saturn: mode=$mode guid=$guid child process exited", IllegalStateException("Core exited"))
+                            LogUtil.e(AppConfig.TAG, "Saturn: mode=$mode guid=$guid session exited", IllegalStateException("Session stopped"))
                             MessageHelper.sendMsg2UI(this@SaturnService, AppConfig.MSG_STATE_CONNECTING, "")
                             restartOwnedService()
                             break
@@ -165,11 +164,8 @@ class SaturnService : VpnService(), ServiceControl {
                 LogUtil.e(AppConfig.TAG, "Saturn: mode=$mode guid=$guid startup stage=$stage exit=$exitCode failed",
                     e)
                 val message = if (failure != R.string.saturn_start_error) getString(failure) else when (stage) {
-                    SaturnSession.Stage.NATIVE -> getString(R.string.saturn_native_error)
-                    SaturnSession.Stage.CLOUDFLARED -> getString(R.string.saturn_dns_error)
-                    SaturnSession.Stage.BRIDGES -> getString(R.string.saturn_bridges_error)
-                    SaturnSession.Stage.BOOTSTRAP -> if (exitCode != null) getString(R.string.saturn_core_exit, exitCode)
-                        else getString(R.string.saturn_bootstrap_error)
+                    SaturnSession.Stage.AETHER -> getString(R.string.saturn_aether_error)
+                    SaturnSession.Stage.URNETWORK -> getString(R.string.saturn_urnetwork_error)
                     SaturnSession.Stage.EXIT -> getString(R.string.saturn_exit_error)
                     else -> getString(R.string.saturn_start_error)
                 }
@@ -245,7 +241,7 @@ class SaturnService : VpnService(), ServiceControl {
         } else ownsCore = false
         if (release("VPN interface") { vpnOwner?.close() }) vpnOwner = null
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            if (release("child process") { session?.stop() }) session = null
+            if (release("session") { session?.stop() }) session = null
         }
         startupSettings = null
         internalProxyPort = null

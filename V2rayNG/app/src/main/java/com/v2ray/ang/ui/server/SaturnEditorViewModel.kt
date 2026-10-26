@@ -6,15 +6,16 @@ import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.viewModelScope
 import com.v2ray.ang.AppConfig
 import com.v2ray.ang.R
+import com.v2ray.ang.core.UrnetworkManager
 import com.v2ray.ang.dto.entities.SaturnSettings
 import com.v2ray.ang.dto.entities.ProfileItem
 import com.v2ray.ang.enums.EConfigType
 import com.v2ray.ang.handler.MmkvManager
 import com.v2ray.ang.util.JsonUtil
 import com.v2ray.ang.util.LogUtil
-import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineDispatcher
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
@@ -23,6 +24,8 @@ import kotlinx.coroutines.withContext
 data class SaturnEditorState(
     val remarks: String = "",
     val settings: SaturnSettings = SaturnSettings(),
+    val locations: List<UrnetworkManager.LocationItem> = UrnetworkManager.DEFAULT_LOCATIONS,
+    val updatingLocations: Boolean = false,
     val loading: Boolean = true,
     val saving: Boolean = false,
     val errorRes: Int? = null,
@@ -92,6 +95,48 @@ class SaturnEditorViewModel @JvmOverloads constructor(
         mutableState.value = mutableState.value.copy(settings = value, errorRes = null)
     }
 
+    fun agreeTerms(agreed: Boolean) {
+        changeSettings { it.copy(urTermsAgreed = agreed) }
+    }
+
+    fun createQuickAccount() {
+        if (mutableState.value.loading || mutableState.value.saving) return
+        val current = mutableState.value.settings
+        if (!current.urTermsAgreed) {
+            mutableState.value = mutableState.value.copy(errorRes = R.string.saturn_ur_terms_required)
+            return
+        }
+        val account = UrnetworkManager.createQuickAccount()
+        changeSettings {
+            it.copy(
+                urAccountId = account.accountId,
+                urAccountToken = account.token,
+                urTermsAgreed = true
+            )
+        }
+    }
+
+    fun resetAccount() {
+        if (mutableState.value.loading || mutableState.value.saving) return
+        val account = UrnetworkManager.createQuickAccount()
+        changeSettings {
+            it.copy(
+                urAccountId = account.accountId,
+                urAccountToken = account.token,
+                urTermsAgreed = true
+            )
+        }
+    }
+
+    fun updateLocations() {
+        if (mutableState.value.loading || mutableState.value.saving || mutableState.value.updatingLocations) return
+        mutableState.value = mutableState.value.copy(updatingLocations = true)
+        viewModelScope.launch(editorDispatcher) {
+            val locs = UrnetworkManager.refreshLocations()
+            mutableState.value = mutableState.value.copy(locations = locs, updatingLocations = false)
+        }
+    }
+
     fun save() {
         val snapshot = mutableState.value
         val initial = initialProfile ?: return
@@ -105,7 +150,8 @@ class SaturnEditorViewModel @JvmOverloads constructor(
             try {
                 val savedGuid = withContext(Dispatchers.IO) {
                     val profile = initial.copy(
-                        remarks = snapshot.remarks.trim(), server = "127.0.0.1",
+                        remarks = snapshot.remarks.trim(),
+                        server = "127.0.0.1",
                         serverPort = AppConfig.PORT_SOCKS,
                         network = snapshot.settings.normalizedCarrier(),
                         saturnSettings = snapshot.settings,

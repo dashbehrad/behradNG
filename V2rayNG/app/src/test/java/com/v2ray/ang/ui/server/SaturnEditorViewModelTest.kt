@@ -12,7 +12,10 @@ import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.withTimeout
 import org.junit.jupiter.api.Assertions.assertEquals
+import org.junit.jupiter.api.Assertions.assertFalse
+import org.junit.jupiter.api.Assertions.assertNotEquals
 import org.junit.jupiter.api.Assertions.assertNull
+import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
 import org.mockito.kotlin.mock
 
@@ -174,5 +177,36 @@ class SaturnEditorViewModelTest {
         assertEquals("de", saved?.saturnSettings?.country)
         assertEquals("deep", saved?.saturnSettings?.scanMode)
         assertEquals(true, saved?.saturnSettings?.usesAutomaticBridges())
+    }
+
+    @Test
+    fun urnetworkQuickAccountCreationAndResetGenerateValidCredentials(): Unit = runBlocking {
+        val viewModel = SaturnEditorViewModel(mock<Application>(), SavedStateHandle(), Dispatchers.Unconfined,
+            { _, _ -> ProfileItem.create(EConfigType.SATURN).copy(remarks = "urnetwork") },
+            { _, _ -> "guid-123" })
+        viewModel.initialize("", "group-guid")
+        withTimeout(3_000) { viewModel.state.first { !it.loading } }
+
+        // Trying to create account without terms agreement fails
+        viewModel.createQuickAccount()
+        assertEquals(R.string.saturn_ur_terms_required, viewModel.state.value.errorRes)
+        assertFalse(viewModel.state.value.settings.hasUrAccount())
+
+        // Agree terms and create account
+        viewModel.agreeTerms(true)
+        viewModel.createQuickAccount()
+        val accountId = viewModel.state.value.settings.urAccountId
+        val token = viewModel.state.value.settings.urAccountToken
+        assertTrue(viewModel.state.value.settings.hasUrAccount())
+        assertTrue(accountId!!.startsWith("ur_"))
+        assertTrue(token!!.startsWith("urtk_"))
+
+        // Reset account generates new credentials
+        viewModel.resetAccount()
+        val newAccountId = viewModel.state.value.settings.urAccountId
+        val newToken = viewModel.state.value.settings.urAccountToken
+        assertTrue(viewModel.state.value.settings.hasUrAccount())
+        assertNotEquals(accountId, newAccountId)
+        assertNotEquals(token, newToken)
     }
 }
