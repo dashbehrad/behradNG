@@ -45,20 +45,23 @@ Aether provides configurable carriers, optional fragmentation, and scan and tran
 
 [Integration notes →](AETHER-INTEGRATION.md)
 
-### Saturn · Tor-backed transport
+### Saturn · Aether & URnetwork chained transport
 
-Saturn supports **Automatic obfs4**, **Custom obfs4**, and **Direct Tor** connections. All modes use the configured DoH resolver and a session-owned local SOCKS proxy. Following [SlipNet](https://github.com/anonvector/SlipNet), direct mode sets Tor to use that proxy without obfs4 bridges or transport plugins. DoH resolves DNS; TCP relay traffic is not carried inside DNS requests. The Android VPN still routes traffic through Tor.
+Saturn establishes a two-hop chained proxy architecture designed for high performance, low latency, and strong privacy:
+1. **Hop 1 (Aether / Cloudflare Tunnel):** The client connects first to Aether via Cloudflare Tunnel using WireGuard (`wg`) or MASQUE (`masque`) protocols over HTTP/2 (`h2`) or HTTP/3 (`h3`) carriers with TLS SNI fragmentation.
+2. **Hop 2 (URnetwork):** Once Aether is connected, Saturn's built-in proxy chain forwards traffic through the tunnel to the [URnetwork](https://github.com/urnetwork) distributed infrastructure ([ur.io](https://ur.io)).
 
-#### When to use DIRECT mode:
-- **Unrestricted or lightly filtered networks:** If your network does not block standard Tor relays and directory authorities, DIRECT connects faster without the overhead of obfs4 encapsulation.
-- **When obfs4 bridges are slow or blocked:** If bridge distribution or bridge endpoints face disruption or high latency, DIRECT allows Tor to reach public relays directly.
-- **Diagnostic check:** Isolates whether a connection failure stems from the obfs4 transport layer or the underlying Tor circuit.
+#### Saturn Configuration Options:
+- **Aether Settings:** Select the tunnel protocol (`masque` or `wg`) and HTTP carrier (`h2` or `h3`).
+- **URnetwork Settings:**
+  - **Quick Account Creation:** Agree to the [URnetwork Terms and Conditions](https://ur.io/terms) with a single tap to provision an account token and traffic allocation.
+  - **Account Reset:** Reset your account anytime to generate a fresh identity and fresh traffic quota.
+  - **Routing Mode:** Choose between **Web** (balanced multi-hop browsing) and **Streaming** (high-throughput media optimization).
+  - **Carrier Selection:** Choose between **HTTP/2 (h2)** and **HTTP/3 (h3)** transport carriers.
+  - **Server Locations:** Select from available server locations globally (Automatic, US, Germany, UK, Netherlands, France, Canada, Japan, Singapore, etc.) with a button to update the locations list.
+- **DNS & Routing:** Proxy and DNS settings follow your standard behradNG configuration, supporting custom remote/domestic DNS and per-app routing rules.
 
-**How to enable DIRECT mode:** In the Saturn editor, select **Direct** from the **Bridge source** dropdown (or enter `DIRECT` in custom bridges), then save.
-
-New bridge profiles connect through **Cloudflare Tunnel (Free)** with TLS SNI fragmentation before Tor, with automatic fallback and carrier selection (h2/h3). Saved profiles retain their settings. A working connection requires successful Tor bootstrap and an exit connection.
-
-[Automatic bridges →](SATURN-AUTOMATIC-BRIDGES.md) · [Release notes →](RELEASE-3.0.0.md)
+[Release notes →](RELEASE-3.0.0.md)
 
 ## Build from source
 
@@ -118,7 +121,7 @@ Keep signing keys, private proxy credentials, generated APKs, and native build c
 
 ## Credits & license
 
-Based on [v2rayNG](https://github.com/2dust/v2rayNG), with [Xray-core](https://github.com/XTLS/Xray-core), [HEV](https://github.com/heiher/hev-socks5-tunnel), and [SlipNet](https://github.com/anonvector/SlipNet) components.
+Based on [v2rayNG](https://github.com/2dust/v2rayNG), with [Xray-core](https://github.com/XTLS/Xray-core), [HEV](https://github.com/heiher/hev-socks5-tunnel), and [URnetwork](https://github.com/urnetwork) components.
 
 behradNG is distributed under the [GNU GPLv3](LICENSE). Bundled dependencies retain their respective licenses and notices.
 
@@ -150,9 +153,12 @@ behradNG بر پایه v2rayNG و Xray-core ساخته شده و در کنار �
 - حالت VPN و پروکسی، مسیریابی برنامه‌به‌برنامه، قوانین مسیریابی و زنجیره پروکسی.
 - تنظیمات DNS، Fragment، Mux و Sniffing، همراه با تست تأخیر و سرعت.
 - **Aether:** ترنسپورت تطبیقی با تنظیمات Carrier، اسکن و Fragment و راه‌اندازی مجدد هنگام تغییر شبکه.
-- **Saturn:** اتصال مبتنی بر Tor با پشتیبانی از «obfs4 خودکار»، «obfs4 سفارشی» و اتصال «مستقیم (DIRECT)». همگی از حل‌کننده DoH تنظیم‌شده و پروکسی محلی استفاده می‌کنند. DoH فقط نام دامنه را حل می‌کند و ترافیک TCP را داخل DNS منتقل نمی‌کند.
-  - **چه زمانی از حالت DIRECT استفاده کنیم؟** اگر اینترنت شما دسترسی مستقیم به رله‌های Tor را مسدود نکرده است، یا اگر پل‌های obfs4 کند یا فیلتر هستند، حالت DIRECT بدون سربار obfs4 سرعت و پایداری بالاتری فراهم می‌کند. همچنین برای عیب‌یابی اینکه آیا اختلال از پل است یا شبکه Tor بسیار کارآمد است.
-  - **نحوه فعال‌سازی DIRECT:** در ویرایشگر Saturn، منبع پل را روی «سفارشی» قرار داده و در کادر پل‌ها عبارت `DIRECT` را بنویسید و ذخیره کنید.
+- **Saturn (زنجیره پروکسی Aether و URnetwork):** معماری اتصال دو مرحله‌ای سبک و پرسرعت:
+  - **مرحله اول (Aether):** اتصال به نفق Cloudflare با پروتکل‌های WireGuard (`wg`) یا MASQUE (`masque`) و حامل‌های `h2` یا `h3` همراه با فرگمنت TLS SNI.
+  - **مرحله دوم (URnetwork):** اتصال زنجیره‌ای به شبکه توزیع‌شده [URnetwork](https://github.com/urnetwork) ([ur.io](https://ur.io)) برای تأمین خروجی امن و آزاد.
+  - **تنظیمات Aether:** انتخاب پروتکل (`wg` یا `masque`) و حامل (`h2` یا `h3`).
+  - **تنظیمات URnetwork:** ساخت سریع حساب با موافقت با [قوانین و شرایط](https://ur.io/terms)، امکان بازنشانی حساب و دریافت ترافیک جدید، انتخاب حالت‌های وب (`Web`) یا استریم (`Streaming`)، انتخاب حامل (`h2` یا `h3`) و انتخاب موقعیت سرور همراه با دکمه بروزرسانی فهرست سرورها.
+  - **تنظیمات پروکسی و DNS:** مسیریابی و DNS ساترن مستقیماً بر اساس تنظیمات اصلی کاربر در behradNG اعمال می‌شود.
 
 ### ساخت و مشارکت
 
