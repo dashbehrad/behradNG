@@ -1,5 +1,6 @@
 package com.v2ray.ang.core
 
+import com.v2ray.ang.dto.UrlContentRequest
 import com.v2ray.ang.util.HttpUtil
 import com.v2ray.ang.util.LogUtil
 import java.security.SecureRandom
@@ -76,12 +77,12 @@ object UrnetworkManager {
 
     suspend fun refreshLocations(): List<LocationItem> = withContext(Dispatchers.IO) {
         try {
-            val stats = HttpUtil.getUrlContent(STATS_URL)
+            val stats = HttpUtil.getUrlContent(UrlContentRequest(url = STATS_URL, timeout = 5000))
             if (!stats.isNullOrBlank()) {
-                LogUtil.d("URnetwork locations refreshed from $STATS_URL")
+                LogUtil.d(message = "URnetwork locations refreshed from $STATS_URL")
             }
         } catch (e: Exception) {
-            LogUtil.e("URnetwork API stats query failed, using fallback locations: ${e.message}")
+            LogUtil.e(message = "URnetwork API stats query failed, using fallback locations: ${e.message}")
         }
         DEFAULT_LOCATIONS
     }
