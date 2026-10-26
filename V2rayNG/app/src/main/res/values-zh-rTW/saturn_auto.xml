@@ -64,5 +64,4 @@
         <item>美國</item>
         <item>南非</item>
     </string-array>
-    <string name="saturn_exit_error">Tor 已連線網橋，但無法建立出口連線。請選擇自動出口國家或其他國家，然後重新連線。</string>
 </resources>

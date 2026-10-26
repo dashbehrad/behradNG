@@ -119,5 +119,4 @@
         <item>United States</item>
         <item>South Africa</item>
     </string-array>
-    <string name="saturn_exit_error">Tor connected to a bridge but could not open an exit connection. Choose Automatic exit country or another country, then reconnect.</string>
 </resources>

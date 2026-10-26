@@ -64,5 +64,4 @@
         <item>Amerika Birləşmiş Ştatları</item>
         <item>Cənub Afrika</item>
     </string-array>
-    <string name="saturn_exit_error">Tor körpüyə qoşuldu, lakin çıxış bağlantısı qurulmadı. Avtomatik çıxış ölkəsini və ya başqa ölkəni seçin, sonra yenidən qoşulun.</string>
 </resources>
