@@ -31,7 +31,7 @@ class SaturnExitTest {
     @Test
     fun cancellationAndDeadProcessesAreNotExitSuccess(): Unit = runBlocking {
         assertThrows(IllegalStateException::class.java) {
-            runBlocking { SaturnSession.awaitExit(1_000) { error("Tor stopped") } }
+            runBlocking { SaturnSession.awaitExit(1_000) { error("Aether stopped") } }
         }
         val entered = CompletableDeferred<Unit>()
         val pending = async {
@@ -97,10 +97,10 @@ class SaturnExitTest {
         assertEquals(5, input.readUnsignedByte())
         assertEquals(1, input.readUnsignedByte())
         assertEquals(0, input.readUnsignedByte())
-        // ATYP=DOMAIN proves the probe leaves hostname resolution to the Tor exit.
+        // ATYP=DOMAIN proves the probe leaves hostname resolution to the exit.
         assertEquals(3, input.readUnsignedByte())
         val host = ByteArray(input.readUnsignedByte()).also(input::readFully)
-        assertEquals("www.torproject.org", host.toString(Charsets.US_ASCII))
+        assertEquals("cp.cloudflare.com", host.toString(Charsets.US_ASCII))
         assertEquals(443, input.readUnsignedShort())
     }
 }
