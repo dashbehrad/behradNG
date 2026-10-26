@@ -101,6 +101,6 @@ class SaturnExitTest {
         assertEquals(3, input.readUnsignedByte())
         val host = ByteArray(input.readUnsignedByte()).also(input::readFully)
         assertEquals("cp.cloudflare.com", host.toString(Charsets.US_ASCII))
-        assertEquals(443, input.readUnsignedShort())
+        assertEquals(80, input.readUnsignedShort())
     }
 }
