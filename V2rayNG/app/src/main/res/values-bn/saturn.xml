@@ -46,4 +46,6 @@
     <string name="saturn_aether_error">Saturn Aether (Cloudflare টানেল)-এ সংযোগ করতে পারেনি।</string>
     <string name="saturn_urnetwork_error">Saturn URnetwork চেইনে সংযোগ করতে পারেনি। অ্যাকাউন্টের শংসাপত্র বা সার্ভার অবস্থান যাচাই করুন।</string>
     <string name="saturn_exit_error">Saturn প্রক্সি সংযোগ পরীক্ষা ব্যর্থ হয়েছে।</string>
+    <string name="saturn_ur_remaining_data">৩০ জিবি অবশিষ্ট</string>
+    <string name="saturn_ur_quota_info">দৈনিক বরাদ্দ: ৩০ জিবি</string>
 </resources>

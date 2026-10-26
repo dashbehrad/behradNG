@@ -46,4 +46,6 @@
     <string name="saturn_aether_error">Saturn не удалось подключиться к Aether (туннель Cloudflare).</string>
     <string name="saturn_urnetwork_error">Saturn не удалось подключиться к цепочке URnetwork. Проверьте данные аккаунта или локацию сервера.</string>
     <string name="saturn_exit_error">Проверка прокси-соединения Saturn не удалась.</string>
+    <string name="saturn_ur_remaining_data">Осталось 30 ГБ</string>
+    <string name="saturn_ur_quota_info">Дневная квота: 30 ГБ</string>
 </resources>

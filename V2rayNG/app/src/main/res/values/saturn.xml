@@ -50,4 +50,6 @@
     <string name="saturn_aether_error">Saturn could not connect to Aether (Cloudflare Tunnel).</string>
     <string name="saturn_urnetwork_error">Saturn could not chain to URnetwork. Check account credentials or server location.</string>
     <string name="saturn_exit_error">Saturn proxy connection test failed.</string>
+    <string name="saturn_ur_remaining_data">30 GB Remaining</string>
+    <string name="saturn_ur_quota_info">Daily Allowance: 30 GB</string>
 </resources>

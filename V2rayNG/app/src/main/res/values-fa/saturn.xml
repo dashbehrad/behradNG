@@ -46,4 +46,6 @@
     <string name="saturn_aether_error">ساترن نتوانست به Aether (تونل کلودفلر) متصل شود.</string>
     <string name="saturn_urnetwork_error">ساترن نتوانست به شبکه URnetwork متصل شود. اطلاعات حساب یا موقعیت سرور را بررسی کنید.</string>
     <string name="saturn_exit_error">آزمایش اتصال پروکسی ساترن ناموفق بود.</string>
+    <string name="saturn_ur_remaining_data">۳۰ گیگابایت باقی‌مانده</string>
+    <string name="saturn_ur_quota_info">سهمیه روزانه: ۳۰ گیگابایت</string>
 </resources>

@@ -46,4 +46,6 @@
     <string name="saturn_aether_error">Saturn 无法连接至 Aether (Cloudflare 隧道)。</string>
     <string name="saturn_urnetwork_error">Saturn 无法连接至 URnetwork 链。请检查账户凭证或服务器位置。</string>
     <string name="saturn_exit_error">Saturn 代理连接测试失败。</string>
+    <string name="saturn_ur_remaining_data">剩余 30 GB</string>
+    <string name="saturn_ur_quota_info">每日配额：30 GB</string>
 </resources>

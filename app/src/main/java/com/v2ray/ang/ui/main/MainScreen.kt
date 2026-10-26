@@ -26,8 +26,10 @@ import androidx.compose.runtime.setValue
 import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalLayoutDirection
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.v2ray.ang.R
 import com.v2ray.ang.dto.entities.ProfileItem
 import com.v2ray.ang.ui.compose.LocalDarkTheme
 import com.v2ray.ang.ui.compose.QRCodeDialog
@@ -185,10 +187,16 @@ fun MainScreen(
                 )
             },
             bottomBar = {
+                val isSaturn = remember(selectedGuid) {
+                    val config = selectedGuid?.let { com.v2ray.ang.handler.MmkvManager.decodeServerConfig(it) }
+                    config?.configType == com.v2ray.ang.enums.EConfigType.SATURN
+                }
+                val saturnRemainingData = if (isSaturn) stringResource(R.string.saturn_ur_remaining_data) else null
                 MainBottomBar(
                     displayText = displayText,
                     isRunning = isRunning,
                     isDarkTheme = isDarkTheme,
+                    saturnRemainingData = saturnRemainingData,
                     onAction = onAction
                 )
             },

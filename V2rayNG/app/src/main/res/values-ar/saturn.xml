@@ -46,4 +46,6 @@
     <string name="saturn_aether_error">تعذر على Saturn الاتصال بـ Aether (نفق Cloudflare).</string>
     <string name="saturn_urnetwork_error">تعذر على Saturn الاتصال بسلسلة خوادم URnetwork. تحقق من بيانات الحساب أو موقع الخادم.</string>
     <string name="saturn_exit_error">فشل اختبار اتصال بروكسي Saturn.</string>
+    <string name="saturn_ur_remaining_data">المتبقي 30 جيجابايت</string>
+    <string name="saturn_ur_quota_info">الحصة اليومية: 30 جيجابايت</string>
 </resources>

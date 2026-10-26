@@ -46,4 +46,6 @@
     <string name="saturn_aether_error">Saturn không thể kết nối với Aether (đường hầm Cloudflare).</string>
     <string name="saturn_urnetwork_error">Saturn không thể chuyển tiếp qua chuỗi URnetwork. Vui lòng kiểm tra thông tin tài khoản hoặc vị trí máy chủ.</string>
     <string name="saturn_exit_error">Kiểm tra kết nối proxy Saturn thất bại.</string>
+    <string name="saturn_ur_remaining_data">Còn lại 30 GB</string>
+    <string name="saturn_ur_quota_info">Hạn mức hàng ngày: 30 GB</string>
 </resources>

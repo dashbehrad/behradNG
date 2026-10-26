@@ -1,0 +1,55 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="saturn_title">Saturn</string>
+    <string name="saturn_doh">Cloudflare Tunnel (Free) URL</string>
+    <string name="saturn_carrier">HTTP version</string>
+    <string-array name="saturn_carrier_options" translatable="false">
+        <item>h2</item>
+        <item>h3</item>
+    </string-array>
+    <string name="saturn_bootstrap">Cloudflare Tunnel bootstrap IPs (comma separated)</string>
+    <string name="saturn_bridges">Custom obfs4 bridges (one per line)</string>
+    <string name="saturn_scan">Bridge testing mode</string>
+    <string name="saturn_turbo">Turbo scan</string>
+    <string name="saturn_deep">Deep scan</string>
+    <string name="saturn_country">Exit country (auto or two-letter code)</string>
+    <string name="saturn_hint">Connects first to Cloudflare Tunnel (Free), then through Tor to the exit country. TCP only. Changing settings requires reconnecting.</string>
+    <string name="saturn_loading">Loading Saturn…</string>
+    <string name="saturn_starting">Starting Saturn…</string>
+    <string name="saturn_start_error">Saturn could not connect. Check Cloudflare Tunnel, bridges and exit country.</string>
+    <string name="saturn_invalid_settings">Check the name, Cloudflare Tunnel URL, bootstrap IPs, obfs4 bridge lines and country code.</string>
+    <string name="saturn_load_error">Could not load the Saturn profile.</string>
+    <string name="saturn_save_error">Could not save the Saturn profile.</string>
+    <string name="saturn_unavailable">Saturn requires Android 8+ and a supported native core for this device.</string>
+    <string name="saturn_root_unsupported">Saturn is unavailable in root mode.</string>
+    <string name="saturn_permission_error">Grant VPN permission before starting Saturn.</string>
+    <string name="saturn_vpn_error">Could not create the Saturn VPN interface.</string>
+    <string name="saturn_routing_error">Could not start Saturn routing.</string>
+    <string name="saturn_tunnel_error">Could not start the Saturn VPN tunnel.</string>
+    <string name="saturn_aether_section">Aether Settings</string>
+    <string name="saturn_aether_protocol">Protocol</string>
+    <string name="saturn_aether_protocol_wg">WireGuard (wg)</string>
+    <string name="saturn_aether_protocol_masque">MASQUE (masque)</string>
+    <string name="saturn_aether_carrier">Carrier</string>
+    <string name="saturn_carrier_h2">HTTP/2 (h2)</string>
+    <string name="saturn_carrier_h3">HTTP/3 (h3)</string>
+    <string name="saturn_urnetwork_section">URnetwork Settings</string>
+    <string name="saturn_ur_agree_terms">I agree to the TERMS AND CONDITIONS of URnetwork</string>
+    <string name="saturn_ur_terms_link">TERMS AND CONDITIONS</string>
+    <string name="saturn_ur_create_account">Create Quick Account</string>
+    <string name="saturn_ur_account_active">Account Active: %1$s</string>
+    <string name="saturn_ur_reset_account">Reset Account</string>
+    <string name="saturn_ur_mode">Mode</string>
+    <string name="saturn_ur_mode_web">Web</string>
+    <string name="saturn_ur_mode_streaming">Streaming</string>
+    <string name="saturn_ur_carrier">Carrier</string>
+    <string name="saturn_ur_locations">Server Location</string>
+    <string name="saturn_ur_update_locations">Update list</string>
+    <string name="saturn_ur_terms_required">You must agree to the Terms and Conditions to create an account.</string>
+    <string name="saturn_chain_hint">Connects first to Aether (Cloudflare Tunnel), then chains to URnetwork for fast and private access.</string>
+    <string name="saturn_aether_error">Saturn could not connect to Aether (Cloudflare Tunnel).</string>
+    <string name="saturn_urnetwork_error">Saturn could not chain to URnetwork. Check account credentials or server location.</string>
+    <string name="saturn_exit_error">Saturn proxy connection test failed.</string>
+    <string name="saturn_ur_remaining_data">30 GB Remaining</string>
+    <string name="saturn_ur_quota_info">Daily Allowance: 30 GB</string>
+</resources>

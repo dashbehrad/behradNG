@@ -46,4 +46,6 @@
     <string name="saturn_aether_error">Saturn Aether (Cloudflare Tuneli) ilə qoşula bilmədi.</string>
     <string name="saturn_urnetwork_error">Saturn URnetwork zəncirinə qoşula bilmədi. Hesab məlumatlarını və ya server məkanını yoxlayın.</string>
     <string name="saturn_exit_error">Saturn proksi bağlantı testi uğursuz oldu.</string>
+    <string name="saturn_ur_remaining_data">30 GB qaldı</string>
+    <string name="saturn_ur_quota_info">Gündəlik limit: 30 GB</string>
 </resources>

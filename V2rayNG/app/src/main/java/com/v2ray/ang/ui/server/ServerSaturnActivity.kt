@@ -156,10 +156,17 @@ class ServerSaturnActivity : BaseComponentActivity() {
                         horizontalArrangement = Arrangement.SpaceBetween,
                         verticalAlignment = Alignment.CenterVertically
                     ) {
-                        Text(
-                            stringResource(R.string.saturn_ur_account_active, settings.urAccountId.orEmpty()),
-                            style = MaterialTheme.typography.bodyMedium
-                        )
+                        Column {
+                            Text(
+                                stringResource(R.string.saturn_ur_account_active, settings.urAccountId.orEmpty()),
+                                style = MaterialTheme.typography.bodyMedium
+                            )
+                            Text(
+                                stringResource(R.string.saturn_ur_quota_info),
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.primary
+                            )
+                        }
                         OutlinedButton(
                             onClick = viewModel::resetAccount,
                             enabled = state.editable
