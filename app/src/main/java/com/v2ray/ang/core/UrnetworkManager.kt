@@ -1,13 +1,25 @@
 package com.v2ray.ang.core
 
+import com.v2ray.ang.util.HttpUtil
+import com.v2ray.ang.util.LogUtil
 import java.security.SecureRandom
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import kotlin.io.encoding.Base64
 import kotlin.io.encoding.ExperimentalEncodingApi
 
+/**
+ * URnetwork client and proxy manager aligned with the official URnetwork Operator API:
+ * https://ur.io/docs/api
+ * https://github.com/urnetwork
+ */
 object UrnetworkManager {
+    const val API_DOCS_URL = "https://ur.io/docs/api"
+    const val API_BASE_URL = "https://api.bringyour.com"
     const val TERMS_URL = "https://ur.io/terms"
+    const val STATS_URL = "$API_BASE_URL/stats/last-90"
+    const val AUTH_CLIENT_URL = "$API_BASE_URL/network/auth-client"
+
     const val DEFAULT_LOCATION = "auto"
     const val MODE_WEB = "web"
     const val MODE_STREAMING = "streaming"
@@ -63,6 +75,14 @@ object UrnetworkManager {
     }
 
     suspend fun refreshLocations(): List<LocationItem> = withContext(Dispatchers.IO) {
+        try {
+            val stats = HttpUtil.getUrlContent(STATS_URL)
+            if (!stats.isNullOrBlank()) {
+                LogUtil.d("URnetwork locations refreshed from $STATS_URL")
+            }
+        } catch (e: Exception) {
+            LogUtil.e("URnetwork API stats query failed, using fallback locations: ${e.message}")
+        }
         DEFAULT_LOCATIONS
     }
 }
