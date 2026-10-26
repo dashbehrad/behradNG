@@ -41,21 +41,21 @@ object UrnetworkManager {
     )
 
     val DEFAULT_LOCATIONS = listOf(
-        LocationItem("auto", "Automatic (Best)", "ext-auto.ur.io", 443),
-        LocationItem("us", "United States", "ext-us.ur.io", 443),
-        LocationItem("de", "Germany", "ext-de.ur.io", 443),
-        LocationItem("gb", "United Kingdom", "ext-gb.ur.io", 443),
-        LocationItem("nl", "Netherlands", "ext-nl.ur.io", 443),
-        LocationItem("fr", "France", "ext-fr.ur.io", 443),
-        LocationItem("ca", "Canada", "ext-ca.ur.io", 443),
-        LocationItem("jp", "Japan", "ext-jp.ur.io", 443),
-        LocationItem("sg", "Singapore", "ext-sg.ur.io", 443),
-        LocationItem("ch", "Switzerland", "ext-ch.ur.io", 443),
-        LocationItem("se", "Sweden", "ext-se.ur.io", 443),
-        LocationItem("fi", "Finland", "ext-fi.ur.io", 443),
-        LocationItem("pl", "Poland", "ext-pl.ur.io", 443),
-        LocationItem("au", "Australia", "ext-au.ur.io", 443),
-        LocationItem("br", "Brazil", "ext-br.ur.io", 443),
+        LocationItem("auto", "Automatic (Best)", "connect.bringyour.com", 443),
+        LocationItem("us", "United States", "us.connect.bringyour.com", 443),
+        LocationItem("de", "Germany", "de.connect.bringyour.com", 443),
+        LocationItem("gb", "United Kingdom", "gb.connect.bringyour.com", 443),
+        LocationItem("nl", "Netherlands", "nl.connect.bringyour.com", 443),
+        LocationItem("fr", "France", "fr.connect.bringyour.com", 443),
+        LocationItem("ca", "Canada", "ca.connect.bringyour.com", 443),
+        LocationItem("jp", "Japan", "jp.connect.bringyour.com", 443),
+        LocationItem("sg", "Singapore", "sg.connect.bringyour.com", 443),
+        LocationItem("ch", "Switzerland", "ch.connect.bringyour.com", 443),
+        LocationItem("se", "Sweden", "se.connect.bringyour.com", 443),
+        LocationItem("fi", "Finland", "fi.connect.bringyour.com", 443),
+        LocationItem("pl", "Poland", "pl.connect.bringyour.com", 443),
+        LocationItem("au", "Australia", "au.connect.bringyour.com", 443),
+        LocationItem("br", "Brazil", "br.connect.bringyour.com", 443),
     )
 
     @OptIn(ExperimentalEncodingApi::class)
@@ -72,7 +72,7 @@ object UrnetworkManager {
 
     fun getEndpoint(locationCode: String): Pair<String, Int> {
         val loc = DEFAULT_LOCATIONS.firstOrNull { it.code.equals(locationCode, ignoreCase = true) }
-        return if (loc != null) loc.host to loc.port else "ext-auto.ur.io" to 443
+        return if (loc != null) loc.host to loc.port else "connect.bringyour.com" to 443
     }
 
     suspend fun refreshLocations(): List<LocationItem> = withContext(Dispatchers.IO) {

@@ -106,7 +106,7 @@ fun ExpressConnectDashboard(
     val inactiveRed = Color(0xFFD9383A)
     val connectingYellow = if (com.v2ray.ang.ui.compose.LocalDarkTheme.current) Color(0xFFFFD54F) else Color(0xFF8A6500)
     val statusColor = when { isConnecting -> connectingYellow; isRunning -> activeEmerald; else -> inactiveRed }
-    val connectionLabel = if (isConnecting && statusText.contains("%")) statusText else stringResource(when {
+    val connectionLabel = stringResource(when {
         isConnecting -> R.string.connection_connecting
         isRunning -> R.string.connection_status_connected
         else -> R.string.connection_not_connected

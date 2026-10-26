@@ -223,7 +223,7 @@ class MainViewModel(
     }
 
     internal fun formatStatus(status: MainStatus): String = when (status) {
-        is MainStatus.Connecting -> if (status.progress.isNotBlank()) "${dataSource.getString(R.string.connection_connecting)} (${status.progress})" else dataSource.getString(R.string.connection_connecting)
+        is MainStatus.Connecting -> dataSource.getString(R.string.connection_connecting)
         MainStatus.Disconnected -> dataSource.getString(R.string.connection_not_connected)
         MainStatus.Connected -> dataSource.getString(R.string.connection_connected)
         MainStatus.Testing -> dataSource.getString(R.string.connection_test_testing)
