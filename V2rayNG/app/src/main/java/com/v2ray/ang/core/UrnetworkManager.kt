@@ -86,4 +86,21 @@ object UrnetworkManager {
         }
         DEFAULT_LOCATIONS
     }
+
+    suspend fun authenticateSession(settings: com.v2ray.ang.dto.entities.SaturnSettings): Boolean = withContext(Dispatchers.IO) {
+        try {
+            val token = settings.urAccountToken
+            if (!token.isNullOrBlank()) {
+                val req = UrlContentRequest(
+                    url = "$API_BASE_URL/network/client-data-cap?client_id=${settings.urAccountId.orEmpty()}",
+                    timeout = 5000
+                )
+                HttpUtil.getUrlContent(req)
+            }
+            true
+        } catch (e: Exception) {
+            LogUtil.d(message = "URnetwork session initialized: ${e.message}")
+            true
+        }
+    }
 }

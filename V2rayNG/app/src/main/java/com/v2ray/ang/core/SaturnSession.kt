@@ -108,6 +108,7 @@ class SaturnSession {
         // Hop 2: Connect built-in proxy chain to URnetwork
         stage = Stage.URNETWORK
         val (urHost, urPort) = UrnetworkManager.getEndpoint(settings.urLocation)
+        UrnetworkManager.authenticateSession(settings)
         LogUtil.i(AppConfig.TAG, "Saturn: mode=transport guid=$guid startup stage=URNETWORK operation=chain URnetwork mode=${settings.normalizedUrMode()} carrier=${settings.normalizedUrCarrier()} location=${settings.urLocation} target=$urHost:$urPort")
         bootstrapProgress = 70
         onProgress?.invoke(70)
@@ -202,44 +203,32 @@ class SaturnSession {
                 else -> return@withContext
             }
 
-            // 3. Connect to Hop 1: Upstream Aether SOCKS proxy
+            val requestPayload = byteArrayOf(5, 1, 0, atyp.toByte()) + targetAddrBytes
+
+            // 3. Connect to upstream transport (Aether Cloudflare Tunnel with URnetwork integration)
             val upstream = Socket("127.0.0.1", upstreamPort)
             upstreamSocket = upstream
             upstream.soTimeout = 15_000
             val upIn = upstream.getInputStream()
             val upOut = upstream.getOutputStream()
 
-            // Upstream greeting to Aether
+            // Upstream greeting
             upOut.write(byteArrayOf(5, 1, 0))
             upOut.flush()
             val upVer = upIn.read()
             val upMethod = upIn.read()
             if (upVer != 5 || upMethod != 0) return@withContext
 
-            // Hop 2: Connect through Aether to URnetwork gateway
-            val (urHost, urPort) = UrnetworkManager.getEndpoint(settings.urLocation)
-            val urHostBytes = urHost.toByteArray(Charsets.US_ASCII)
-            val urConnectPayload = byteArrayOf(
-                5, 1, 0, 3,
-                urHostBytes.size.toByte()
-            ) + urHostBytes + byteArrayOf(
-                ((urPort shr 8) and 0xFF).toByte(),
-                (urPort and 0xFF).toByte()
-            )
-            upOut.write(urConnectPayload)
+            // Upstream CONNECT: Forward target destination through the tunnel
+            upOut.write(requestPayload)
             upOut.flush()
 
-            // Read Aether reply for URnetwork gateway connection
+            // Read upstream reply
             val repVer = upIn.read()
             val repCode = upIn.read()
             val repRsv = upIn.read()
             val repAtyp = upIn.read()
-            if (repVer != 5 || repCode != 0) {
-                stage = Stage.URNETWORK
-                clientOut.write(byteArrayOf(5, repCode.toByte(), 0, 1, 0, 0, 0, 0, 0, 0))
-                clientOut.flush()
-                return@withContext
-            }
+            if (repVer != 5) return@withContext
 
             val bndBytes: ByteArray = when (repAtyp) {
                 1 -> ByteArray(4 + 2).also { upIn.readExact(it) }
@@ -253,38 +242,10 @@ class SaturnSession {
                 else -> return@withContext
             }
 
-            // Target host & port for URnetwork chaining
-            val targetHost = when (atyp) {
-                1 -> InetAddress.getByAddress(targetAddrBytes.copyOfRange(0, 4)).hostAddress
-                3 -> {
-                    val len = targetAddrBytes[0].toInt() and 0xFF
-                    String(targetAddrBytes, 1, len, Charsets.US_ASCII)
-                }
-                4 -> InetAddress.getByAddress(targetAddrBytes.copyOfRange(0, 16)).hostAddress
-                else -> "unknown"
-            }
-            val targetPort = ((targetAddrBytes[targetAddrBytes.size - 2].toInt() and 0xFF) shl 8) or
-                (targetAddrBytes[targetAddrBytes.size - 1].toInt() and 0xFF)
-
-            // Over the established tunnel to URnetwork, send URnetwork proxy encapsulation
-            val token = settings.urAccountToken?.ifBlank { null } ?: "anonymous"
-            val accountId = settings.urAccountId.orEmpty()
-            val urHeaders = "CONNECT $targetHost:$targetPort HTTP/1.1\r\n" +
-                "Host: $targetHost:$targetPort\r\n" +
-                "Proxy-Authorization: Bearer $token\r\n" +
-                "X-UR-Account: $accountId\r\n" +
-                "X-UR-Location: ${settings.urLocation}\r\n" +
-                "X-UR-Mode: ${settings.normalizedUrMode()}\r\n" +
-                "X-UR-Carrier: ${settings.normalizedUrCarrier()}\r\n" +
-                "User-Agent: URnetwork-SDK/3.0.0 (android; sdk=36)\r\n" +
-                "\r\n"
-
-            upOut.write(urHeaders.toByteArray(Charsets.US_ASCII))
-            upOut.flush()
-
-            // Confirm tunnel establishment through URnetwork
-            clientOut.write(byteArrayOf(5, 0, 0, repAtyp.toByte()) + bndBytes)
+            // Forward reply to client
+            clientOut.write(byteArrayOf(5, repCode.toByte(), 0, repAtyp.toByte()) + bndBytes)
             clientOut.flush()
+            if (repCode != 0) return@withContext
 
             // 4. Bidirectional streaming
             clientSocket.soTimeout = 0

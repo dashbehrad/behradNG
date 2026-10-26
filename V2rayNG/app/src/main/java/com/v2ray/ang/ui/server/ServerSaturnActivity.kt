@@ -106,7 +106,7 @@ class ServerSaturnActivity : BaseComponentActivity() {
                     value = settings.normalizedAetherCarrier(),
                     options = listOf("h2", "h3"),
                     onValueChange = { value -> viewModel.changeSettings { it.copy(aetherCarrier = value, carrier = value) } },
-                    enabled = state.editable,
+                    enabled = state.editable && settings.normalizedAetherProtocol() != "wg",
                     optionLabel = { if (it == "h3") carrierH3 else carrierH2 }
                 )
 
