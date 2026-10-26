@@ -9,12 +9,13 @@ on:
       - main
     tags:
       - 'v*'
+      - '[0-9]*'
     paths-ignore:
       - '.github/workflows/release-metadata.yml'
   workflow_dispatch:
     inputs:
       release_tag:
-        description: 'Release Tag (e.g. v3.0.0)'
+        description: 'Release Tag (e.g. 3.0.0)'
         required: false
         type: string
 
@@ -113,8 +114,9 @@ jobs:
         else
           VERSION_NAME=$(sed -n 's/^[[:space:]]*versionName = "\([^"]*\)".*/\1/p' app/build.gradle.kts)
           test -n "$VERSION_NAME"
-          TAG="v$VERSION_NAME"
+          TAG="$VERSION_NAME"
         fi
+        TAG="${TAG#v}"
         echo "RELEASE_TAG=$TAG" >> $GITHUB_ENV
         echo "RELEASE_TAG=$TAG" >> $GITHUB_OUTPUT
         echo "Release tag will be: $TAG"
