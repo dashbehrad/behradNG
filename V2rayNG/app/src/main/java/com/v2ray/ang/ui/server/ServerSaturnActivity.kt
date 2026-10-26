@@ -50,6 +50,13 @@ class ServerSaturnActivity : BaseComponentActivity() {
         }
         val settings = state.settings
 
+        val aetherProtocolWg = stringResource(R.string.saturn_aether_protocol_wg)
+        val aetherProtocolMasque = stringResource(R.string.saturn_aether_protocol_masque)
+        val carrierH2 = stringResource(R.string.saturn_carrier_h2)
+        val carrierH3 = stringResource(R.string.saturn_carrier_h3)
+        val urModeWeb = stringResource(R.string.saturn_ur_mode_web)
+        val urModeStreaming = stringResource(R.string.saturn_ur_mode_streaming)
+
         Scaffold { padding ->
             Column(
                 Modifier
@@ -92,12 +99,7 @@ class ServerSaturnActivity : BaseComponentActivity() {
                     options = listOf("masque", "wg"),
                     onValueChange = { value -> viewModel.changeSettings { it.copy(aetherProtocol = value) } },
                     enabled = state.editable,
-                    optionLabel = {
-                        when (it) {
-                            "wg" -> stringResource(R.string.saturn_aether_protocol_wg)
-                            else -> stringResource(R.string.saturn_aether_protocol_masque)
-                        }
-                    }
+                    optionLabel = { if (it == "wg") aetherProtocolWg else aetherProtocolMasque }
                 )
                 FormDropdownField(
                     label = stringResource(R.string.saturn_aether_carrier),
@@ -105,12 +107,7 @@ class ServerSaturnActivity : BaseComponentActivity() {
                     options = listOf("h2", "h3"),
                     onValueChange = { value -> viewModel.changeSettings { it.copy(aetherCarrier = value, carrier = value) } },
                     enabled = state.editable,
-                    optionLabel = {
-                        when (it) {
-                            "h3" -> stringResource(R.string.saturn_carrier_h3)
-                            else -> stringResource(R.string.saturn_carrier_h2)
-                        }
-                    }
+                    optionLabel = { if (it == "h3") carrierH3 else carrierH2 }
                 )
 
                 // Section 2: URnetwork Settings
@@ -177,12 +174,7 @@ class ServerSaturnActivity : BaseComponentActivity() {
                         options = listOf("web", "streaming"),
                         onValueChange = { value -> viewModel.changeSettings { it.copy(urMode = value) } },
                         enabled = state.editable,
-                        optionLabel = {
-                            when (it) {
-                                "streaming" -> stringResource(R.string.saturn_ur_mode_streaming)
-                                else -> stringResource(R.string.saturn_ur_mode_web)
-                            }
-                        }
+                        optionLabel = { if (it == "streaming") urModeStreaming else urModeWeb }
                     )
 
                     FormDropdownField(
@@ -191,12 +183,7 @@ class ServerSaturnActivity : BaseComponentActivity() {
                         options = listOf("h2", "h3"),
                         onValueChange = { value -> viewModel.changeSettings { it.copy(urCarrier = value) } },
                         enabled = state.editable,
-                        optionLabel = {
-                            when (it) {
-                                "h3" -> stringResource(R.string.saturn_carrier_h3)
-                                else -> stringResource(R.string.saturn_carrier_h2)
-                            }
-                        }
+                        optionLabel = { if (it == "h3") carrierH3 else carrierH2 }
                     )
 
                     val locationOptions = state.locations.map { it.code }
