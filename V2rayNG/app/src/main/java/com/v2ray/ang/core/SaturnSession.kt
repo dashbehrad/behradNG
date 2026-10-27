@@ -58,6 +58,8 @@ class SaturnSession {
     private var bootstrapProgress = -1
     private var cloudflaredPort: Int = 0
     private var urnetworkPort: Int = 0
+    @Volatile
+    private var actualProxyPort: Int = 0
 
     val currentProgress: Int get() = bootstrapProgress
 
@@ -206,10 +208,17 @@ class SaturnSession {
                 actualUpstreamPort = urPort
             } else {
                 LogUtil.w(AppConfig.TAG, "Saturn: URnetwork daemon not ready in time, falling back to Aether transport")
+                actualUpstreamPort = cfPort
+                runCatching {
+                    if (proc.isAlive) proc.destroy()
+                }
+                urProcess = null
             }
         } else {
             LogUtil.w(AppConfig.TAG, "Saturn: liburnetwork.so not available for current ABI, running on direct Aether transport")
+            actualUpstreamPort = cfPort
         }
+        actualProxyPort = actualUpstreamPort
 
         bootstrapProgress = 70
         onProgress?.invoke(70)
@@ -224,18 +233,34 @@ class SaturnSession {
         onProgress?.invoke(85)
         currentCoroutineContext().ensureActive()
 
-        check(awaitExit(30_000) {
+        val exitReady = awaitExit(25_000) {
             check(isAlive()) { "Saturn session exited prematurely during stream verification" }
             try {
                 probeExit(actualUpstreamPort, "cp.cloudflare.com")
             } catch (e: IOException) {
-                try {
-                    probeExit(actualUpstreamPort, "www.google.com")
-                } catch (_: IOException) {
-                    throw e
-                }
+                probeExit(actualUpstreamPort, "www.google.com")
             }
-        }) { "Saturn could not open an exit stream through proxy chain" }
+        }
+
+        if (!exitReady && actualUpstreamPort != cfPort) {
+            LogUtil.w(AppConfig.TAG, "Saturn: URnetwork exit probe failed, falling back to Aether transport")
+            actualUpstreamPort = cfPort
+            actualProxyPort = cfPort
+            runCatching {
+                urProcess?.let { if (it.isAlive) it.destroy() }
+            }
+            urProcess = null
+            check(awaitExit(15_000) {
+                check(isAlive()) { "Saturn session exited prematurely during fallback stream verification" }
+                try {
+                    probeExit(cfPort, "cp.cloudflare.com")
+                } catch (e: IOException) {
+                    probeExit(cfPort, "www.google.com")
+                }
+            }) { "Saturn could not open an exit stream through fallback proxy" }
+        } else {
+            check(exitReady) { "Saturn could not open an exit stream through proxy chain" }
+        }
 
         stage = Stage.READY
         bootstrapProgress = 100
@@ -246,7 +271,7 @@ class SaturnSession {
 
     fun isAlive(): Boolean = isRunning &&
         (cfSession?.isAlive() == true) &&
-        (urProcess == null || urProcess?.isAlive == true)
+        (actualProxyPort != urnetworkPort || urProcess?.isAlive == true)
 
     suspend fun stop() = withContext(Dispatchers.IO) {
         isRunning = false

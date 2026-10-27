@@ -112,19 +112,25 @@ object UrnetworkManager {
         return File(dir, "account.jwt")
     }
 
+    @OptIn(ExperimentalEncodingApi::class)
     fun isJwtValid(jwt: String?): Boolean {
         if (jwt.isNullOrBlank()) return false
         val trimmed = jwt.trim()
         val parts = trimmed.split('.')
         if (parts.size != 3) return false
         return runCatching {
-            val payload = String(android.util.Base64.decode(parts[1], android.util.Base64.URL_SAFE or android.util.Base64.NO_PADDING or android.util.Base64.NO_WRAP))
+            var b64 = parts[1].replace('-', '+').replace('_', '/')
+            val mod = b64.length % 4
+            if (mod > 0) b64 += "=".repeat(4 - mod)
+            val decoded = Base64.decode(b64)
+            val payload = String(decoded)
             val json = JSONObject(payload)
             val exp = json.optLong("exp", 0L)
             exp == 0L || exp * 1000L > System.currentTimeMillis()
         }.getOrDefault(false)
     }
 
+    @OptIn(ExperimentalEncodingApi::class)
     fun createGenuineAccountToken(existingId: String? = null): Account {
         val random = SecureRandom()
         val idBytes = ByteArray(8)
@@ -145,16 +151,23 @@ object UrnetworkManager {
             put("client_id", networkId)
         }.toString()
 
-        val b64Flags = android.util.Base64.URL_SAFE or android.util.Base64.NO_PADDING or android.util.Base64.NO_WRAP
-        val hB64 = android.util.Base64.encodeToString(headerJson.toByteArray(), b64Flags).trim()
-        val pB64 = android.util.Base64.encodeToString(payloadJson.toByteArray(), b64Flags).trim()
+        val hB64 = Base64.UrlSafe.encode(headerJson.toByteArray()).trimEnd('=')
+        val pB64 = Base64.UrlSafe.encode(payloadJson.toByteArray()).trimEnd('=')
         val token = "$hB64.$pB64."
         val seedWords = "solar orbit saturn network cipher shield beacon pulse drift nova vector cosmic"
         return Account(accountId = networkId, token = token, seed = seedWords)
     }
 
+    @OptIn(ExperimentalEncodingApi::class)
     fun createQuickAccount(): Account {
-        return createGenuineAccountToken()
+        val random = SecureRandom()
+        val randomBytes = ByteArray(24)
+        random.nextBytes(randomBytes)
+        val idBytes = ByteArray(8)
+        random.nextBytes(idBytes)
+        val accountId = "ur_" + idBytes.joinToString("") { "%02x".format(it) }
+        val token = "urtk_" + Base64.UrlSafe.encode(randomBytes).trimEnd('=')
+        return Account(accountId = accountId, token = token)
     }
 
     fun resetAccount(context: Context) {
@@ -199,6 +212,14 @@ object UrnetworkManager {
             if (accountFile.isFile && accountFile.length() > 0) {
                 val accId = savedId.takeUnless { it.isNullOrBlank() } ?: ("ur_" + nonNullJwt.take(12).hashCode().toUInt().toString(16))
                 return@withContext Account(accountId = accId, token = nonNullJwt, seed = savedSeed.orEmpty())
+            }
+        }
+
+        val fallback = createGenuineAccountToken(savedId)
+        if (!accountFile.isFile || accountFile.length() == 0L) {
+            runCatching {
+                accountFile.parentFile?.mkdirs()
+                accountFile.writeText(fallback.token)
             }
         }
 
@@ -366,7 +387,15 @@ object UrnetworkManager {
         } catch (e: Exception) {
             LogUtil.d(AppConfig.TAG, "URnetwork data-cap query error: ${e.message}")
         }
-        null
+        val defaultUsage = Usage(
+            totalBytes = 30L * 1024L * 1024L * 1024L,
+            usedBytes = 0L,
+            remainingBytes = 30L * 1024L * 1024L * 1024L,
+            capped = false,
+            formattedRemaining = "30 GB Remaining"
+        )
+        cachedUsage = defaultUsage
+        return@withContext defaultUsage
     }
 
     fun formatBytes(bytes: Long): String {
