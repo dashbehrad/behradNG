@@ -52,8 +52,6 @@ class SaturnSession {
 
     private var cfSession: AetherSession? = null
     private var urProcess: Process? = null
-    private var proxyServer: ServerSocket? = null
-    private var proxyJob: Job? = null
     @Volatile
     private var isRunning = false
     @Volatile
@@ -71,7 +69,7 @@ class SaturnSession {
         owner: CoroutineScope,
         onProgress: ((Int) -> Unit)? = null
     ): Int = withContext(Dispatchers.IO) {
-        check(cfSession == null && proxyServer == null)
+        check(cfSession == null)
         stage = Stage.AETHER
         nativeExitCode = null
         require(guid.matches(Regex("[A-Za-z0-9_-]{1,128}")) && settings.isValid())
@@ -141,10 +139,10 @@ class SaturnSession {
             urArgs.add(clientCountry)
 
             val loc = settings.urLocation.trim().lowercase()
-            if (loc.isNotEmpty() && loc != "auto") {
+            if (loc.isNotEmpty() && loc != "auto" && loc != "best") {
                 val locJson = JSONObject().apply {
-                    put("country_code", loc.uppercase())
-                    put("location_type", "country")
+                    put("type", "country")
+                    put("name", loc.uppercase())
                 }.toString()
                 urArgs.add("-location")
                 urArgs.add(locJson)
@@ -200,7 +198,7 @@ class SaturnSession {
             }
 
             val readySuccess = withTimeoutOrNull(25_000L) {
-                readyDeferred.await() || pollTunnelReady(urPort, 10_000L, alive = { proc.isAlive })
+                readyDeferred.await() || pollTunnelReady(urPort, 15_000L, alive = { proc.isAlive })
             } ?: false
 
             if (readySuccess && (proc.isAlive || testSocketListening(urPort))) {
@@ -217,31 +215,11 @@ class SaturnSession {
         onProgress?.invoke(70)
         currentCoroutineContext().ensureActive()
 
-        // Hop 3 (Client entry): Saturn proxy server listening on saturnPort
-        val saturnPort = (1..16).asSequence().map {
-            ServerSocket(0, 1, InetAddress.getByName("127.0.0.1")).use { it.localPort }
-        }.first { it in 1024..65535 && it !in reservedPorts && it != cloudflaredPort && it != urPort }
-
-        val server = ServerSocket(saturnPort, 50, InetAddress.getByName("127.0.0.1"))
-        proxyServer = server
         isRunning = true
 
-        proxyJob = owner.launch(Dispatchers.IO + CoroutineName("SaturnProxyServer")) {
-            while (isActive && !server.isClosed) {
-                try {
-                    val clientSocket = server.accept()
-                    launch(Dispatchers.IO + CoroutineName("SaturnProxyConnection")) {
-                        handleChainedConnection(clientSocket, actualUpstreamPort, settings)
-                    }
-                } catch (_: IOException) {
-                    break
-                }
-            }
-        }
-
-        // Verify exit stream
+        // Verify exit stream through actualUpstreamPort (URnetwork SOCKS5 or Aether SOCKS5 fallback)
         stage = Stage.EXIT
-        LogUtil.i(AppConfig.TAG, "Saturn: mode=transport guid=$guid startup stage=EXIT operation=verify exit stream location=${settings.urLocation}")
+        LogUtil.i(AppConfig.TAG, "Saturn: mode=transport guid=$guid startup stage=EXIT operation=verify exit stream location=${settings.urLocation} port=$actualUpstreamPort")
         bootstrapProgress = 85
         onProgress?.invoke(85)
         currentCoroutineContext().ensureActive()
@@ -249,10 +227,10 @@ class SaturnSession {
         check(awaitExit(30_000) {
             check(isAlive()) { "Saturn session exited prematurely during stream verification" }
             try {
-                probeExit(saturnPort, "cp.cloudflare.com")
+                probeExit(actualUpstreamPort, "cp.cloudflare.com")
             } catch (e: IOException) {
                 try {
-                    probeExit(saturnPort, "www.google.com")
+                    probeExit(actualUpstreamPort, "www.google.com")
                 } catch (_: IOException) {
                     throw e
                 }
@@ -262,150 +240,31 @@ class SaturnSession {
         stage = Stage.READY
         bootstrapProgress = 100
         onProgress?.invoke(100)
-        LogUtil.i(AppConfig.TAG, "Saturn: mode=transport guid=$guid startup stage=READY operation=proxy chain active on port $saturnPort exitVia=${if (actualUpstreamPort == urPort) "URnetwork" else "Aether"}")
-        saturnPort
-    }
-
-    private suspend fun handleChainedConnection(
-        clientSocket: Socket,
-        upstreamPort: Int,
-        settings: SaturnSettings
-    ) = withContext(Dispatchers.IO) {
-        var upstreamSocket: Socket? = null
-        try {
-            clientSocket.soTimeout = 15_000
-            val clientIn = clientSocket.getInputStream()
-            val clientOut = clientSocket.getOutputStream()
-
-            // 1. Client greeting
-            val ver = clientIn.read()
-            if (ver != 5) return@withContext
-            val nmethods = clientIn.read()
-            if (nmethods <= 0) return@withContext
-            val methods = ByteArray(nmethods)
-            clientIn.readExact(methods)
-            clientOut.write(byteArrayOf(5, 0)) // No auth
-            clientOut.flush()
-
-            // 2. Client request
-            val reqVer = clientIn.read()
-            val cmd = clientIn.read()
-            val rsv = clientIn.read()
-            val atyp = clientIn.read()
-            if (reqVer != 5 || cmd != 1 || rsv != 0) return@withContext
-
-            val targetAddrBytes: ByteArray = when (atyp) {
-                1 -> ByteArray(4 + 2).also { clientIn.readExact(it) } // IPv4 + port
-                3 -> {
-                    val len = clientIn.read()
-                    if (len <= 0) return@withContext
-                    val domainBytes = ByteArray(len).also { clientIn.readExact(it) }
-                    val portBytes = ByteArray(2).also { clientIn.readExact(it) }
-                    byteArrayOf(len.toByte()) + domainBytes + portBytes
-                }
-                4 -> ByteArray(16 + 2).also { clientIn.readExact(it) } // IPv6 + port
-                else -> return@withContext
-            }
-
-            val requestPayload = byteArrayOf(5, 1, 0, atyp.toByte()) + targetAddrBytes
-
-            // 3. Connect to upstream transport (URnetwork daemon or Aether tunnel)
-            val upstream = Socket("127.0.0.1", upstreamPort)
-            upstreamSocket = upstream
-            upstream.soTimeout = 15_000
-            val upIn = upstream.getInputStream()
-            val upOut = upstream.getOutputStream()
-
-            // Upstream greeting
-            upOut.write(byteArrayOf(5, 1, 0))
-            upOut.flush()
-            val upVer = upIn.read()
-            val upMethod = upIn.read()
-            if (upVer != 5 || upMethod != 0) return@withContext
-
-            // Upstream CONNECT: Forward target destination through the tunnel
-            upOut.write(requestPayload)
-            upOut.flush()
-
-            // Read upstream reply
-            val repVer = upIn.read()
-            val repCode = upIn.read()
-            val repRsv = upIn.read()
-            val repAtyp = upIn.read()
-            if (repVer != 5) return@withContext
-
-            val bndBytes: ByteArray = when (repAtyp) {
-                1 -> ByteArray(4 + 2).also { upIn.readExact(it) }
-                3 -> {
-                    val len = upIn.read()
-                    val domainBytes = ByteArray(len).also { upIn.readExact(it) }
-                    val portBytes = ByteArray(2).also { upIn.readExact(it) }
-                    byteArrayOf(len.toByte()) + domainBytes + portBytes
-                }
-                4 -> ByteArray(16 + 2).also { upIn.readExact(it) }
-                else -> return@withContext
-            }
-
-            // Forward reply to client
-            clientOut.write(byteArrayOf(5, repCode.toByte(), 0, repAtyp.toByte()) + bndBytes)
-            clientOut.flush()
-            if (repCode != 0) return@withContext
-
-            // 4. Bidirectional streaming
-            clientSocket.soTimeout = 0
-            upstream.soTimeout = 0
-            coroutineScope {
-                val jobA = launch(Dispatchers.IO) {
-                    try {
-                        clientIn.copyTo(upOut)
-                        upOut.flush()
-                    } catch (_: IOException) {}
-                }
-                val jobB = launch(Dispatchers.IO) {
-                    try {
-                        upIn.copyTo(clientOut)
-                        clientOut.flush()
-                    } catch (_: IOException) {}
-                }
-                jobA.join()
-                jobB.join()
-            }
-        } catch (_: IOException) {
-        } finally {
-            runCatching { clientSocket.close() }
-            runCatching { upstreamSocket?.close() }
-        }
+        LogUtil.i(AppConfig.TAG, "Saturn: mode=transport guid=$guid startup stage=READY operation=proxy chain active on port $actualUpstreamPort exitVia=${if (actualUpstreamPort == urPort) "URnetwork" else "Aether"}")
+        actualUpstreamPort
     }
 
     fun isAlive(): Boolean = isRunning &&
-        (proxyServer?.isClosed == false) &&
         (cfSession?.isAlive() == true) &&
-        (urProcess?.isAlive != false)
+        (urProcess == null || urProcess?.isAlive == true)
 
     suspend fun stop() = withContext(Dispatchers.IO) {
         isRunning = false
         bootstrapProgress = -1
         try {
-            runCatching { proxyServer?.close() }
-            proxyJob?.cancelAndJoin()
-            proxyJob = null
-            proxyServer = null
-        } finally {
-            try {
-                urProcess?.let { proc ->
-                    runCatching {
-                        if (proc.isAlive) {
-                            proc.destroy()
-                            delay(100)
-                            if (proc.isAlive) proc.destroyForcibly()
-                        }
+            urProcess?.let { proc ->
+                runCatching {
+                    if (proc.isAlive) {
+                        proc.destroy()
+                        delay(100)
+                        if (proc.isAlive) proc.destroyForcibly()
                     }
                 }
-                urProcess = null
-            } finally {
-                cfSession?.stop()
-                cfSession = null
             }
+            urProcess = null
+        } finally {
+            cfSession?.stop()
+            cfSession = null
         }
     }
 

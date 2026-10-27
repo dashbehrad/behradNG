@@ -215,6 +215,7 @@ object CoreConfigManager {
         configureRootModeDns(v2rayConfig)
         if (primaryResolvedOutbound.profile.configType == EConfigType.SATURN) {
             configureSaturnPolicy(v2rayConfig)
+            configureSaturnDns(v2rayConfig)
         }
 
         // (added by getDns / getCustomLocalDns) to use the balancer, then add
