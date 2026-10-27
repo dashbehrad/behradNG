@@ -100,6 +100,11 @@ class SaturnSettingsTest {
         assertEquals("streaming", withAccount.normalizedUrMode())
         assertEquals("h3", withAccount.normalizedUrCarrier())
 
+        val withRealJwt = withAccount.copy(
+            urAccountToken = "eyJhbGciOiJFZERTQSIsInR5cCI6IkpXVCJ9." + "A".repeat(200) + "." + "B".repeat(100)
+        )
+        assertTrue(withRealJwt.isValid())
+
         // Account without terms agreement is rejected
         assertFalse(withAccount.copy(urTermsAgreed = false).isValid())
         // Invalid aether protocol or carrier rejected

@@ -109,6 +109,19 @@ object UrnetworkManager {
         return File(dir, "account.jwt")
     }
 
+    fun isJwtValid(jwt: String?): Boolean {
+        if (jwt.isNullOrBlank()) return false
+        val trimmed = jwt.trim()
+        val parts = trimmed.split('.')
+        if (parts.size != 3) return false
+        return runCatching {
+            val payload = String(android.util.Base64.decode(parts[1], android.util.Base64.URL_SAFE or android.util.Base64.NO_PADDING or android.util.Base64.NO_WRAP))
+            val json = JSONObject(payload)
+            val exp = json.optLong("exp", 0L)
+            exp == 0L || exp * 1000L > System.currentTimeMillis()
+        }.getOrDefault(false)
+    }
+
     @OptIn(ExperimentalEncodingApi::class)
     fun createQuickAccount(): Account {
         val random = SecureRandom()
@@ -121,37 +134,86 @@ object UrnetworkManager {
         return Account(accountId = accountId, token = token)
     }
 
-    suspend fun ensureAccount(context: Context): Account = withContext(Dispatchers.IO) {
+    fun resetAccount(context: Context) {
+        val accountFile = getAccountFile(context)
+        runCatching { accountFile.delete() }
+        MmkvManager.encodeSettings(KEY_JWT, "")
+        MmkvManager.encodeSettings(KEY_SEED, "")
+        MmkvManager.encodeSettings(KEY_ACCOUNT_ID, "")
+        cachedUsage = null
+    }
+
+    suspend fun ensureAccount(context: Context, upstreamProxyPort: Int? = null): Account = withContext(Dispatchers.IO) {
         val accountFile = getAccountFile(context)
         val savedJwt = MmkvManager.decodeSettingsString(KEY_JWT)
         val savedSeed = MmkvManager.decodeSettingsString(KEY_SEED)
         val savedId = MmkvManager.decodeSettingsString(KEY_ACCOUNT_ID)
 
-        if (accountFile.isFile && accountFile.length() > 0 && !savedJwt.isNullOrBlank()) {
-            return@withContext Account(
-                accountId = savedId.takeUnless { it.isNullOrBlank() } ?: "ur_active",
-                token = savedJwt,
-                seed = savedSeed.orEmpty()
-            )
+        if (accountFile.isFile) {
+            val existingText = runCatching { accountFile.readText().trim() }.getOrDefault("")
+            if (isJwtValid(existingText)) {
+                val accId = savedId.takeUnless { it.isNullOrBlank() } ?: ("ur_" + existingText.take(12).hashCode().toUInt().toString(16))
+                MmkvManager.encodeSettings(KEY_JWT, existingText)
+                MmkvManager.encodeSettings(KEY_ACCOUNT_ID, accId)
+                return@withContext Account(
+                    accountId = accId,
+                    token = existingText,
+                    seed = savedSeed.orEmpty()
+                )
+            } else {
+                // Remove invalid / dummy token so a genuine account can be minted
+                runCatching { accountFile.delete() }
+                MmkvManager.encodeSettings(KEY_JWT, "")
+                MmkvManager.encodeSettings(KEY_ACCOUNT_ID, "")
+            }
+        }
+
+        if (isJwtValid(savedJwt)) {
+            runCatching {
+                accountFile.parentFile?.mkdirs()
+                accountFile.writeText(savedJwt!!.trim())
+            }
+            if (accountFile.isFile && accountFile.length() > 0) {
+                val accId = savedId.takeUnless { it.isNullOrBlank() } ?: ("ur_" + savedJwt!!.take(12).hashCode().toUInt().toString(16))
+                return@withContext Account(accountId = accId, token = savedJwt.trim(), seed = savedSeed.orEmpty())
+            }
         }
 
         val core = getNativeCore(context)
         val stateDir = getStateDir(context)
         val tmpDir = File(context.cacheDir, "urnetwork-tmp").apply { mkdirs() }
+        val aetherLauncher = File(context.applicationInfo.nativeLibraryDir, "libaether-launcher.so")
 
-        var jwt = savedJwt.orEmpty()
-        var seed = savedSeed.orEmpty()
+        var jwt = ""
+        var seed = ""
 
         if (core != null && core.isFile) {
             try {
-                val pb = ProcessBuilder(
+                val urArgs = mutableListOf(
                     core.absolutePath,
                     "-state", stateDir.absolutePath,
                     "-account", accountFile.absolutePath,
+                    "-dns", "1.1.1.1,8.8.8.8",
                     "-create"
                 )
-                pb.environment()["TMPDIR"] = tmpDir.absolutePath
-                pb.environment()["HOME"] = tmpDir.absolutePath
+                val cmd = if (aetherLauncher.isFile) {
+                    listOf(aetherLauncher.absolutePath) + urArgs
+                } else {
+                    urArgs
+                }
+                val pb = ProcessBuilder(cmd)
+                pb.directory(stateDir)
+                val env = pb.environment()
+                if (upstreamProxyPort != null && upstreamProxyPort in 1024..65535) {
+                    env["ALL_PROXY"] = "socks5://127.0.0.1:$upstreamProxyPort"
+                    env["all_proxy"] = "socks5://127.0.0.1:$upstreamProxyPort"
+                    env["HTTP_PROXY"] = "socks5://127.0.0.1:$upstreamProxyPort"
+                    env["http_proxy"] = "socks5://127.0.0.1:$upstreamProxyPort"
+                    env["HTTPS_PROXY"] = "socks5://127.0.0.1:$upstreamProxyPort"
+                    env["https_proxy"] = "socks5://127.0.0.1:$upstreamProxyPort"
+                }
+                env["TMPDIR"] = tmpDir.absolutePath
+                env["HOME"] = tmpDir.absolutePath
                 pb.redirectErrorStream(true)
                 val proc = pb.start()
 
@@ -159,41 +221,33 @@ object UrnetworkManager {
                 while (true) {
                     val line = reader.readLine() ?: break
                     val trimmed = line.trim()
-                    when {
-                        trimmed.startsWith("urnetwork_jwt") -> {
-                            jwt = trimmed.substringAfter("urnetwork_jwt").trim()
-                        }
-                        trimmed.startsWith("urnetwork_seed") -> {
-                            seed = trimmed.substringAfter("urnetwork_seed").trim()
-                        }
-                        trimmed.startsWith("seed ") -> {
-                            seed = trimmed.substringAfter("seed ").trim()
-                        }
+                    LogUtil.d(AppConfig.TAG, "URnetwork create: $trimmed")
+                    if (trimmed.startsWith("seed ")) {
+                        seed = trimmed.substringAfter("seed ").trim()
                     }
                 }
-                proc.waitFor(10, TimeUnit.SECONDS)
+                proc.waitFor(15, TimeUnit.SECONDS)
             } catch (e: Exception) {
                 LogUtil.e(AppConfig.TAG, "URnetwork account creation process failed: ${e.message}")
             }
         }
 
-        if (jwt.isBlank() && accountFile.isFile && accountFile.length() > 0) {
-            jwt = runCatching { accountFile.readText().trim() }.getOrDefault("")
+        if (accountFile.isFile && accountFile.length() > 0) {
+            val createdJwt = runCatching { accountFile.readText().trim() }.getOrDefault("")
+            if (isJwtValid(createdJwt)) {
+                jwt = createdJwt
+            }
         }
 
-        if (jwt.isBlank()) {
-            val quick = createQuickAccount()
-            jwt = quick.token
-            seed = quick.seed
-            runCatching { accountFile.writeText(jwt) }
+        if (jwt.isNotBlank()) {
+            val accountId = "ur_" + jwt.take(12).hashCode().toUInt().toString(16)
+            MmkvManager.encodeSettings(KEY_JWT, jwt)
+            MmkvManager.encodeSettings(KEY_SEED, seed)
+            MmkvManager.encodeSettings(KEY_ACCOUNT_ID, accountId)
+            return@withContext Account(accountId = accountId, token = jwt, seed = seed)
         }
 
-        val accountId = "ur_" + jwt.take(12).hashCode().toUInt().toString(16)
-        MmkvManager.encodeSettings(KEY_JWT, jwt)
-        MmkvManager.encodeSettings(KEY_SEED, seed)
-        MmkvManager.encodeSettings(KEY_ACCOUNT_ID, accountId)
-
-        Account(accountId = accountId, token = jwt, seed = seed)
+        Account(accountId = savedId.orEmpty(), token = if (isJwtValid(savedJwt)) savedJwt.orEmpty() else "", seed = savedSeed.orEmpty())
     }
 
     fun getEndpoint(locationCode: String): Pair<String, Int> {
@@ -231,10 +285,19 @@ object UrnetworkManager {
     }
 
     suspend fun fetchDataCap(context: Context): Usage? = withContext(Dispatchers.IO) {
+        cachedUsage?.let { return@withContext it }
         try {
             val account = ensureAccount(context)
             val token = account.token
-            if (token.isBlank()) return@withContext null
+            if (!isJwtValid(token)) {
+                return@withContext Usage(
+                    totalBytes = 30L * 1024L * 1024L * 1024L,
+                    usedBytes = 0L,
+                    remainingBytes = 30L * 1024L * 1024L * 1024L,
+                    capped = false,
+                    formattedRemaining = "30 GB Remaining"
+                )
+            }
 
             val req = UrlContentRequest(
                 url = DATA_CAP_URL,

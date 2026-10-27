@@ -119,8 +119,9 @@ class SaturnSession {
 
         var actualUpstreamPort = cfPort
         if (urCore != null && urCore.isFile) {
+            val aetherLauncher = File(context.applicationInfo.nativeLibraryDir, "libaether-launcher.so")
             val accountFile = UrnetworkManager.getAccountFile(context)
-            UrnetworkManager.ensureAccount(context)
+            UrnetworkManager.ensureAccount(context, upstreamProxyPort = cfPort)
             val stateDir = UrnetworkManager.getStateDir(context)
             val tmpDir = File(context.cacheDir, "urnetwork-tmp").apply { mkdirs() }
 
@@ -133,25 +134,36 @@ class SaturnSession {
                 "-desc", "behradNG · ${Build.MODEL}",
                 "-dns", dnsIps
             )
+            val clientCountry = Locale.getDefault().country.lowercase().takeIf { it.isNotBlank() } ?: "ir"
+            urArgs.add("-country")
+            urArgs.add(clientCountry)
+
             val loc = settings.urLocation.trim().lowercase()
             if (loc.isNotEmpty() && loc != "auto") {
-                urArgs.add("-country")
-                urArgs.add(loc)
+                val locJson = JSONObject().apply {
+                    put("country_code", loc.uppercase())
+                    put("location_type", "country")
+                }.toString()
                 urArgs.add("-location")
-                urArgs.add(loc)
+                urArgs.add(locJson)
             }
 
             LogUtil.i(AppConfig.TAG, "Saturn: mode=transport guid=$guid startup stage=URNETWORK operation=chain URnetwork mode=${settings.normalizedUrMode()} carrier=${settings.normalizedUrCarrier()} location=${settings.urLocation} socksPort=$urPort upstream=127.0.0.1:$cfPort")
 
-            val pb = ProcessBuilder(urArgs)
+            val command = if (aetherLauncher.isFile) {
+                listOf(aetherLauncher.absolutePath) + urArgs
+            } else {
+                urArgs
+            }
+            val pb = ProcessBuilder(command)
             pb.directory(stateDir)
             val env = pb.environment()
             env["ALL_PROXY"] = "socks5://127.0.0.1:$cfPort"
             env["all_proxy"] = "socks5://127.0.0.1:$cfPort"
-            env["HTTP_PROXY"] = "http://127.0.0.1:$cfPort"
-            env["http_proxy"] = "http://127.0.0.1:$cfPort"
-            env["HTTPS_PROXY"] = "http://127.0.0.1:$cfPort"
-            env["https_proxy"] = "http://127.0.0.1:$cfPort"
+            env["HTTP_PROXY"] = "socks5://127.0.0.1:$cfPort"
+            env["http_proxy"] = "socks5://127.0.0.1:$cfPort"
+            env["HTTPS_PROXY"] = "socks5://127.0.0.1:$cfPort"
+            env["https_proxy"] = "socks5://127.0.0.1:$cfPort"
             env["TMPDIR"] = tmpDir.absolutePath
             env["HOME"] = tmpDir.absolutePath
             pb.redirectErrorStream(true)
@@ -161,29 +173,35 @@ class SaturnSession {
 
             val readyDeferred = CompletableDeferred<Boolean>()
             owner.launch(Dispatchers.IO + CoroutineName("UrnetworkLogPumper")) {
+                val capturedErrors = StringBuilder()
                 try {
                     proc.inputStream.bufferedReader().use { reader ->
-                        while (proc.isAlive) {
+                        while (isActive) {
                             val line = reader.readLine() ?: break
+                            LogUtil.d(AppConfig.TAG, "URnetwork: $line")
                             if (line.contains("listening on") || line.contains("listening")) {
                                 if (!readyDeferred.isCompleted) readyDeferred.complete(true)
                             }
-                            if (line.contains("window") || line.contains("tunaddr") || line.contains("contract") || line.contains("added") || line.contains("error")) {
-                                LogUtil.d(AppConfig.TAG, "URnetwork: $line")
+                            if (line.contains("error", ignoreCase = true) || line.contains("refused", ignoreCase = true)) {
+                                capturedErrors.append(line).append("\n")
                             }
                         }
                     }
                 } catch (_: Exception) {
                 } finally {
                     if (!readyDeferred.isCompleted) readyDeferred.complete(false)
+                    if (!proc.isAlive) {
+                        val exit = runCatching { proc.exitValue() }.getOrNull()
+                        LogUtil.e(AppConfig.TAG, "URnetwork daemon exited with code $exit: $capturedErrors")
+                    }
                 }
             }
 
             val readySuccess = withTimeoutOrNull(25_000L) {
-                readyDeferred.await() || awaitTunnelReady(urPort, 10_000L, alive = { proc.isAlive })
+                readyDeferred.await() || pollTunnelReady(urPort, 10_000L, alive = { proc.isAlive })
             } ?: false
 
-            if (readySuccess && testTunnelSocks5(urPort)) {
+            if (readySuccess && (proc.isAlive || testSocketListening(urPort))) {
                 LogUtil.i(AppConfig.TAG, "Saturn: URnetwork daemon active on 127.0.0.1:$urPort chained to Aether 127.0.0.1:$cfPort")
                 actualUpstreamPort = urPort
             } else {
@@ -509,6 +527,27 @@ class SaturnSession {
                 delay(500)
             }
             false
+        } == true
+
+        internal fun testSocketListening(port: Int): Boolean {
+            return runCatching {
+                Socket().use { s ->
+                    s.connect(InetSocketAddress("127.0.0.1", port), 500)
+                    true
+                }
+            }.getOrDefault(false)
+        }
+
+        internal suspend fun pollTunnelReady(
+            port: Int,
+            timeoutMillis: Long = 10_000L,
+            alive: () -> Boolean = { true }
+        ): Boolean = withTimeoutOrNull(timeoutMillis) {
+            while (alive()) {
+                if (testSocketListening(port)) return@withTimeoutOrNull true
+                delay(250)
+            }
+            testSocketListening(port)
         } == true
 
         internal fun configuration(

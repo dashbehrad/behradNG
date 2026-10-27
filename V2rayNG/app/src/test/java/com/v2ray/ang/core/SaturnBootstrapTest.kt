@@ -78,4 +78,13 @@ class SaturnBootstrapTest {
             runBlocking { SaturnSession.awaitTunnelReady(12345, 1000, alive = { false }) }
         }
     }
+
+    @Test fun pollTunnelReadyReturnsTrueWhenPortListensAndFalseWhenDead(): Unit = runBlocking {
+        ServerSocket(0, 1, InetAddress.getByName("127.0.0.1")).use { server ->
+            assertTrue(SaturnSession.testSocketListening(server.localPort))
+            assertTrue(SaturnSession.pollTunnelReady(server.localPort, 1000, alive = { true }))
+        }
+        assertFalse(SaturnSession.testSocketListening(65534))
+        assertFalse(SaturnSession.pollTunnelReady(65534, 100, alive = { false }))
+    }
 }

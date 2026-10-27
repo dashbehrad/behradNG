@@ -76,7 +76,7 @@ data class SaturnSettings(
         if (hasUrAccount()) {
             require(urTermsAgreed)
             require(urAccountId!!.length in 1..128)
-            require(urAccountToken!!.length in 1..256)
+            require(urAccountToken!!.length in 1..4096)
         }
         val lines = bridgeLines()
         if (!usesAutomaticBridges() && !usesDirectConnection()) require(lines.size in 1..64 && lines.all(::validBridge))
