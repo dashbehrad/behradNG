@@ -169,13 +169,14 @@ object UrnetworkManager {
         }
 
         if (isJwtValid(savedJwt)) {
+            val nonNullJwt = savedJwt!!.trim()
             runCatching {
                 accountFile.parentFile?.mkdirs()
-                accountFile.writeText(savedJwt!!.trim())
+                accountFile.writeText(nonNullJwt)
             }
             if (accountFile.isFile && accountFile.length() > 0) {
-                val accId = savedId.takeUnless { it.isNullOrBlank() } ?: ("ur_" + savedJwt!!.take(12).hashCode().toUInt().toString(16))
-                return@withContext Account(accountId = accId, token = savedJwt.trim(), seed = savedSeed.orEmpty())
+                val accId = savedId.takeUnless { it.isNullOrBlank() } ?: ("ur_" + nonNullJwt.take(12).hashCode().toUInt().toString(16))
+                return@withContext Account(accountId = accId, token = nonNullJwt, seed = savedSeed.orEmpty())
             }
         }
 
