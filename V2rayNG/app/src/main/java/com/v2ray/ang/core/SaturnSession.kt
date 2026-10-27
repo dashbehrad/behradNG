@@ -1,12 +1,14 @@
 package com.v2ray.ang.core
 
 import android.content.Context
+import android.os.Build
 import androidx.annotation.RequiresApi
 import com.v2ray.ang.AppConfig
 import com.v2ray.ang.dto.entities.AetherSettings
 import com.v2ray.ang.dto.entities.SaturnSettings
 import com.v2ray.ang.util.LogUtil
 import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.CoroutineName
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -33,7 +35,7 @@ import java.net.Socket
 import kotlin.coroutines.resume
 import kotlin.coroutines.resumeWithException
 
-/** saturn-core: Aether Cloudflare Tunnel with TLS SNI fragmentation chained to URnetwork. */
+/** saturn-core: Aether Cloudflare Tunnel chained to URnetwork decentralized proxy network. */
 @RequiresApi(26)
 class SaturnSession {
     enum class Stage { AETHER, URNETWORK, EXIT, READY, NATIVE, CLOUDFLARED, BRIDGES, BOOTSTRAP }
@@ -47,6 +49,7 @@ class SaturnSession {
         private set
 
     private var cfSession: AetherSession? = null
+    private var urProcess: Process? = null
     private var proxyServer: ServerSocket? = null
     private var proxyJob: Job? = null
     @Volatile
@@ -54,6 +57,7 @@ class SaturnSession {
     @Volatile
     private var bootstrapProgress = -1
     private var cloudflaredPort: Int = 0
+    private var urnetworkPort: Int = 0
 
     val currentProgress: Int get() = bootstrapProgress
 
@@ -105,18 +109,98 @@ class SaturnSession {
         onProgress?.invoke(50)
         currentCoroutineContext().ensureActive()
 
-        // Hop 2: Connect built-in proxy chain to URnetwork
+        // Hop 2: Connect URnetwork native daemon chained over Aether
         stage = Stage.URNETWORK
-        val (urHost, urPort) = UrnetworkManager.getEndpoint(settings.urLocation)
-        UrnetworkManager.authenticateSession(settings)
-        LogUtil.i(AppConfig.TAG, "Saturn: mode=transport guid=$guid startup stage=URNETWORK operation=chain URnetwork mode=${settings.normalizedUrMode()} carrier=${settings.normalizedUrCarrier()} location=${settings.urLocation} target=$urHost:$urPort")
+        val urCore = UrnetworkManager.getNativeCore(context)
+        val urPort = (1..16).asSequence().map {
+            ServerSocket(0, 1, InetAddress.getByName("127.0.0.1")).use { it.localPort }
+        }.first { it in 1024..65535 && it !in reservedPorts && it != cloudflaredPort }
+        urnetworkPort = urPort
+
+        var actualUpstreamPort = cfPort
+        if (urCore != null && urCore.isFile) {
+            val accountFile = UrnetworkManager.getAccountFile(context)
+            UrnetworkManager.ensureAccount(context)
+            val stateDir = UrnetworkManager.getStateDir(context)
+            val tmpDir = File(context.cacheDir, "urnetwork-tmp").apply { mkdirs() }
+
+            val urArgs = mutableListOf(
+                urCore.absolutePath,
+                "-state", stateDir.absolutePath,
+                "-account", accountFile.absolutePath,
+                "-socks", "127.0.0.1:$urPort",
+                "-memory", "128",
+                "-desc", "behradNG · ${Build.MODEL}",
+                "-dns", dnsIps
+            )
+            val loc = settings.urLocation.trim().lowercase()
+            if (loc.isNotEmpty() && loc != "auto") {
+                urArgs.add("-country")
+                urArgs.add(loc)
+                urArgs.add("-location")
+                urArgs.add(loc)
+            }
+
+            LogUtil.i(AppConfig.TAG, "Saturn: mode=transport guid=$guid startup stage=URNETWORK operation=chain URnetwork mode=${settings.normalizedUrMode()} carrier=${settings.normalizedUrCarrier()} location=${settings.urLocation} socksPort=$urPort upstream=127.0.0.1:$cfPort")
+
+            val pb = ProcessBuilder(urArgs)
+            pb.directory(stateDir)
+            val env = pb.environment()
+            env["ALL_PROXY"] = "socks5://127.0.0.1:$cfPort"
+            env["all_proxy"] = "socks5://127.0.0.1:$cfPort"
+            env["HTTP_PROXY"] = "http://127.0.0.1:$cfPort"
+            env["http_proxy"] = "http://127.0.0.1:$cfPort"
+            env["HTTPS_PROXY"] = "http://127.0.0.1:$cfPort"
+            env["https_proxy"] = "http://127.0.0.1:$cfPort"
+            env["TMPDIR"] = tmpDir.absolutePath
+            env["HOME"] = tmpDir.absolutePath
+            pb.redirectErrorStream(true)
+
+            val proc = pb.start()
+            urProcess = proc
+
+            val readyDeferred = CompletableDeferred<Boolean>()
+            owner.launch(Dispatchers.IO + CoroutineName("UrnetworkLogPumper")) {
+                try {
+                    proc.inputStream.bufferedReader().use { reader ->
+                        while (proc.isAlive) {
+                            val line = reader.readLine() ?: break
+                            if (line.contains("listening on") || line.contains("listening")) {
+                                if (!readyDeferred.isCompleted) readyDeferred.complete(true)
+                            }
+                            if (line.contains("window") || line.contains("tunaddr") || line.contains("contract") || line.contains("added") || line.contains("error")) {
+                                LogUtil.d(AppConfig.TAG, "URnetwork: $line")
+                            }
+                        }
+                    }
+                } catch (_: Exception) {
+                } finally {
+                    if (!readyDeferred.isCompleted) readyDeferred.complete(false)
+                }
+            }
+
+            val readySuccess = withTimeoutOrNull(25_000L) {
+                readyDeferred.await() || awaitTunnelReady(urPort, 10_000L, alive = { proc.isAlive })
+            } ?: false
+
+            if (readySuccess && testTunnelSocks5(urPort)) {
+                LogUtil.i(AppConfig.TAG, "Saturn: URnetwork daemon active on 127.0.0.1:$urPort chained to Aether 127.0.0.1:$cfPort")
+                actualUpstreamPort = urPort
+            } else {
+                LogUtil.w(AppConfig.TAG, "Saturn: URnetwork daemon not ready in time, falling back to Aether transport")
+            }
+        } else {
+            LogUtil.w(AppConfig.TAG, "Saturn: liburnetwork.so not available for current ABI, running on direct Aether transport")
+        }
+
         bootstrapProgress = 70
         onProgress?.invoke(70)
         currentCoroutineContext().ensureActive()
 
+        // Hop 3 (Client entry): Saturn proxy server listening on saturnPort
         val saturnPort = (1..16).asSequence().map {
             ServerSocket(0, 1, InetAddress.getByName("127.0.0.1")).use { it.localPort }
-        }.first { it in 1024..65535 && it !in reservedPorts && it != cloudflaredPort }
+        }.first { it in 1024..65535 && it !in reservedPorts && it != cloudflaredPort && it != urPort }
 
         val server = ServerSocket(saturnPort, 50, InetAddress.getByName("127.0.0.1"))
         proxyServer = server
@@ -127,7 +211,7 @@ class SaturnSession {
                 try {
                     val clientSocket = server.accept()
                     launch(Dispatchers.IO + CoroutineName("SaturnProxyConnection")) {
-                        handleChainedConnection(clientSocket, cfPort, settings)
+                        handleChainedConnection(clientSocket, actualUpstreamPort, settings)
                     }
                 } catch (_: IOException) {
                     break
@@ -158,7 +242,7 @@ class SaturnSession {
         stage = Stage.READY
         bootstrapProgress = 100
         onProgress?.invoke(100)
-        LogUtil.i(AppConfig.TAG, "Saturn: mode=transport guid=$guid startup stage=READY operation=proxy chain active on port $saturnPort")
+        LogUtil.i(AppConfig.TAG, "Saturn: mode=transport guid=$guid startup stage=READY operation=proxy chain active on port $saturnPort exitVia=${if (actualUpstreamPort == urPort) "URnetwork" else "Aether"}")
         saturnPort
     }
 
@@ -205,7 +289,7 @@ class SaturnSession {
 
             val requestPayload = byteArrayOf(5, 1, 0, atyp.toByte()) + targetAddrBytes
 
-            // 3. Connect to upstream transport (Aether Cloudflare Tunnel with URnetwork integration)
+            // 3. Connect to upstream transport (URnetwork daemon or Aether tunnel)
             val upstream = Socket("127.0.0.1", upstreamPort)
             upstreamSocket = upstream
             upstream.soTimeout = 15_000
@@ -275,7 +359,8 @@ class SaturnSession {
 
     fun isAlive(): Boolean = isRunning &&
         (proxyServer?.isClosed == false) &&
-        (cfSession?.isAlive() == true)
+        (cfSession?.isAlive() == true) &&
+        (urProcess?.isAlive != false)
 
     suspend fun stop() = withContext(Dispatchers.IO) {
         isRunning = false
@@ -286,8 +371,21 @@ class SaturnSession {
             proxyJob = null
             proxyServer = null
         } finally {
-            cfSession?.stop()
-            cfSession = null
+            try {
+                urProcess?.let { proc ->
+                    runCatching {
+                        if (proc.isAlive) {
+                            proc.destroy()
+                            delay(100)
+                            if (proc.isAlive) proc.destroyForcibly()
+                        }
+                    }
+                }
+                urProcess = null
+            } finally {
+                cfSession?.stop()
+                cfSession = null
+            }
         }
     }
 

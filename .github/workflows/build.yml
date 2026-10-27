@@ -227,6 +227,11 @@ jobs:
       shell: bash
       run: |
         unzip -l "$APK_FILE" assets/third_party/saturn/source-pins.json | grep -F source-pins.json
+        for ABI in $(jq -r '.assets[].abi' saturn-core.lock.json); do
+          for LIBRARY in liburnetwork.so; do
+            unzip -l "$APK_FILE" "lib/$ABI/$LIBRARY" | grep -F "lib/$ABI/$LIBRARY"
+          done
+        done
 
     - name: Verify bundled Iran datasets
       shell: bash

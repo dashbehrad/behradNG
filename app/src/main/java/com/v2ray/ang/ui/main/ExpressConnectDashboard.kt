@@ -34,8 +34,11 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -44,6 +47,7 @@ import androidx.compose.ui.draw.scale
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.res.painterResource
@@ -79,6 +83,18 @@ fun ExpressConnectDashboard(
 ) {
     val haptic = LocalHapticFeedback.current
     val scrollState = rememberScrollState()
+    val context = LocalContext.current
+    var remainingDataText by remember { mutableStateOf<String?>(null) }
+    LaunchedEffect(selectedProfile?.guid) {
+        if (selectedProfile?.configType == com.v2ray.ang.enums.EConfigType.SATURN) {
+            val usage = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
+                com.v2ray.ang.core.UrnetworkManager.fetchDataCap(context)
+            }
+            if (usage != null) {
+                remainingDataText = usage.formattedRemaining
+            }
+        }
+    }
 
     // Pulse animation for connected state
     val infiniteTransition = rememberInfiniteTransition(label = "ExpressPulse")
@@ -188,6 +204,9 @@ fun ExpressConnectDashboard(
 
         if (selectedProfile?.configType == com.v2ray.ang.enums.EConfigType.SATURN) {
             Spacer(modifier = Modifier.height(16.dp))
+            val usageText = remainingDataText
+                ?: com.v2ray.ang.core.UrnetworkManager.cachedUsage?.formattedRemaining
+                ?: stringResource(R.string.saturn_ur_remaining_data)
             Surface(
                 shape = RoundedCornerShape(14.dp),
                 color = MaterialTheme.colorScheme.surfaceContainerHigh.copy(alpha = 0.9f),
@@ -207,7 +226,7 @@ fun ExpressConnectDashboard(
                     )
                     Spacer(modifier = Modifier.width(8.dp))
                     Text(
-                        text = stringResource(R.string.saturn_ur_remaining_data),
+                        text = usageText,
                         style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.Bold),
                         color = MaterialTheme.colorScheme.onSurface
                     )

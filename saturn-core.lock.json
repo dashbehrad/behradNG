@@ -14,5 +14,18 @@
       "h2",
       "h3"
     ]
-  }
+  },
+  "assets": [
+    {
+      "abi": "arm64-v8a",
+      "source": "mlmvpn/mlmvpn_android",
+      "version": "v1.2.42",
+      "archive": "mlmvpn-1.2.42-arm64-v8a-release.apk",
+      "url": "https://github.com/mlmvpn/mlmvpn_android/releases/download/v1.2.42/mlmvpn-1.2.42-arm64-v8a-release.apk",
+      "archiveSha256": "b2a32a5ae3b9f02d95f7b6dce511a9c656928f7c9243207fcfd1b8b86028a8dc",
+      "entry": "lib/arm64-v8a/liburnetwork.so",
+      "library": "liburnetwork.so",
+      "sha256": "ae88c586222a36734e7ce3d5a8caef9e1fb2409c3be62083ded6d59661b69715"
+    }
+  ]
 }
