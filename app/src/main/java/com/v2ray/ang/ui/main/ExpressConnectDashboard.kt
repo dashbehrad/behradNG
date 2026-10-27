@@ -85,7 +85,7 @@ fun ExpressConnectDashboard(
     val scrollState = rememberScrollState()
     val context = LocalContext.current
     var remainingDataText by remember { mutableStateOf<String?>(null) }
-    LaunchedEffect(selectedProfile?.guid) {
+    LaunchedEffect(selectedGuid) {
         if (selectedProfile?.configType == com.v2ray.ang.enums.EConfigType.SATURN) {
             val usage = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
                 com.v2ray.ang.core.UrnetworkManager.fetchDataCap(context)
