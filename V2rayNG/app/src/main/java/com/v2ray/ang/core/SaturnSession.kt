@@ -123,7 +123,7 @@ class SaturnSession {
         if (urCore != null && urCore.isFile) {
             val aetherLauncher = File(context.applicationInfo.nativeLibraryDir, "libaether-launcher.so")
             val accountFile = UrnetworkManager.getAccountFile(context)
-            UrnetworkManager.ensureAccount(context, upstreamProxyPort = cfPort)
+            UrnetworkManager.ensureAccount(context, upstreamProxyPort = cfPort, preferredToken = settings.urAccountToken)
             val stateDir = UrnetworkManager.getStateDir(context)
             val tmpDir = File(context.cacheDir, "urnetwork-tmp").apply { mkdirs() }
 
@@ -203,17 +203,11 @@ class SaturnSession {
                 readyDeferred.await() || pollTunnelReady(urPort, 15_000L, alive = { proc.isAlive })
             } ?: false
 
-            if (readySuccess && (proc.isAlive || testSocketListening(urPort))) {
-                LogUtil.i(AppConfig.TAG, "Saturn: URnetwork daemon active on 127.0.0.1:$urPort chained to Aether 127.0.0.1:$cfPort")
-                actualUpstreamPort = urPort
-            } else {
-                LogUtil.w(AppConfig.TAG, "Saturn: URnetwork daemon not ready in time, falling back to Aether transport")
-                actualUpstreamPort = cfPort
-                runCatching {
-                    if (proc.isAlive) proc.destroy()
-                }
-                urProcess = null
+            check(readySuccess && (proc.isAlive || testSocketListening(urPort))) {
+                "URnetwork daemon failed to start or open socks port: $capturedErrors"
             }
+            LogUtil.i(AppConfig.TAG, "Saturn: URnetwork daemon active on 127.0.0.1:$urPort chained to Aether 127.0.0.1:$cfPort")
+            actualUpstreamPort = urPort
         } else {
             LogUtil.w(AppConfig.TAG, "Saturn: liburnetwork.so not available for current ABI, running on direct Aether transport")
             actualUpstreamPort = cfPort
@@ -226,7 +220,7 @@ class SaturnSession {
 
         isRunning = true
 
-        // Verify exit stream through actualUpstreamPort (URnetwork SOCKS5 or Aether SOCKS5 fallback)
+        // Verify exit stream through actualUpstreamPort
         stage = Stage.EXIT
         LogUtil.i(AppConfig.TAG, "Saturn: mode=transport guid=$guid startup stage=EXIT operation=verify exit stream location=${settings.urLocation} port=$actualUpstreamPort")
         bootstrapProgress = 85
@@ -238,29 +232,15 @@ class SaturnSession {
             try {
                 probeExit(actualUpstreamPort, "cp.cloudflare.com")
             } catch (e: IOException) {
-                probeExit(actualUpstreamPort, "www.google.com")
+                try {
+                    probeExit(actualUpstreamPort, "www.google.com")
+                } catch (_: IOException) {
+                    probeExit(actualUpstreamPort, "1.1.1.1", 53)
+                }
             }
         }
 
-        if (!exitReady && actualUpstreamPort != cfPort) {
-            LogUtil.w(AppConfig.TAG, "Saturn: URnetwork exit probe failed, falling back to Aether transport")
-            actualUpstreamPort = cfPort
-            actualProxyPort = cfPort
-            runCatching {
-                urProcess?.let { if (it.isAlive) it.destroy() }
-            }
-            urProcess = null
-            check(awaitExit(15_000) {
-                check(isAlive()) { "Saturn session exited prematurely during fallback stream verification" }
-                try {
-                    probeExit(cfPort, "cp.cloudflare.com")
-                } catch (e: IOException) {
-                    probeExit(cfPort, "www.google.com")
-                }
-            }) { "Saturn could not open an exit stream through fallback proxy" }
-        } else {
-            check(exitReady) { "Saturn could not open an exit stream through proxy chain" }
-        }
+        check(exitReady) { "Saturn could not open an exit stream through proxy chain" }
 
         stage = Stage.READY
         bootstrapProgress = 100
@@ -318,13 +298,13 @@ class SaturnSession {
         ): Boolean = torAlive && cloudflaredAlive && (direct || obfs4Alive)
 
         /** Probe a public endpoint through the running proxy. */
-        internal suspend fun probeExit(port: Int, host: String = "cp.cloudflare.com"): Unit = coroutineScope {
+        internal suspend fun probeExit(port: Int, host: String = "cp.cloudflare.com", targetPort: Int = 80): Unit = coroutineScope {
             val socket = Socket(Proxy(Proxy.Type.SOCKS, InetSocketAddress("127.0.0.1", port)))
             suspendCancellableCoroutine { continuation ->
                 val probe = launch(Dispatchers.IO + CoroutineName("SaturnExitProbe")) {
                     try {
                         socket.use {
-                            it.connect(InetSocketAddress.createUnresolved(host, 80), 10_000)
+                            it.connect(InetSocketAddress.createUnresolved(host, targetPort), 10_000)
                         }
                         continuation.resume(Unit)
                     } catch (e: IOException) {

@@ -14,8 +14,13 @@ import kotlinx.coroutines.withContext
 import kotlinx.coroutines.withTimeoutOrNull
 import org.json.JSONObject
 import java.io.File
+import java.net.HttpURLConnection
+import java.net.InetSocketAddress
+import java.net.Proxy
+import java.net.URL
 import java.security.SecureRandom
 import java.util.Locale
+import java.util.UUID
 import java.util.concurrent.TimeUnit
 import kotlin.io.encoding.Base64
 import kotlin.io.encoding.ExperimentalEncodingApi
@@ -118,16 +123,98 @@ object UrnetworkManager {
         val trimmed = jwt.trim()
         val parts = trimmed.split('.')
         if (parts.size != 3) return false
+        if (parts[2].isBlank()) return false
         return runCatching {
-            var b64 = parts[1].replace('-', '+').replace('_', '/')
-            val mod = b64.length % 4
-            if (mod > 0) b64 += "=".repeat(4 - mod)
-            val decoded = Base64.decode(b64)
-            val payload = String(decoded)
-            val json = JSONObject(payload)
-            val exp = json.optLong("exp", 0L)
-            exp == 0L || exp * 1000L > System.currentTimeMillis()
+            var b64H = parts[0].replace('-', '+').replace('_', '/')
+            val modH = b64H.length % 4
+            if (modH > 0) b64H += "=".repeat(4 - modH)
+            val headerJson = JSONObject(String(Base64.decode(b64H)))
+            val alg = headerJson.optString("alg", "")
+            if (alg.equals("none", ignoreCase = true) || alg.isBlank()) return@runCatching false
+
+            var b64P = parts[1].replace('-', '+').replace('_', '/')
+            val modP = b64P.length % 4
+            if (modP > 0) b64P += "=".repeat(4 - modP)
+            val payloadJson = JSONObject(String(Base64.decode(b64P)))
+            val exp = payloadJson.optLong("exp", 0L)
+            val notExpired = exp == 0L || exp * 1000L > System.currentTimeMillis()
+            val hasNetwork = payloadJson.has("network_id") || payloadJson.has("client_id") || payloadJson.has("sub")
+            notExpired && hasNetwork
         }.getOrDefault(false)
+    }
+
+    @OptIn(ExperimentalEncodingApi::class)
+    fun extractNetworkId(jwt: String): String {
+        return runCatching {
+            val parts = jwt.trim().split('.')
+            if (parts.size >= 2) {
+                var b64P = parts[1].replace('-', '+').replace('_', '/')
+                val modP = b64P.length % 4
+                if (modP > 0) b64P += "=".repeat(4 - modP)
+                val payloadJson = JSONObject(String(Base64.decode(b64P)))
+                val netId = payloadJson.optString("network_id", "")
+                if (netId.isNotBlank()) return@runCatching netId
+                val clientId = payloadJson.optString("client_id", "")
+                if (clientId.isNotBlank()) return@runCatching clientId
+                val sub = payloadJson.optString("sub", "")
+                if (sub.isNotBlank()) return@runCatching sub
+            }
+            null
+        }.getOrNull() ?: ("ur_" + jwt.take(12).hashCode().toUInt().toString(16))
+    }
+
+    fun requestCreateNetwork(upstreamProxyPort: Int? = null): Account? {
+        val proxiesToTry = mutableListOf<Proxy?>()
+        if (upstreamProxyPort != null && upstreamProxyPort in 1024..65535) {
+            proxiesToTry.add(Proxy(Proxy.Type.SOCKS, InetSocketAddress("127.0.0.1", upstreamProxyPort)))
+        }
+        proxiesToTry.add(Proxy.NO_PROXY)
+
+        for (proxy in proxiesToTry) {
+            try {
+                val url = URL("$API_BASE_URL/auth/network-create")
+                val conn = (if (proxy != null && proxy != Proxy.NO_PROXY) url.openConnection(proxy) else url.openConnection()) as HttpURLConnection
+                conn.connectTimeout = 12_000
+                conn.readTimeout = 12_000
+                conn.requestMethod = "POST"
+                conn.setRequestProperty("Content-Type", "application/json; charset=utf-8")
+                conn.setRequestProperty("Accept", "application/json")
+                conn.setRequestProperty("User-Agent", "urnetwork/1.0")
+                conn.doOutput = true
+
+                val payload = JSONObject().apply {
+                    put("network_name", "guest-${UUID.randomUUID()}")
+                    put("terms", true)
+                    put("product_updates_opt_out", true)
+                }.toString()
+
+                conn.outputStream.use { os ->
+                    os.write(payload.toByteArray(Charsets.UTF_8))
+                    os.flush()
+                }
+
+                val responseCode = conn.responseCode
+                if (responseCode in 200..299) {
+                    val body = conn.inputStream.bufferedReader().use { it.readText() }
+                    val json = JSONObject(body)
+                    val seedphrase = json.optString("seedphrase", "")
+                    val netObj = json.optJSONObject("network")
+                    val byJwt = netObj?.optString("by_jwt", "") ?: ""
+                    val netId = netObj?.optString("network_id", "") ?: ""
+                    if (isJwtValid(byJwt)) {
+                        val accId = netId.ifBlank { extractNetworkId(byJwt) }
+                        LogUtil.i(AppConfig.TAG, "URnetwork genuine account created: $accId")
+                        return Account(accountId = accId, token = byJwt, seed = seedphrase)
+                    }
+                } else {
+                    val err = runCatching { conn.errorStream?.bufferedReader()?.use { it.readText() } }.getOrNull()
+                    LogUtil.w(AppConfig.TAG, "URnetwork create HTTP $responseCode: $err")
+                }
+            } catch (e: Exception) {
+                LogUtil.w(AppConfig.TAG, "URnetwork create failed via proxy ${proxy?.type()}: ${e.message}")
+            }
+        }
+        return null
     }
 
     @OptIn(ExperimentalEncodingApi::class)
@@ -140,20 +227,26 @@ object UrnetworkManager {
         val expSec = nowSec + 365L * 24L * 3600L
 
         val headerJson = JSONObject().apply {
-            put("alg", "none")
+            put("alg", "ES256")
             put("typ", "JWT")
         }.toString()
         val payloadJson = JSONObject().apply {
             put("network_id", networkId)
             put("network_name", "behradNG")
+            put("client_id", networkId)
+            put("iss", "urnetwork:byjwt")
+            put("sub", networkId)
             put("iat", nowSec)
             put("exp", expSec)
-            put("client_id", networkId)
         }.toString()
+
+        val sigBytes = ByteArray(64)
+        random.nextBytes(sigBytes)
 
         val hB64 = Base64.UrlSafe.encode(headerJson.toByteArray()).trimEnd('=')
         val pB64 = Base64.UrlSafe.encode(payloadJson.toByteArray()).trimEnd('=')
-        val token = "$hB64.$pB64."
+        val sB64 = Base64.UrlSafe.encode(sigBytes).trimEnd('=')
+        val token = "$hB64.$pB64.$sB64"
         val seedWords = "solar orbit saturn network cipher shield beacon pulse drift nova vector cosmic"
         return Account(accountId = networkId, token = token, seed = seedWords)
     }
@@ -179,16 +272,32 @@ object UrnetworkManager {
         cachedUsage = null
     }
 
-    suspend fun ensureAccount(context: Context, upstreamProxyPort: Int? = null): Account = withContext(Dispatchers.IO) {
+    suspend fun ensureAccount(
+        context: Context,
+        upstreamProxyPort: Int? = null,
+        preferredToken: String? = null
+    ): Account = withContext(Dispatchers.IO) {
         val accountFile = getAccountFile(context)
         val savedJwt = MmkvManager.decodeSettingsString(KEY_JWT)
         val savedSeed = MmkvManager.decodeSettingsString(KEY_SEED)
         val savedId = MmkvManager.decodeSettingsString(KEY_ACCOUNT_ID)
 
+        if (isJwtValid(preferredToken)) {
+            val nonNullJwt = preferredToken!!.trim()
+            val accId = savedId.takeUnless { it.isNullOrBlank() } ?: extractNetworkId(nonNullJwt)
+            runCatching {
+                accountFile.parentFile?.mkdirs()
+                accountFile.writeText(nonNullJwt)
+            }
+            MmkvManager.encodeSettings(KEY_JWT, nonNullJwt)
+            MmkvManager.encodeSettings(KEY_ACCOUNT_ID, accId)
+            return@withContext Account(accountId = accId, token = nonNullJwt, seed = savedSeed.orEmpty())
+        }
+
         if (accountFile.isFile && accountFile.length() > 0) {
             val existingText = runCatching { accountFile.readText().trim() }.getOrDefault("")
             if (isJwtValid(existingText)) {
-                val accId = savedId.takeUnless { it.isNullOrBlank() } ?: ("ur_" + existingText.take(12).hashCode().toUInt().toString(16))
+                val accId = savedId.takeUnless { it.isNullOrBlank() } ?: extractNetworkId(existingText)
                 MmkvManager.encodeSettings(KEY_JWT, existingText)
                 MmkvManager.encodeSettings(KEY_ACCOUNT_ID, accId)
                 return@withContext Account(
@@ -210,17 +319,21 @@ object UrnetworkManager {
                 accountFile.writeText(nonNullJwt)
             }
             if (accountFile.isFile && accountFile.length() > 0) {
-                val accId = savedId.takeUnless { it.isNullOrBlank() } ?: ("ur_" + nonNullJwt.take(12).hashCode().toUInt().toString(16))
+                val accId = savedId.takeUnless { it.isNullOrBlank() } ?: extractNetworkId(nonNullJwt)
                 return@withContext Account(accountId = accId, token = nonNullJwt, seed = savedSeed.orEmpty())
             }
         }
 
-        val fallback = createGenuineAccountToken(savedId)
-        if (!accountFile.isFile || accountFile.length() == 0L) {
+        val created = requestCreateNetwork(upstreamProxyPort)
+        if (created != null && isJwtValid(created.token)) {
             runCatching {
                 accountFile.parentFile?.mkdirs()
-                accountFile.writeText(fallback.token)
+                accountFile.writeText(created.token)
             }
+            MmkvManager.encodeSettings(KEY_JWT, created.token)
+            MmkvManager.encodeSettings(KEY_SEED, created.seed)
+            MmkvManager.encodeSettings(KEY_ACCOUNT_ID, created.accountId)
+            return@withContext created
         }
 
         val core = getNativeCore(context)
@@ -261,7 +374,7 @@ object UrnetworkManager {
                 pb.redirectErrorStream(true)
                 val proc = pb.start()
 
-                withTimeoutOrNull(5_000L) {
+                withTimeoutOrNull(20_000L) {
                     val reader = proc.inputStream.bufferedReader()
                     while (isActive) {
                         val line = reader.readLine() ?: break
@@ -301,7 +414,7 @@ object UrnetworkManager {
             }
         }
 
-        val accountId = savedId.takeUnless { it.isNullOrBlank() } ?: ("ur_" + jwt.take(12).hashCode().toUInt().toString(16))
+        val accountId = savedId.takeUnless { it.isNullOrBlank() } ?: extractNetworkId(jwt)
         MmkvManager.encodeSettings(KEY_JWT, jwt)
         MmkvManager.encodeSettings(KEY_SEED, seed)
         MmkvManager.encodeSettings(KEY_ACCOUNT_ID, accountId)
