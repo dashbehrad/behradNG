@@ -73,6 +73,7 @@ fun AppTopBar(
     onSearchClose: () -> Unit = {},
     searchPlaceholder: String? = null,
     navigationIcon: @Composable (() -> Unit)? = null,
+    titleContent: (@Composable () -> Unit)? = null,
     actions: @Composable RowScope.() -> Unit = {}
 ) {
     Column {
@@ -84,6 +85,8 @@ fun AppTopBar(
                         onQueryChange = onSearchQueryChange,
                         placeholder = searchPlaceholder
                     )
+                } else if (titleContent != null) {
+                    titleContent()
                 } else {
                     Text(text = title)
                 }

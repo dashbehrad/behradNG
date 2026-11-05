@@ -1,5 +1,5 @@
 [CmdletBinding()]
-param([string]$AppPath = (Join-Path $PSScriptRoot 'app'))
+param([string]$AppPath = (Join-Path $PSScriptRoot 'V2rayNG/app'))
 $ErrorActionPreference = 'Stop'
 Set-StrictMode -Version Latest
 $lock = Get-Content -Raw -LiteralPath (Join-Path $PSScriptRoot 'iran-rules.lock.json') | ConvertFrom-Json

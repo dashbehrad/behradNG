@@ -72,7 +72,7 @@ Unlike conventional configurations (VMess, Trojan, VLESS+WS) or relay tunnels, S
 
 ## Build from source
 
-The repository has two layers: **`V2rayNG/` contains the complete Android project**, and **`app/` contains behradNG overrides**. The publishing workflow copies the overrides into the Android project before running Gradle. Building the base directory alone does not reproduce the behradNG release.
+The repository uses **`V2rayNG/` as the single, unified Android project** containing the complete application, native integrations, and behradNG custom features.
 
 ### Windows
 
@@ -82,7 +82,7 @@ Follow [LOCAL-BUILD.md](LOCAL-BUILD.md) to prepare Java, Go, the Android SDK/NDK
 # Check prerequisites without downloading or building.
 .\build-local.ps1 -CheckOnly
 
-# Prepare native dependencies, apply overrides, test, and build.
+# Prepare native dependencies, test, and build.
 .\build-local.ps1
 ```
 
@@ -95,10 +95,9 @@ Use the [build workflow](.github/workflows/build.yml) as the reference for the p
 1. Clone with `git clone --recurse-submodules https://github.com/dashbehrad/behradNG.git`.
 2. Build the pinned Xray AAR and HEV libraries following the workflow.
 3. Run `prepare-aether.sh`, `prepare-saturn.sh`, and `prepare-iran-rules.sh` with the required toolchains configured.
-4. Apply the overlay and build from the prepared project:
+4. Build directly from the unified Android project:
 
 ```bash
-cp -a app/. V2rayNG/app/
 cd V2rayNG
 chmod +x gradlew
 ./gradlew :app:testDebugUnitTest :app:compileDebugKotlin :app:assembleDebug
@@ -111,9 +110,9 @@ Before assembling, restore the Gradle wrapper JAR if missing and generate `V2ray
 
 | Path | Purpose |
 | :--- | :--- |
-| [`V2rayNG/`](V2rayNG/) | Complete Android application and Gradle project |
-| [`app/`](app/) | behradNG source, resource, and build overrides |
-| [`native/`](native/) | Aether and Saturn native integration |
+| [`V2rayNG/`](V2rayNG/) | Complete unified Android application and Gradle project |
+| [`saturn-core/`](saturn-core/) | Saturn direct anti-DPI VPN protocol engine (Go) |
+| [`native/`](native/) | Aether native integration launcher |
 | [`AndroidLibXrayLite/`](AndroidLibXrayLite/) | Xray native core submodule |
 | [`hev-socks5-tunnel/`](hev-socks5-tunnel/) | HEV tunnel submodule |
 | [`.github/workflows/build.yml`](.github/workflows/build.yml) | Native preparation, tests, APK checks, and publishing |
@@ -170,9 +169,9 @@ behradNG بر پایه v2rayNG و Xray-core ساخته شده و در کنار �
 
 ### ساخت و مشارکت
 
-پروژه کامل اندروید در `V2rayNG/` و تغییرات اختصاصی behradNG در `app/` قرار دارند. برای ساخت نسخه behradNG باید وابستگی‌های بومی آماده و تغییرات `app/` روی پروژه اصلی کپی شوند.
+پروژه کامل اندروید در پوشه تک‌منبعی و یکپارچه `V2rayNG/` قرار دارد. تمام ماژول‌ها، وابستگی‌های نیتیو و تغییرات اختصاصی behradNG مستقیماً در این پروژه پیکربندی شده‌اند.
 
-برای ویندوز، [راهنمای ساخت محلی](LOCAL-BUILD.md) و برای مراحل CI، [گردش کار ساخت](.github/workflows/build.yml) را ببینید. دستورهای بخش انگلیسی پس از آماده‌سازی پروژه قابل اجرا هستند.
+برای ویندوز، [راهنمای ساخت محلی](LOCAL-BUILD.md) و برای مراحل CI، [گردش کار ساخت](.github/workflows/build.yml) را ببینید. دستورهای بخش انگلیسی بدون نیاز به هیچ کپی یا بازنویسی دستی، مستقیماً از پوشه `V2rayNG` قابل اجرا هستند.
 
 برای گزارش مشکل از [Issues](https://github.com/dashbehrad/behradNG/issues) استفاده کنید. کلید امضا، اطلاعات خصوصی پروکسی و فایل APK را commit نکنید.
 

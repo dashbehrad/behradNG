@@ -31,13 +31,11 @@ CGO_ENABLED=0 GOOS=linux GOARCH=arm64 go build -trimpath -ldflags="-s -w" -o "$B
 for TARGET in "arm64:arm64-v8a" "arm:armeabi-v7a" "amd64:x86_64" "386:x86"; do
     ARCH="${TARGET%%:*}"
     ABI="${TARGET##*:}"
-    TARGET_DIR="$SCRIPT_DIR/app/libs/$ABI"
-    V2RAY_TARGET_DIR="$SCRIPT_DIR/V2rayNG/app/libs/$ABI"
-    mkdir -p "$TARGET_DIR" "$V2RAY_TARGET_DIR"
+    TARGET_DIR="$SCRIPT_DIR/V2rayNG/app/libs/$ABI"
+    mkdir -p "$TARGET_DIR"
 
     echo "Building saturn-client for Android ($ABI)..."
     CGO_ENABLED=0 GOOS=android GOARCH="$ARCH" go build -trimpath -ldflags="-s -w" -o "$TARGET_DIR/libsaturn.so" ./cmd/saturn-client
-    cp "$TARGET_DIR/libsaturn.so" "$V2RAY_TARGET_DIR/libsaturn.so"
 done
 
 echo "=== Saturn Core build complete! ==="

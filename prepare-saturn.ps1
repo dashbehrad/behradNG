@@ -3,7 +3,7 @@ param([string]$NdkPath = "", [string]$AppPath = "")
 $ErrorActionPreference = 'Stop'
 Set-StrictMode -Version Latest
 $root = if ($PSScriptRoot) { $PSScriptRoot } else { (Get-Location).Path }
-if (-not $AppPath) { $AppPath = Join-Path $root 'app' }
+if (-not $AppPath) { $AppPath = Join-Path $root 'V2rayNG/app' }
 $lockFile = Join-Path $root 'saturn-core.lock.json'
 $lock = Get-Content $lockFile -Raw | ConvertFrom-Json
 

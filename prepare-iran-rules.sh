@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 ROOT="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
-APP_PATH="${1:-$ROOT/app}"
+APP_PATH="${1:-$ROOT/V2rayNG/app}"
 LOCK="$ROOT/iran-rules.lock.json"
 REPOSITORY="$(jq -r .repository "$LOCK")"
 REVISION="$(jq -r .revision "$LOCK")"

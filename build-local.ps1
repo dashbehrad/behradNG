@@ -117,7 +117,6 @@ try {
 
     Write-Output 'Preparing the current local behradNG source...'
     Copy-Item -Path "$repoPath/V2rayNG/*" -Destination $projectPath -Recurse -Force
-    Copy-Item -Path "$repoPath/app/*" -Destination (Join-Path $projectPath 'app') -Recurse -Force
     & (Join-Path $repoPath 'prepare-iran-rules.ps1') -AppPath (Join-Path $projectPath 'app')
     Write-Text (Join-Path $projectPath 'local.properties') ('sdk.dir=' + $sdkPath.Replace('\', '/'))
     if (!(Test-Path -LiteralPath $wrapperJar)) {

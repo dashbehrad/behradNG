@@ -3,8 +3,11 @@ package com.v2ray.ang.ui.main
 import androidx.annotation.DrawableRes
 import androidx.annotation.StringRes
 import androidx.compose.foundation.Image
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -29,6 +32,7 @@ import androidx.compose.ui.graphics.ColorFilter
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import com.v2ray.ang.R
 import com.v2ray.ang.ui.compose.AppDivider
 import com.v2ray.ang.ui.compose.LocalDarkTheme
@@ -80,31 +84,51 @@ fun MainDrawerContent(drawerState: DrawerState, onNavigate: (MainDestination) ->
             Surface(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .height(180.dp)
+                    .height(200.dp),
+                color = MaterialTheme.colorScheme.surfaceContainerHigh
             ) {
-                Column(
+                Box(
                     modifier = Modifier
                         .fillMaxSize()
-                        .padding(16.dp),
-                    horizontalAlignment = Alignment.CenterHorizontally,
-                    verticalArrangement = Arrangement.Center
+                        .background(
+                            brush = androidx.compose.ui.graphics.Brush.verticalGradient(
+                                listOf(
+                                    Color(0xFF0F3D32),
+                                    Color(0xFF0B1F1A)
+                                )
+                            )
+                        )
+                        .padding(20.dp),
+                    contentAlignment = Alignment.BottomStart
                 ) {
-                    val isDarkTheme = LocalDarkTheme.current
-                    Image(
-                        painter = painterResource(R.mipmap.ic_launcher_foreground),
-                        contentDescription = null,
-                        modifier = Modifier.size(120.dp),
-                        colorFilter = if (isDarkTheme) {
-                            ColorFilter.tint(Color.White, BlendMode.SrcIn)
-                        } else {
-                            null
+                    Column {
+                        Surface(
+                            shape = androidx.compose.foundation.shape.RoundedCornerShape(14.dp),
+                            color = Color(0xFF0B101D),
+                            border = androidx.compose.foundation.BorderStroke(1.5.dp, Color(0xFF00F0FF).copy(alpha = 0.6f)),
+                            modifier = Modifier.size(56.dp)
+                        ) {
+                            Image(
+                                painter = painterResource(R.drawable.bng_logo),
+                                contentDescription = stringResource(R.string.app_name),
+                                modifier = Modifier.fillMaxSize()
+                            )
                         }
-                    )
-                    Text(
-                        text = stringResource(R.string.app_name),
-                        style = MaterialTheme.typography.titleLarge,
-                        color = MaterialTheme.colorScheme.onSurface
-                    )
+                        androidx.compose.foundation.layout.Spacer(modifier = Modifier.height(12.dp))
+                        Text(
+                            text = stringResource(R.string.app_name),
+                            style = MaterialTheme.typography.titleLarge.copy(
+                                fontWeight = androidx.compose.ui.text.font.FontWeight.Black,
+                                letterSpacing = 0.5.sp
+                            ),
+                            color = Color.White
+                        )
+                        Text(
+                            text = "High-Speed & Secure VPN Protection",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = Color.White.copy(alpha = 0.75f)
+                        )
+                    }
                 }
             }
             drawerItems.forEachIndexed { index, item ->

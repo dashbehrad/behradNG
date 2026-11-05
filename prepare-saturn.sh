@@ -2,7 +2,7 @@
 set -euo pipefail
 repo_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 lock="$repo_dir/saturn-core.lock.json"
-app_dir="${SATURN_APP_PATH:-$repo_dir/app}"
+app_dir="${SATURN_APP_PATH:-$repo_dir/V2rayNG/app}"
 licenses="$app_dir/src/main/assets/third_party/saturn"
 mkdir -p "$licenses" "$app_dir/src/main/assets/saturn"
 
