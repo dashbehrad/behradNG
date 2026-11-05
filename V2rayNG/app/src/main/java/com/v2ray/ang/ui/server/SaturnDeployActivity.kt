@@ -280,7 +280,9 @@ class SaturnDeployActivity : BaseComponentActivity() {
                         onClick = {
                             state.deployedGuid?.let { guid ->
                                 MmkvManager.setSelectServer(guid)
-                                LauncherManager.restartServiceOrStart(this@SaturnDeployActivity, false)
+                                LauncherManager.restartServiceOrStart(this@SaturnDeployActivity) {
+                                    LauncherManager.startService(this@SaturnDeployActivity)
+                                }
                             }
                             finish()
                         },
