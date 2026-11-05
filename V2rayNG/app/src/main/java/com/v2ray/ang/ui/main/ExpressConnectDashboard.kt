@@ -77,6 +77,7 @@ fun ExpressConnectDashboard(
     onTestPing: () -> Unit,
     onOpenLocations: () -> Unit,
     onAddConfig: () -> Unit,
+    onDeploySaturn: () -> Unit = {},
     onRoutingClick: () -> Unit,
     onPerAppClick: () -> Unit,
     modifier: Modifier = Modifier
@@ -456,17 +457,23 @@ fun ExpressConnectDashboard(
         // Express Quick Action Shortcuts Row
         Row(
             modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.spacedBy(10.dp)
+            horizontalArrangement = Arrangement.spacedBy(8.dp)
         ) {
             ExpressActionChip(
                 iconRes = R.drawable.ic_add_24dp,
-                label = "+ Add Config",
+                label = "+ Config",
                 onClick = onAddConfig,
                 modifier = Modifier.weight(1f)
             )
             ExpressActionChip(
+                iconRes = R.drawable.ic_power_24dp,
+                label = stringResource(R.string.saturn_deploy_title),
+                onClick = onDeploySaturn,
+                modifier = Modifier.weight(1.2f)
+            )
+            ExpressActionChip(
                 iconRes = R.drawable.ic_flash_on_24dp,
-                label = "Speed Test",
+                label = "Speed",
                 onClick = onTestPing,
                 modifier = Modifier.weight(1f)
             )
@@ -478,7 +485,7 @@ fun ExpressConnectDashboard(
             )
             ExpressActionChip(
                 iconRes = R.drawable.ic_per_apps_24dp,
-                label = "Split Tunnel",
+                label = "Split",
                 onClick = onPerAppClick,
                 modifier = Modifier.weight(1f)
             )
