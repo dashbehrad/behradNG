@@ -45,21 +45,28 @@ Aether provides configurable carriers, optional fragmentation, and scan and tran
 
 [Integration notes →](AETHER-INTEGRATION.md)
 
-### Saturn · Aether & URnetwork chained transport
+### Saturn · Direct Anti-DPI Protocol & One-Click VPS Provisioner
 
-Saturn establishes a two-hop chained proxy architecture designed for high performance, low latency, and strong privacy:
-1. **Hop 1 (Aether / Cloudflare Tunnel):** The client connects first to Aether via Cloudflare Tunnel using WireGuard (`wg`) or MASQUE (`masque`) protocols over HTTP/2 (`h2`) or HTTP/3 (`h3`) carriers with TLS SNI fragmentation.
-2. **Hop 2 (URnetwork):** Once Aether is connected, Saturn's built-in proxy chain forwards traffic through the tunnel to the [URnetwork](https://github.com/urnetwork) distributed infrastructure ([ur.io](https://ur.io)).
+Saturn (`saturn`) is a custom, high-speed, direct VPN protocol engineered specifically to defeat sophisticated Deep Packet Inspection (DPI), SNI filtering, JA3/JA4 TLS fingerprinting, active probing, and packet entropy analysis in heavily censored environments (e.g., Iran's filtering infrastructure).
 
-#### Saturn Configuration Options:
-- **Aether Settings:** Select the tunnel protocol (`masque` or `wg`) and HTTP carrier (`h2` or `h3`).
-- **URnetwork Settings:**
-  - **Quick Account Creation:** Agree to the [URnetwork Terms and Conditions](https://ur.io/terms) with a single tap to provision an account token and traffic allocation.
-  - **Account Reset:** Reset your account anytime to generate a fresh identity and fresh traffic quota.
-  - **Routing Mode:** Choose between **Web** (balanced multi-hop browsing) and **Streaming** (high-throughput media optimization).
-  - **Carrier Selection:** Choose between **HTTP/2 (h2)** and **HTTP/3 (h3)** transport carriers.
-  - **Server Locations:** Select from available server locations globally (Automatic, US, Germany, UK, Netherlands, France, Canada, Japan, Singapore, etc.) with a button to update the locations list.
-- **DNS & Routing:** Proxy and DNS settings follow your standard behradNG configuration, supporting custom remote/domestic DNS and per-app routing rules.
+Unlike conventional configurations (VMess, Trojan, VLESS+WS) or relay tunnels, Saturn connects **directly** from the Android client to your foreign Linux VPS with zero intermediate relay overhead.
+
+#### Key Protocol Innovations:
+1. **Zero-Certificate Stealth Handshake & Active Probe Defense:**
+   - Authenticates during the `TLS 1.3 ClientHello` using `X25519` key exchange and `HKDF-SHA256` tokens embedded directly inside `SessionID` and `ClientRandom` fields (incorporating timestamp and ShortID to prevent replay attacks).
+   - **Active Probe Defense:** If an incoming connection is from a censor, active prober, or port scanner, `saturn-server` transparently splices the connection to the camouflage target (e.g., `dl.google.com:443`). Probers receive genuine Google TLS certificates and HTTP responses, completely neutralizing IP blacklisting.
+2. **Client-Side Anti-DPI (uTLS + Dynamic Record Fragmentation):**
+   - Spoofs genuine modern browser TLS fingerprints (`HelloChrome_Auto`, `HelloFirefox_Auto`) via `utls` to bypass JA3/JA4 inspection.
+   - **Dynamic TLS Fragmentation:** Splits the initial `ClientHello` across 2–4 TCP segments directly slicing through the SNI domain with micro-delays (1–5ms) and `TCP_NODELAY`.
+3. **Binary Header & First-N-Packets Traffic Morphing:**
+   - 24-byte compact binary framing header (Word 1: Type 8b + StreamID 24b, Word 2: Len 16b + Pad 16b, Word 3: Seq 32b, Word 4-6: IV 96b).
+   - Encrypted with hardware-accelerated `ChaCha20-Poly1305` or `AES-128-GCM` with a 128-bit authentication tag.
+   - Appends `0–512` bytes of dynamic obfuscation padding on the first 12 packets of every stream to disrupt packet size and entropy signatures.
+4. **Multiplexing with Native BBR:**
+   - Integrated `smux v2` stream multiplexing across 1 to 4 persistent TCP connections over BBR-tuned Linux sockets, eliminating per-request handshake delay (TTFB).
+5. **Built-in One-Click SSH Server Provisioner:**
+   - Deploy Saturn to any fresh Ubuntu (20.04/22.04/24.04) or Debian (11/12) VPS directly from behradNG via **+ → Deploy Saturn Server (One-Click)**.
+   - Connects via SSH (Password or Private Key), tunes the Linux kernel (`fq`, `bbr`, `tcp_fastopen=3`, conntrack), installs `saturn-server`, configures systemd and firewall, generates X25519 keys, streams logs in real-time, and automatically imports the resulting `saturn://` configuration with a single tap on **Finish & Connect**.
 
 [Release notes →](RELEASE-3.0.0.md)
 
@@ -153,12 +160,13 @@ behradNG بر پایه v2rayNG و Xray-core ساخته شده و در کنار �
 - حالت VPN و پروکسی، مسیریابی برنامه‌به‌برنامه، قوانین مسیریابی و زنجیره پروکسی.
 - تنظیمات DNS، Fragment، Mux و Sniffing، همراه با تست تأخیر و سرعت.
 - **Aether:** ترنسپورت تطبیقی با تنظیمات Carrier، اسکن و Fragment و راه‌اندازی مجدد هنگام تغییر شبکه.
-- **Saturn (زنجیره پروکسی Aether و URnetwork):** معماری اتصال دو مرحله‌ای سبک و پرسرعت:
-  - **مرحله اول (Aether):** اتصال به نفق Cloudflare با پروتکل‌های WireGuard (`wg`) یا MASQUE (`masque`) و حامل‌های `h2` یا `h3` همراه با فرگمنت TLS SNI.
-  - **مرحله دوم (URnetwork):** اتصال زنجیره‌ای به شبکه توزیع‌شده [URnetwork](https://github.com/urnetwork) ([ur.io](https://ur.io)) برای تأمین خروجی امن و آزاد.
-  - **تنظیمات Aether:** انتخاب پروتکل (`wg` یا `masque`) و حامل (`h2` یا `h3`).
-  - **تنظیمات URnetwork:** ساخت سریع حساب با موافقت با [قوانین و شرایط](https://ur.io/terms)، امکان بازنشانی حساب و دریافت ترافیک جدید، انتخاب حالت‌های وب (`Web`) یا استریم (`Streaming`)، انتخاب حامل (`h2` یا `h3`) و انتخاب موقعیت سرور همراه با دکمه بروزرسانی فهرست سرورها.
-  - **تنظیمات پروکسی و DNS:** مسیریابی و DNS ساترن مستقیماً بر اساس تنظیمات اصلی کاربر در behradNG اعمال می‌شود.
+- **Saturn؛ پروتکل مستقیم ضد فیلترینگ و نصب خودکار سرور:**
+  - **اتصال مستقیم به VPS:** اتصال مستقیم از گوشی به سرور لینوکس خارج از کشور بدون نیاز به هیچ رله یا واسط، با پینگ فوق‌العاده پایین و سرعت بالا.
+  - **دست‌تکان نامرئی (Stealth Handshake):** احراز هویت کلاینت با تبادل کلید `X25519` و توکن `HKDF-SHA256` درون فیلدهای `SessionID` و `Random` پکت اول `TLS 1.3 ClientHello` بدون ایجاد هیچ امضای اضافه.
+  - **خنثی‌سازی اسکنرهای فایروال (Active Probe Fallback):** هدایت یکپارچه و نامرئی (Splice) اسکنرها و پروب‌های فیلترینگ به سایت استتار (مانند `dl.google.com:443`) به طوری که سرور گواهی معتبر گوگل را به فایروال نشان می‌دهد.
+  - **دور زدن DPI با uTLS و فرگمنت پویا:** جعل اثرانگشت مرورگرهای مطرح و برش چندتکه‌ای پکت اولیه در محل SNI با تاخیرهای ۱ تا ۵ میلی‌ثانیه برای دور زدن فیلترینگ مبتنی بر بازرسی بسته‌ها.
+  - **فریم‌بندی باینری سبک با رمزنگاری سخت‌افزاری:** هدر ۲۴ بایتی فشرده، رمزنگاری `ChaCha20-Poly1305` یا `AES-128-GCM` و تزریق پدینگ تصادفی در ۱۲ پکت اول برای به هم زدن تحلیل سایز و آنتروپی ترافیک.
+  - **نصب‌کننده خودکار سرور با یک کلیک (One-Click SSH Deploy):** امکان نصب کامل سرور روی اوبونتو یا دبیان خام، بهینه‌سازی BBR، راه‌اندازی سرویس و دریافت کانفیگ `saturn://` مستقیماً از داخل برنامه.
 
 ### ساخت و مشارکت
 

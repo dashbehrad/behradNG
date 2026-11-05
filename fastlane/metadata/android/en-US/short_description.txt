@@ -1,1 +1,1 @@
-A V2Ray client for Android, support Xray core and v2fly core
+Direct anti-DPI VPN client for Android, supporting Saturn, Aether, and Xray.
