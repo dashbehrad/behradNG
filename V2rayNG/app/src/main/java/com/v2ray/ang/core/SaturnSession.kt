@@ -177,9 +177,9 @@ class SaturnSession {
             val proc = pb.start()
             urProcess = proc
 
+            val capturedErrors = StringBuffer()
             val readyDeferred = CompletableDeferred<Boolean>()
             owner.launch(Dispatchers.IO + CoroutineName("UrnetworkLogPumper")) {
-                val capturedErrors = StringBuilder()
                 try {
                     proc.inputStream.bufferedReader().use { reader ->
                         while (isActive) {
