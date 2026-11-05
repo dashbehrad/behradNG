@@ -46,4 +46,25 @@ if command -v jq >/dev/null 2>&1 && [ "$(jq -r '.assets // empty' "$lock")" != "
     done < <(jq -r '.assets[] | [.abi,.archive,.url,.entry,.library,.sha256] | @tsv' "$lock")
 fi
 
-echo "Saturn core prepared (Aether + URnetwork proxy chain v3.0.0)."
+if command -v go >/dev/null 2>&1 && [ -d "$repo_dir/saturn-core" ]; then
+    echo "Building saturn-core native binaries for Android ABIs..."
+    (
+        cd "$repo_dir/saturn-core"
+        go mod tidy || true
+        for TARGET in "arm64:arm64-v8a" "arm:armeabi-v7a" "amd64:x86_64" "386:x86"; do
+            ARCH="${TARGET%%:*}"
+            ABI="${TARGET##*:}"
+            TARGET_DIR="$app_dir/libs/$ABI"
+            mkdir -p "$TARGET_DIR"
+            CGO_ENABLED=0 GOOS=android GOARCH="$ARCH" go build -trimpath -ldflags="-s -w" -o "$TARGET_DIR/libsaturn.so" ./cmd/saturn-client || true
+        done
+        mkdir -p "$repo_dir/bin"
+        CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -trimpath -ldflags="-s -w" -o "$repo_dir/bin/saturn-server-linux-amd64" ./cmd/saturn-server || true
+        CGO_ENABLED=0 GOOS=linux GOARCH=arm64 go build -trimpath -ldflags="-s -w" -o "$repo_dir/bin/saturn-server-linux-arm64" ./cmd/saturn-server || true
+    )
+fi
+
+mkdir -p "$app_dir/src/main/assets/saturn"
+cp -f "$repo_dir/install-saturn.sh" "$app_dir/src/main/assets/saturn/install-saturn.sh" || true
+
+echo "Saturn direct protocol core and server installer prepared."

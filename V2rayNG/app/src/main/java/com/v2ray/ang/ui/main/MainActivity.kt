@@ -111,6 +111,7 @@ class MainActivity : HelperBaseComponentActivity() {
                     MainAction.ImportClipboard -> importClipboard()
                     MainAction.ImportConfigLocal -> importConfigLocal()
                     is MainAction.ImportManually -> importManually(action.type)
+                    MainAction.DeploySaturn -> startActivity(Intent(this, com.v2ray.ang.ui.server.SaturnDeployActivity::class.java))
                     MainAction.RestartService -> LauncherManager.restartServiceOrStart(this, ::requestServiceStart)
                     MainAction.LocateSelectedServer -> mainViewModel.triggerLocateSelectedServer()
                     is MainAction.SelectServer -> setSelectServer(action.guid)

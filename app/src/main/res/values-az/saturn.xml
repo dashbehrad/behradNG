@@ -48,4 +48,21 @@
     <string name="saturn_exit_error">Saturn proksi bağlantı testi uğursuz oldu.</string>
     <string name="saturn_ur_remaining_data">30 GB qaldı</string>
     <string name="saturn_ur_quota_info">Gündəlik limit: 30 GB</string>
+    <string name="saturn_deploy_title">Saturn Serverini Quraşdır</string>
+    <string name="saturn_deploy_menu">Saturn Serverini Quraşdır (Bir toxunuşla)</string>
+    <string name="saturn_deploy_desc">SSH vasitəsilə Linux VPS serverinizə sürətli və bloklanmaya davamlı Saturn protokolunun avtomatlaşdırılmış quraşdırılması.</string>
+    <string name="saturn_deploy_host">Server IP və ya Domen</string>
+    <string name="saturn_deploy_ssh_port">SSH Portu</string>
+    <string name="saturn_deploy_ssh_user">SSH İstifadəçi adı</string>
+    <string name="saturn_deploy_auth_password">Şifrə</string>
+    <string name="saturn_deploy_auth_key">Şəxsi Açar</string>
+    <string name="saturn_deploy_password">SSH Şifrəsi</string>
+    <string name="saturn_deploy_private_key">SSH Şəxsi Açarı</string>
+    <string name="saturn_deploy_passphrase">Açar Parolu (İstəyə görə)</string>
+    <string name="saturn_deploy_saturn_port">Saturn Portu</string>
+    <string name="saturn_deploy_sni">Kamuflyaj SNI</string>
+    <string name="saturn_deploy_btn_start">Saturnu Serverə Quraşdır</string>
+    <string name="saturn_deploy_btn_cancel">Quraşdırmanı ləğv et</string>
+    <string name="saturn_deploy_btn_finish">Bitir və Qoşul</string>
+    <string name="saturn_deploy_console">Quraşdırma Konsol Çıxışı</string>
 </resources>

@@ -48,4 +48,21 @@
     <string name="saturn_exit_error">Проверка прокси-соединения Saturn не удалась.</string>
     <string name="saturn_ur_remaining_data">Осталось 30 ГБ</string>
     <string name="saturn_ur_quota_info">Дневная квота: 30 ГБ</string>
+    <string name="saturn_deploy_title">Развернуть сервер Saturn</string>
+    <string name="saturn_deploy_menu">Развернуть сервер Saturn (В 1 клик)</string>
+    <string name="saturn_deploy_desc">Автоматическое развертывание высокоскоростного протокола Saturn на вашем VPS Linux через SSH.</string>
+    <string name="saturn_deploy_host">IP или домен сервера</string>
+    <string name="saturn_deploy_ssh_port">Порт SSH</string>
+    <string name="saturn_deploy_ssh_user">Имя пользователя SSH</string>
+    <string name="saturn_deploy_auth_password">Пароль</string>
+    <string name="saturn_deploy_auth_key">Приватный ключ</string>
+    <string name="saturn_deploy_password">Пароль SSH</string>
+    <string name="saturn_deploy_private_key">Приватный ключ SSH</string>
+    <string name="saturn_deploy_passphrase">Парольная фраза ключа (необязательно)</string>
+    <string name="saturn_deploy_saturn_port">Порт Saturn</string>
+    <string name="saturn_deploy_sni">Маскирующий SNI</string>
+    <string name="saturn_deploy_btn_start">Установить Saturn на VPS</string>
+    <string name="saturn_deploy_btn_cancel">Отмена</string>
+    <string name="saturn_deploy_btn_finish">Завершить и подключиться</string>
+    <string name="saturn_deploy_console">Консоль установки</string>
 </resources>

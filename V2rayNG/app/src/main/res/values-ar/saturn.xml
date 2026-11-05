@@ -48,4 +48,21 @@
     <string name="saturn_exit_error">فشل اختبار اتصال بروكسي Saturn.</string>
     <string name="saturn_ur_remaining_data">المتبقي 30 جيجابايت</string>
     <string name="saturn_ur_quota_info">الحصة اليومية: 30 جيجابايت</string>
+    <string name="saturn_deploy_title">تثبيت خادم Saturn</string>
+    <string name="saturn_deploy_menu">تثبيت خادم Saturn (بنقرة واحدة)</string>
+    <string name="saturn_deploy_desc">تثبيت تلقائي عالي السرعة لبروتوكول Saturn المقاوم للحجب على خادم Linux عبر SSH.</string>
+    <string name="saturn_deploy_host">عنوان IP أو نطاق الخادم</string>
+    <string name="saturn_deploy_ssh_port">منفذ SSH</string>
+    <string name="saturn_deploy_ssh_user">اسم مستخدم SSH</string>
+    <string name="saturn_deploy_auth_password">كلمة المرور</string>
+    <string name="saturn_deploy_auth_key">المفتاح الخاص</string>
+    <string name="saturn_deploy_password">كلمة مرور SSH</string>
+    <string name="saturn_deploy_private_key">المفتاح الخاص لـ SSH</string>
+    <string name="saturn_deploy_passphrase">عبارة مرور المفتاح (اختياري)</string>
+    <string name="saturn_deploy_saturn_port">منفذ Saturn</string>
+    <string name="saturn_deploy_sni">نطاق التمويه (SNI)</string>
+    <string name="saturn_deploy_btn_start">تثبيت Saturn على الخادم</string>
+    <string name="saturn_deploy_btn_cancel">إلغاء التثبيت</string>
+    <string name="saturn_deploy_btn_finish">إنهاء والاتصال</string>
+    <string name="saturn_deploy_console">سجل وحدة تحكم التثبيت</string>
 </resources>

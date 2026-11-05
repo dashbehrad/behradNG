@@ -13,7 +13,7 @@ android {
         applicationId = "com.v2ray.ang.behradng"
         minSdk = 24
         targetSdk = 36
-        versionCode = 4000775
+        versionCode = 4000776
         versionName = "3.0.0"
         buildConfigField("String", "DISTRIBUTION", "\"behradNG\"")
 
@@ -167,6 +167,9 @@ dependencies {
 
     // Reorderable list
     implementation(libs.reorderable)
+
+    // SSH Client
+    implementation(libs.jsch)
 
     // Testing Libraries
     testImplementation(platform(libs.junit.bom))

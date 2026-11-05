@@ -2,8 +2,19 @@ package com.v2ray.ang.dto.entities
 
 import java.net.URI
 
-/** Saturn owns Aether (Cloudflare Tunnel) and URnetwork settings. */
+/** Saturn direct anti-DPI VPN settings, with backwards-compatibility for legacy profiles. */
 data class SaturnSettings(
+    // Direct Saturn Protocol Settings
+    val server: String = "",
+    val serverPort: Int = 443,
+    val uuid: String = "",
+    val sni: String = "dl.google.com",
+    val publicKey: String = "",
+    val shortId: String = "",
+    val fingerprint: String = "chrome",
+    val fragmentation: String = "1-5",
+
+    // Legacy compatibility fields
     val aetherProtocol: String = "masque",
     val aetherCarrier: String = "h2",
     val urAccountId: String? = null,
@@ -12,7 +23,6 @@ data class SaturnSettings(
     val urMode: String = "web",
     val urCarrier: String = "h2",
     val urLocation: String = "auto",
-    // Retain legacy fields for backwards compatibility with previously saved Saturn profiles
     val dohUrl: String = "https://cloudflare-dns.com/dns-query",
     val bootstrapIps: String = "1.1.1.1, 1.0.0.1",
     val bridges: String = "",
@@ -21,6 +31,8 @@ data class SaturnSettings(
     val bridgeSource: String? = null,
     val carrier: String? = "h2",
 ) {
+    fun isDirectSaturn(): Boolean = server.isNotBlank() && publicKey.isNotBlank()
+
     fun hasUrAccount(): Boolean = !urAccountId.isNullOrBlank() && !urAccountToken.isNullOrBlank()
 
     fun normalizedAetherProtocol(): String = when (aetherProtocol.lowercase().trim()) {
@@ -56,6 +68,18 @@ data class SaturnSettings(
         .filter { it.isNotEmpty() }.distinct().toList()
 
     fun isValid(): Boolean = runCatching {
+        if (isDirectSaturn()) {
+            require(server.length <= 256)
+            require(serverPort in 1..65535)
+            require(uuid.length in 1..128)
+            require(sni.length in 1..256)
+            require(publicKey.length in 16..128)
+            require(shortId.length <= 32)
+            require(fingerprint.lowercase() in setOf("chrome", "firefox", "auto", "ios", "edge", "safari"))
+            require(fragmentation.matches(Regex("[0-9]+-[0-9]+")))
+            return true
+        }
+
         if (dohUrl.isNotBlank()) {
             val uri = URI(dohUrl)
             require(dohUrl.length <= 2048 && uri.scheme == "https" && !uri.host.isNullOrEmpty())
@@ -98,12 +122,10 @@ data class SaturnSettings(
             val fields = line.split(Regex("\\s+"))
             if (fields.size != 5 || fields[0] != "obfs4") return false
             val address = fields[1].substringBeforeLast(':').removeSurrounding("[", "]")
-            val port = fields[1].substringAfterLast(':').toIntOrNull() ?: return false
-            val validHost = isIpLiteral(address) || (address.length in 1..253 &&
-                address.split('.').all { it.matches(Regex("[A-Za-z0-9](?:[A-Za-z0-9-]{0,61}[A-Za-z0-9])?")) })
-            return validHost && port in 1..65535 && fields[2].matches(Regex("[A-Fa-f0-9]{40}")) &&
-                fields[3].matches(Regex("cert=[A-Za-z0-9+/]{70}={0,2}")) &&
-                fields[4] in setOf("iat-mode=0", "iat-mode=1", "iat-mode=2")
+            return (isIpLiteral(address) || address.matches(Regex("[a-zA-Z0-9.-]+"))) &&
+                (fields[1].substringAfterLast(':', "").toIntOrNull() ?: -1) in 1..65535 &&
+                fields[2].matches(Regex("[0-9A-Fa-f]{40}")) &&
+                fields[3].startsWith("cert=") && fields[4].startsWith("iat-mode=")
         }
     }
 }

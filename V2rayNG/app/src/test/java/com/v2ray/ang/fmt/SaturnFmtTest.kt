@@ -48,6 +48,31 @@ class SaturnFmtTest {
         assertNull(SaturnFmt.parse("saturn://" + uri.replace("v1/", "v2/")))
         assertNull(SaturnFmt.parse("saturn://" + "a".repeat(65536)))
     }
+
+    @Test fun directSaturnUriFormatParsesAndRoundTrips() {
+        val rawUri = "saturn://12345678-1234-1234-1234-123456789abc@198.51.100.5:443?sni=dl.google.com&pbk=saturnPubkey1234567890abcdef&sid=a1b2c3d4&fp=chrome&frag=1-5#My-VPS-Saturn"
+        val profile = SaturnFmt.parse(rawUri)
+        assertNotNull(profile)
+        assertEquals("My-VPS-Saturn", profile!!.remarks)
+        assertEquals("198.51.100.5", profile.server)
+        assertEquals("443", profile.serverPort)
+        val settings = profile.saturnSettings!!
+        assertTrue(settings.isDirectSaturn())
+        assertEquals("198.51.100.5", settings.server)
+        assertEquals(443, settings.serverPort)
+        assertEquals("12345678-1234-1234-1234-123456789abc", settings.uuid)
+        assertEquals("dl.google.com", settings.sni)
+        assertEquals("saturnPubkey1234567890abcdef", settings.publicKey)
+        assertEquals("a1b2c3d4", settings.shortId)
+        assertEquals("chrome", settings.fingerprint)
+        assertEquals("1-5", settings.fragmentation)
+
+        val formattedUri = "saturn://" + SaturnFmt.toUri(profile)
+        val restored = SaturnFmt.parse(formattedUri)
+        assertNotNull(restored)
+        assertEquals(profile.remarks, restored!!.remarks)
+        assertEquals(settings, restored.saturnSettings)
+    }
     @Test fun precedingReleasedProfilesRemainReadableWithoutSaturnSettings() {
         val old = Gson().fromJson("""{"configType":"VLESS","remarks":"old","server":"example.org","serverPort":"443"}""", ProfileItem::class.java)
         assertNull(old.saturnSettings)

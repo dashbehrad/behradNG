@@ -107,16 +107,18 @@ class SaturnService : VpnService(), ServiceControl {
                     failure = R.string.saturn_root_unsupported
                     error("Saturn root mode is unsupported")
                 }
-                if (!File(applicationInfo.nativeLibraryDir, "libaether-core.so").isFile ||
-                    !File(applicationInfo.nativeLibraryDir, "libaether-launcher.so").isFile) {
-                    failure = R.string.saturn_unavailable
-                    error("Aether core is not packaged for this ABI")
-                }
                 val profile = MmkvManager.decodeServerConfig(guid) ?: error("Invalid selected profile")
                 check(profile.configType == EConfigType.SATURN)
                 val settings = profile.saturnSettings ?: error("Saturn settings unavailable")
                 failure = R.string.saturn_invalid_settings
                 check(settings.isValid())
+                if (!settings.isDirectSaturn()) {
+                    if (!File(applicationInfo.nativeLibraryDir, "libaether-core.so").isFile ||
+                        !File(applicationInfo.nativeLibraryDir, "libaether-launcher.so").isFile) {
+                        failure = R.string.saturn_unavailable
+                        error("Aether core is not packaged for this ABI")
+                    }
+                }
                 CoreServiceManager.serviceControl = SoftReference(this@SaturnService)
                 session = SaturnSession()
                 failure = R.string.saturn_start_error

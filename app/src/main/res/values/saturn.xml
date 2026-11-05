@@ -52,4 +52,21 @@
     <string name="saturn_exit_error">Saturn proxy connection test failed.</string>
     <string name="saturn_ur_remaining_data">30 GB Remaining</string>
     <string name="saturn_ur_quota_info">Daily Allowance: 30 GB</string>
+    <string name="saturn_deploy_title">Deploy Saturn Server</string>
+    <string name="saturn_deploy_menu">Deploy Saturn Server (One-Click)</string>
+    <string name="saturn_deploy_desc">Automated One-Click deployment of high-speed, DPI-resistant direct Saturn protocol to your Linux VPS over SSH.</string>
+    <string name="saturn_deploy_host">Server IP or Domain</string>
+    <string name="saturn_deploy_ssh_port">SSH Port</string>
+    <string name="saturn_deploy_ssh_user">SSH Username</string>
+    <string name="saturn_deploy_auth_password">Password</string>
+    <string name="saturn_deploy_auth_key">Private Key</string>
+    <string name="saturn_deploy_password">SSH Password</string>
+    <string name="saturn_deploy_private_key">SSH Private Key (OpenSSH)</string>
+    <string name="saturn_deploy_passphrase">Key Passphrase (Optional)</string>
+    <string name="saturn_deploy_saturn_port">Saturn Port</string>
+    <string name="saturn_deploy_sni">Camouflage SNI</string>
+    <string name="saturn_deploy_btn_start">Deploy Saturn to VPS</string>
+    <string name="saturn_deploy_btn_cancel">Cancel Deployment</string>
+    <string name="saturn_deploy_btn_finish">Finish &amp; Connect</string>
+    <string name="saturn_deploy_console">Deployment Console Output</string>
 </resources>

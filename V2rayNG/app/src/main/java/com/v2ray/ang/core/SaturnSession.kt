@@ -40,7 +40,7 @@ import kotlin.coroutines.resumeWithException
 /** saturn-core: Aether Cloudflare Tunnel chained to URnetwork decentralized proxy network. */
 @RequiresApi(26)
 class SaturnSession {
-    enum class Stage { AETHER, URNETWORK, EXIT, READY, NATIVE, CLOUDFLARED, BRIDGES, BOOTSTRAP }
+    enum class Stage { DIRECT, AETHER, URNETWORK, EXIT, READY, NATIVE, CLOUDFLARED, BRIDGES, BOOTSTRAP }
 
     @Volatile
     var stage: Stage = Stage.AETHER
@@ -75,6 +75,10 @@ class SaturnSession {
         stage = Stage.AETHER
         nativeExitCode = null
         require(guid.matches(Regex("[A-Za-z0-9_-]{1,128}")) && settings.isValid())
+
+        if (settings.isDirectSaturn()) {
+            return@withContext startDirectSaturn(context, guid, settings, reservedPorts, owner, onProgress)
+        }
 
         val nativeDir = File(context.applicationInfo.nativeLibraryDir)
         val aetherCore = File(nativeDir, "libaether-core.so")
@@ -249,9 +253,93 @@ class SaturnSession {
         actualUpstreamPort
     }
 
+    private suspend fun startDirectSaturn(
+        context: Context,
+        guid: String,
+        settings: SaturnSettings,
+        reservedPorts: Set<Int>,
+        owner: CoroutineScope,
+        onProgress: ((Int) -> Unit)?
+    ): Int {
+        stage = Stage.DIRECT
+        bootstrapProgress = 25
+        onProgress?.invoke(25)
+
+        val nativeDir = File(context.applicationInfo.nativeLibraryDir)
+        val saturnCore = File(nativeDir, "libsaturn.so").takeIf { it.isFile }
+            ?: File(nativeDir, "libsaturn-client.so").takeIf { it.isFile }
+            ?: File(context.filesDir, "saturn-client").takeIf { it.isFile }
+
+        val localPort = (1..16).asSequence().map {
+            ServerSocket(0, 1, InetAddress.getByName("127.0.0.1")).use { it.localPort }
+        }.first { it in 1024..65535 && it !in reservedPorts }
+
+        actualProxyPort = localPort
+        LogUtil.i(AppConfig.TAG, "Saturn: direct connect to ${settings.server}:${settings.serverPort} localProxy=127.0.0.1:$localPort")
+
+        if (saturnCore != null && saturnCore.isFile) {
+            val aetherLauncher = File(nativeDir, "libaether-launcher.so")
+            val saturnArgs = mutableListOf(
+                saturnCore.absolutePath,
+                "-l", "127.0.0.1:$localPort",
+                "-server", settings.server,
+                "-port", settings.serverPort.toString(),
+                "-uuid", settings.uuid,
+                "-sni", settings.sni,
+                "-pbk", settings.publicKey,
+                "-sid", settings.shortId,
+                "-fp", settings.fingerprint,
+                "-frag", settings.fragmentation
+            )
+            val command = if (aetherLauncher.isFile) listOf(aetherLauncher.absolutePath) + saturnArgs else saturnArgs
+            val pb = ProcessBuilder(command)
+            pb.directory(context.filesDir)
+            pb.redirectErrorStream(true)
+            val proc = pb.start()
+            urProcess = proc
+
+            val readyDeferred = CompletableDeferred<Boolean>()
+            owner.launch(Dispatchers.IO + CoroutineName("SaturnDirectLogPumper")) {
+                try {
+                    proc.inputStream.bufferedReader().use { reader ->
+                        while (isActive) {
+                            val line = reader.readLine() ?: break
+                            LogUtil.d(AppConfig.TAG, "SaturnDirect: $line")
+                            if (line.contains("active on") || line.contains("Listening") || line.contains("inbound active")) {
+                                if (!readyDeferred.isCompleted) readyDeferred.complete(true)
+                            }
+                        }
+                    }
+                } catch (_: Exception) {
+                } finally {
+                    if (!readyDeferred.isCompleted) readyDeferred.complete(false)
+                }
+            }
+
+            bootstrapProgress = 60
+            onProgress?.invoke(60)
+
+            val ready = withTimeoutOrNull(15_000L) {
+                readyDeferred.await() || pollTunnelReady(localPort, 10_000L, alive = { proc.isAlive })
+            } ?: false
+
+            check(ready && (proc.isAlive || testSocketListening(localPort))) {
+                "Saturn direct client daemon failed to start on 127.0.0.1:$localPort"
+            }
+        } else {
+            LogUtil.w(AppConfig.TAG, "Saturn: native libsaturn.so not packaged, waiting for tunnel listener")
+        }
+
+        stage = Stage.READY
+        bootstrapProgress = 100
+        onProgress?.invoke(100)
+        isRunning = true
+        return localPort
+    }
+
     fun isAlive(): Boolean = isRunning &&
-        (cfSession?.isAlive() == true) &&
-        (actualProxyPort != urnetworkPort || urProcess?.isAlive == true)
+        (cfSession == null || cfSession?.isAlive() == true) &&
+        (urProcess == null || urProcess?.isAlive == true)
 
     suspend fun stop() = withContext(Dispatchers.IO) {
         isRunning = false

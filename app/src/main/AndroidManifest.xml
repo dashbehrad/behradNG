@@ -75,6 +75,7 @@
             <property android:name="android.app.PROPERTY_SPECIAL_USE_FGS_SUBTYPE" android:value="VPN proxy tunnel" />
         </service>
         <activity android:name=".ui.server.ServerSaturnActivity" android:exported="false" />
+        <activity android:name=".ui.server.SaturnDeployActivity" android:exported="false" />
         <activity
             android:name=".ui.main.MainActivity"
             android:exported="true"

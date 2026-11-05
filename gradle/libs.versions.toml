@@ -22,6 +22,7 @@ camerax = "1.6.2"
 composeBom = "2026.09.00"
 reorderable = "3.1.0"
 coil = "3.6.3"
+jsch = "0.2.23"
 [libraries]
 androidx-core-ktx = { group = "androidx.core", name = "core-ktx", version.ref = "coreKtx" }
 desugar-jdk-libs = { module = "com.android.tools:desugar_jdk_libs", version.ref = "desugarJdkLibs" }
@@ -44,6 +45,7 @@ lifecycle-runtime-ktx = { module = "androidx.lifecycle:lifecycle-runtime-ktx", v
 mockito-core = { module = "org.mockito:mockito-core", version.ref = "mockitoCore" }
 mockito-kotlin = { module = "org.mockito.kotlin:mockito-kotlin", version.ref = "mockitoKotlin" }
 reorderable = { module = "sh.calvin.reorderable:reorderable", version.ref = "reorderable" }
+jsch = { module = "com.github.mwiede:jsch", version.ref = "jsch" }
 
 # CameraX
 camerax-core = { module = "androidx.camera:camera-core", version.ref = "camerax" }

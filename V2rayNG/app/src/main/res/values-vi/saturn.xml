@@ -48,4 +48,21 @@
     <string name="saturn_exit_error">Kiểm tra kết nối proxy Saturn thất bại.</string>
     <string name="saturn_ur_remaining_data">Còn lại 30 GB</string>
     <string name="saturn_ur_quota_info">Hạn mức hàng ngày: 30 GB</string>
+    <string name="saturn_deploy_title">Triển khai máy chủ Saturn</string>
+    <string name="saturn_deploy_menu">Triển khai máy chủ Saturn (Một chạm)</string>
+    <string name="saturn_deploy_desc">Triển khai tự động giao thức Saturn tốc độ cao, chống DPI tới máy chủ Linux qua SSH.</string>
+    <string name="saturn_deploy_host">IP hoặc tên miền máy chủ</string>
+    <string name="saturn_deploy_ssh_port">Cổng SSH</string>
+    <string name="saturn_deploy_ssh_user">Tên người dùng SSH</string>
+    <string name="saturn_deploy_auth_password">Mật khẩu</string>
+    <string name="saturn_deploy_auth_key">Khóa riêng tư</string>
+    <string name="saturn_deploy_password">Mật khẩu SSH</string>
+    <string name="saturn_deploy_private_key">Khóa riêng tư SSH</string>
+    <string name="saturn_deploy_passphrase">Mật khẩu bảo vệ khóa (Tùy chọn)</string>
+    <string name="saturn_deploy_saturn_port">Cổng Saturn</string>
+    <string name="saturn_deploy_sni">SNI ngụy trang</string>
+    <string name="saturn_deploy_btn_start">Triển khai Saturn lên VPS</string>
+    <string name="saturn_deploy_btn_cancel">Hủy bỏ</string>
+    <string name="saturn_deploy_btn_finish">Hoàn tất &amp; Kết nối</string>
+    <string name="saturn_deploy_console">Nhật ký bảng điều khiển</string>
 </resources>

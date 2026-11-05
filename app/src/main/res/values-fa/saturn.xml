@@ -48,4 +48,21 @@
     <string name="saturn_exit_error">آزمایش اتصال پروکسی ساترن ناموفق بود.</string>
     <string name="saturn_ur_remaining_data">۳۰ گیگابایت باقی‌مانده</string>
     <string name="saturn_ur_quota_info">سهمیه روزانه: ۳۰ گیگابایت</string>
+    <string name="saturn_deploy_title">نصب سرور Saturn</string>
+    <string name="saturn_deploy_menu">نصب خودکار سرور Saturn (تک‌کلیک)</string>
+    <string name="saturn_deploy_desc">نصب خودکار و پرسرعت پروتکل ضدفیلتر Saturn روی سرور لینوکس از طریق SSH بدون نیاز به رله.</string>
+    <string name="saturn_deploy_host">آی‌پی یا دامنه سرور</string>
+    <string name="saturn_deploy_ssh_port">پورت SSH</string>
+    <string name="saturn_deploy_ssh_user">نام کاربری SSH</string>
+    <string name="saturn_deploy_auth_password">رمز عبور</string>
+    <string name="saturn_deploy_auth_key">کلید خصوصی</string>
+    <string name="saturn_deploy_password">رمز عبور SSH</string>
+    <string name="saturn_deploy_private_key">کلید خصوصی SSH (فرمت OpenSSH)</string>
+    <string name="saturn_deploy_passphrase">رمز عبور کلید (اختیاری)</string>
+    <string name="saturn_deploy_saturn_port">پورت Saturn</string>
+    <string name="saturn_deploy_sni">دامنه استتار (SNI)</string>
+    <string name="saturn_deploy_btn_start">نصب Saturn روی سرور</string>
+    <string name="saturn_deploy_btn_cancel">لغو نصب</string>
+    <string name="saturn_deploy_btn_finish">پایان و اتصال</string>
+    <string name="saturn_deploy_console">لاگ فرآیند نصب</string>
 </resources>

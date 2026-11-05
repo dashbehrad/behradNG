@@ -48,4 +48,21 @@
     <string name="saturn_exit_error">Saturn 代理連線測試失敗。</string>
     <string name="saturn_ur_remaining_data">剩餘 30 GB</string>
     <string name="saturn_ur_quota_info">每日配額：30 GB</string>
+    <string name="saturn_deploy_title">部署 Saturn 伺服器</string>
+    <string name="saturn_deploy_menu">部署 Saturn 伺服器 (一鍵)</string>
+    <string name="saturn_deploy_desc">透過 SSH 在 Linux VPS 上一鍵自動化部署抗 DPI 的 Saturn 直連通訊協定。</string>
+    <string name="saturn_deploy_host">伺服器 IP 或網域名稱</string>
+    <string name="saturn_deploy_ssh_port">SSH 連接埠</string>
+    <string name="saturn_deploy_ssh_user">SSH 使用者名稱</string>
+    <string name="saturn_deploy_auth_password">密碼</string>
+    <string name="saturn_deploy_auth_key">私密金鑰</string>
+    <string name="saturn_deploy_password">SSH 密碼</string>
+    <string name="saturn_deploy_private_key">SSH 私密金鑰</string>
+    <string name="saturn_deploy_passphrase">金鑰密碼 (選填)</string>
+    <string name="saturn_deploy_saturn_port">Saturn 連接埠</string>
+    <string name="saturn_deploy_sni">偽裝 SNI</string>
+    <string name="saturn_deploy_btn_start">在 VPS 上部署 Saturn</string>
+    <string name="saturn_deploy_btn_cancel">取消部署</string>
+    <string name="saturn_deploy_btn_finish">完成並連線</string>
+    <string name="saturn_deploy_console">部署主控台輸出</string>
 </resources>
