@@ -35,7 +35,11 @@ for TARGET in "arm64:arm64-v8a" "arm:armeabi-v7a" "amd64:x86_64" "386:x86"; do
     mkdir -p "$TARGET_DIR"
 
     echo "Building saturn-client for Android ($ABI)..."
-    CGO_ENABLED=0 GOOS=android GOARCH="$ARCH" go build -trimpath -ldflags="-s -w" -o "$TARGET_DIR/libsaturn.so" ./cmd/saturn-client
+    if [ "$ARCH" = "arm" ]; then
+        CGO_ENABLED=0 GOOS=linux GOARCH="$ARCH" GOARM=7 go build -trimpath -ldflags="-s -w" -o "$TARGET_DIR/libsaturn.so" ./cmd/saturn-client
+    else
+        CGO_ENABLED=0 GOOS=linux GOARCH="$ARCH" go build -trimpath -ldflags="-s -w" -o "$TARGET_DIR/libsaturn.so" ./cmd/saturn-client
+    fi
 done
 
 echo "=== Saturn Core build complete! ==="

@@ -16,4 +16,7 @@ LICENSE="$ROOT/V2rayNG/app/src/main/assets/third_party/IRAN_RULES_LICENSE.txt"
 printf '%s  %s\n' "$(jq -r .licenseSha256 "$LOCK")" "$LICENSE" | sha256sum --check --strict
 mkdir -p "$APP_PATH/src/main/assets/third_party"
 cp "$GEO_TEMP/geoip.dat" "$GEO_TEMP/geosite.dat" "$APP_PATH/src/main/assets/"
-cp "$LICENSE" "$APP_PATH/src/main/assets/third_party/IRAN_RULES_LICENSE.txt"
+TARGET_LICENSE="$APP_PATH/src/main/assets/third_party/IRAN_RULES_LICENSE.txt"
+if [ "$LICENSE" != "$TARGET_LICENSE" ]; then
+  cp "$LICENSE" "$TARGET_LICENSE"
+fi

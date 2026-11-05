@@ -1,8 +1,10 @@
 [CmdletBinding()]
-param([string]$AppPath = (Join-Path $PSScriptRoot 'V2rayNG/app'))
+param([string]$AppPath = "")
 $ErrorActionPreference = 'Stop'
 Set-StrictMode -Version Latest
-$lock = Get-Content -Raw -LiteralPath (Join-Path $PSScriptRoot 'iran-rules.lock.json') | ConvertFrom-Json
+$root = if ($PSScriptRoot) { $PSScriptRoot } else { (Get-Location).Path }
+if (-not $AppPath) { $AppPath = Join-Path $root 'V2rayNG/app' }
+$lock = Get-Content -Raw -LiteralPath (Join-Path $root 'iran-rules.lock.json') | ConvertFrom-Json
 $taskTemp = Join-Path ([IO.Path]::GetTempPath()) ('behradng-geo-' + [Guid]::NewGuid())
 New-Item -ItemType Directory -Path $taskTemp | Out-Null
 try {
@@ -16,7 +18,7 @@ try {
             throw "Iran rules checksum mismatch: $name"
         }
     }
-    $license = Join-Path $PSScriptRoot 'V2rayNG/app/src/main/assets/third_party/IRAN_RULES_LICENSE.txt'
+    $license = Join-Path $root 'V2rayNG/app/src/main/assets/third_party/IRAN_RULES_LICENSE.txt'
     if ((Get-FileHash -Algorithm SHA256 -LiteralPath $license).Hash.ToLowerInvariant() -ne $lock.licenseSha256) {
         throw 'Iran rules license checksum mismatch'
     }
@@ -26,7 +28,10 @@ try {
     foreach ($name in @('geoip.dat', 'geosite.dat')) {
         Copy-Item -LiteralPath (Join-Path $taskTemp $name) -Destination (Join-Path $assets $name) -Force
     }
-    Copy-Item -LiteralPath $license -Destination (Join-Path $attribution 'IRAN_RULES_LICENSE.txt') -Force
+    $targetLicense = Join-Path $attribution 'IRAN_RULES_LICENSE.txt'
+    if ([IO.Path]::GetFullPath($license) -ne [IO.Path]::GetFullPath($targetLicense)) {
+        Copy-Item -LiteralPath $license -Destination $targetLicense -Force
+    }
 } finally {
     # Only remove the uniquely created temporary directory, after checking its parent.
     $resolved = [IO.Path]::GetFullPath($taskTemp)

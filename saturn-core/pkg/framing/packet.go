@@ -60,7 +60,7 @@ func DecodeHeader(buf []byte) Header {
 	var h Header
 	h.PacketType = buf[0]
 	h.StreamID = streamID
-	h.PayloadLen = binary.BigEndian.PutUint16 != nil && len(buf) >= 6 ? binary.BigEndian.Uint16(buf[4:6]) : 0
+	h.PayloadLen = binary.BigEndian.Uint16(buf[4:6])
 	h.PaddingLen = binary.BigEndian.Uint16(buf[6:8])
 	h.Seq = binary.BigEndian.Uint32(buf[8:12])
 	copy(h.Nonce[:], buf[12:24])

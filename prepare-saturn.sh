@@ -56,7 +56,11 @@ if command -v go >/dev/null 2>&1 && [ -d "$repo_dir/saturn-core" ]; then
             ABI="${TARGET##*:}"
             TARGET_DIR="$app_dir/libs/$ABI"
             mkdir -p "$TARGET_DIR"
-            CGO_ENABLED=0 GOOS=android GOARCH="$ARCH" go build -trimpath -ldflags="-s -w" -o "$TARGET_DIR/libsaturn.so" ./cmd/saturn-client || true
+            if [ "$ARCH" = "arm" ]; then
+                CGO_ENABLED=0 GOOS=linux GOARCH="$ARCH" GOARM=7 go build -trimpath -ldflags="-s -w" -o "$TARGET_DIR/libsaturn.so" ./cmd/saturn-client
+            else
+                CGO_ENABLED=0 GOOS=linux GOARCH="$ARCH" go build -trimpath -ldflags="-s -w" -o "$TARGET_DIR/libsaturn.so" ./cmd/saturn-client
+            fi
         done
         mkdir -p "$repo_dir/bin"
         CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -trimpath -ldflags="-s -w" -o "$repo_dir/bin/saturn-server-linux-amd64" ./cmd/saturn-server || true

@@ -7,7 +7,6 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"math/rand/v2"
 	"net"
 	"strconv"
 	"strings"
@@ -159,6 +158,16 @@ func ClientHandshake(tcpConn net.Conn, cfg *ClientHandshakeConfig) (*HandshakeRe
 	}, tcpConn, nil
 }
 
+func cryptoRandN(n int64) int64 {
+	if n <= 0 {
+		return 0
+	}
+	var b [8]byte
+	_, _ = rand.Read(b[:])
+	val := binary.BigEndian.Uint64(b[:])
+	return int64(val % uint64(n))
+}
+
 // sendFragmentedPayload splits the initial ClientHello at randomized byte offsets inside SNI with micro-delays.
 func sendFragmentedPayload(conn net.Conn, data []byte, sni string, minDelay, maxDelay time.Duration) error {
 	sniBytes := []byte(sni)
@@ -168,7 +177,7 @@ func sendFragmentedPayload(conn net.Conn, data []byte, sni string, minDelay, max
 	var splits []int
 	if sniIdx > 0 && len(sniBytes) > 4 {
 		// Cut 1: before or inside SNI extension
-		cut1 := sniIdx + 1 + rand.N(len(sniBytes)/2)
+		cut1 := sniIdx + 1 + int(cryptoRandN(int64(len(sniBytes)/2)))
 		splits = append(splits, cut1)
 		// Cut 2: end of SNI or shortly after
 		cut2 := sniIdx + len(sniBytes)
@@ -192,7 +201,7 @@ func sendFragmentedPayload(conn net.Conn, data []byte, sni string, minDelay, max
 			delay := minDelay
 			if maxDelay > minDelay {
 				delta := maxDelay - minDelay
-				delay = minDelay + time.Duration(rand.N(int64(delta)))
+				delay = minDelay + time.Duration(cryptoRandN(int64(delta)))
 			}
 			if delay > 0 {
 				time.Sleep(delay)
