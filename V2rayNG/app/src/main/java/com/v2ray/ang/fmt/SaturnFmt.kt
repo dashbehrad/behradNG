@@ -90,7 +90,7 @@ object SaturnFmt {
         parsedUri.rawQuery?.split('&')?.forEach { param ->
             val parts = param.split('=', limit = 2)
             if (parts.size == 2) {
-                queryMap[parts[0].lowercase()] = Utils.urlDecode(parts[1])
+                queryMap[parts[0].lowercase()] = Utils.decodeURIComponent(parts[1])
             }
         }
 
@@ -99,7 +99,7 @@ object SaturnFmt {
         val sid = queryMap["sid"] ?: ""
         val fp = queryMap["fp"] ?: "chrome"
         val frag = queryMap["frag"] ?: "1-5"
-        val remarks = parsedUri.fragment?.let { Utils.urlDecode(it) }?.ifBlank { "Saturn-Direct" } ?: "Saturn-Direct"
+        val remarks = parsedUri.fragment?.let { Utils.decodeURIComponent(it) }?.ifBlank { "Saturn-Direct" } ?: "Saturn-Direct"
 
         val settings = SaturnSettings(
             server = host,
