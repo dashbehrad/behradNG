@@ -91,11 +91,11 @@ object SaturnSshProvisioner {
                 onEvent(DeployEvent.Log("Non-root user '${creds.username}' detected. Escalating privileges to root via 'sudo -i'..."))
             }
 
-            // Run installer with script piped to bash (or escalated via sudo -i)
+            // Run installer with script piped to bash (or escalated via sudo -i) in non-interactive batch mode
             channel = (session.openChannel("exec") as ChannelExec).apply {
                 val cmd = buildExecutionCommand(creds)
                 setCommand(cmd)
-                setPty(true)
+                setPty(false)
             }
 
             val outStream = channel.outputStream
@@ -113,10 +113,12 @@ object SaturnSshProvisioner {
             var capturedUri: String? = null
 
             reader.forEachLine { rawLine ->
-                val line = rawLine.trim()
-                if (line.isNotEmpty()) {
-                    onEvent(DeployEvent.Log(rawLine))
+                val cleanLine = rawLine.replace(Regex("\u001B\\[[0-9;?]*[a-zA-Z]"), "").trim()
+                if (cleanLine.isNotEmpty() && !cleanLine.startsWith("[?2004")) {
+                    onEvent(DeployEvent.Log(cleanLine))
                 }
+
+                val line = cleanLine
 
                 // Detect stages for user progress
                 when {

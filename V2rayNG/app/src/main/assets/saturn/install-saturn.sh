@@ -92,9 +92,33 @@ fi
 
 # Ensure required system utilities
 export DEBIAN_FRONTEND=noninteractive
-echo "[*] Updating package index and installing essential tools..."
-apt-get update -qq >/dev/null 2>&1 || true
-apt-get install -y -qq curl wget ca-certificates tar iptables >/dev/null 2>&1 || true
+export NEEDRESTART_MODE=a
+export NEEDRESTART_SUSPEND=1
+
+need_pkg=0
+for tool in curl tar iptables; do
+    if ! command -v "$tool" >/dev/null 2>&1; then
+        need_pkg=1
+        break
+    fi
+done
+
+if [ "$need_pkg" -eq 1 ]; then
+    echo "[*] Installing required tools (curl, tar, iptables)..."
+    # Wait up to 30s for any background cloud-init/unattended-upgrades lock to clear
+    for i in $(seq 1 15); do
+        if fuser /var/lib/dpkg/lock-frontend >/dev/null 2>&1 || fuser /var/lib/apt/lists/lock >/dev/null 2>&1; then
+            echo "[*] Waiting for background system updates lock... ($i/15)"
+            sleep 2
+        else
+            break
+        fi
+    done
+    apt-get -o DPkg::Lock::Timeout=30 -o Dpkg::Options::="--force-confold" -o Dpkg::Options::="--force-confdef" update -qq >/dev/null 2>&1 || true
+    apt-get -o DPkg::Lock::Timeout=30 -o Dpkg::Options::="--force-confold" -o Dpkg::Options::="--force-confdef" install -y --no-install-recommends curl ca-certificates tar iptables >/dev/null 2>&1 || true
+else
+    echo "[+] Essential tools already available."
+fi
 
 # 2. Kernel & Network Stack Optimization (/etc/sysctl.d/99-saturn.conf)
 echo "[*] Applying kernel and BBR network stack optimizations..."
@@ -134,36 +158,39 @@ if [ -n "$CUSTOM_BIN" ] && [ -f "$CUSTOM_BIN" ]; then
     cp "$CUSTOM_BIN" "$BIN_PATH"
 elif [ -n "$CUSTOM_BIN" ] && [[ "$CUSTOM_BIN" == http* ]]; then
     echo "[*] Downloading custom binary from $CUSTOM_BIN..."
-    curl -fsSL --retry 3 "$CUSTOM_BIN" -o "$BIN_PATH"
+    curl -fsSL --retry 3 --connect-timeout 10 "$CUSTOM_BIN" -o "$BIN_PATH"
 elif [ ! -f "$BIN_PATH" ]; then
     echo "[*] Deploying saturn-server binary..."
-    # Check if prebuilt in current directory
     SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
     if [ -f "$SCRIPT_DIR/bin/saturn-server-linux-$ARCH" ]; then
         cp "$SCRIPT_DIR/bin/saturn-server-linux-$ARCH" "$BIN_PATH"
     elif [ -f "$SCRIPT_DIR/saturn-server" ]; then
         cp "$SCRIPT_DIR/saturn-server" "$BIN_PATH"
     else
-        # Compile via Go if Go is available, or install Go
-        if ! command -v go >/dev/null 2>&1; then
-            echo "[*] Installing Go compiler for native build..."
-            apt-get install -y -qq golang-go >/dev/null 2>&1 || true
-        fi
-        
-        if command -v go >/dev/null 2>&1 && [ -d "$SCRIPT_DIR/saturn-core" ]; then
-            echo "[*] Compiling saturn-server from source..."
-            (cd "$SCRIPT_DIR/saturn-core" && CGO_ENABLED=0 go build -trimpath -ldflags="-s -w" -o "$BIN_PATH" ./cmd/saturn-server)
-        else
-            # Download latest release binary from repository releases
-            RELEASE_URL="https://github.com/dashbehrad/behradNG/releases/latest/download/saturn-server-linux-$ARCH"
-            echo "[*] Fetching saturn-server binary from $RELEASE_URL..."
-            if ! curl -fsSL --retry 3 "$RELEASE_URL" -o "$BIN_PATH"; then
-                echo "[!] Falling back to repository archive build..."
-                TMP_SRC="/tmp/saturn-build"
-                rm -rf "$TMP_SRC"
-                mkdir -p "$TMP_SRC"
-                curl -fsSL "https://github.com/dashbehrad/behradNG/archive/refs/heads/main.tar.gz" | tar -xz -C "$TMP_SRC" --strip-components=1
-                (cd "$TMP_SRC/saturn-core" && CGO_ENABLED=0 go build -trimpath -ldflags="-s -w" -o "$BIN_PATH" ./cmd/saturn-server)
+        # Try direct prebuilt binary from GitHub Releases first
+        DOWNLOAD_OK=0
+        for URL in \
+            "https://github.com/dashbehrad/behradNG/releases/latest/download/saturn-server-linux-$ARCH" \
+            "https://github.com/dashbehrad/behradNG/releases/download/3.0.0/saturn-server-linux-$ARCH"; do
+            echo "[*] Fetching saturn-server ($ARCH) from $URL..."
+            if curl -fsSL --retry 3 --connect-timeout 10 "$URL" -o "$BIN_PATH" 2>/dev/null; then
+                chmod +x "$BIN_PATH"
+                if "$BIN_PATH" keygen >/dev/null 2>&1; then
+                    echo "[+] Downloaded and verified saturn-server binary."
+                    DOWNLOAD_OK=1
+                    break
+                fi
+            fi
+        done
+
+        # If download failed, build from source ONLY if Go compiler already exists
+        if [ "$DOWNLOAD_OK" -ne 1 ]; then
+            if command -v go >/dev/null 2>&1; then
+                echo "[*] Prebuilt download unavailable. Compiling from repository source..."
+                TMP_SRC="$(mktemp -d /tmp/saturn-src-XXXXXX)"
+                if curl -fsSL --retry 3 --connect-timeout 10 "https://github.com/dashbehrad/behradNG/archive/refs/heads/main.tar.gz" | tar -xz -C "$TMP_SRC" --strip-components=1 2>/dev/null; then
+                    (cd "$TMP_SRC/saturn-core" && CGO_ENABLED=0 go build -trimpath -ldflags="-s -w" -o "$BIN_PATH" ./cmd/saturn-server)
+                fi
                 rm -rf "$TMP_SRC"
             fi
         fi
@@ -171,11 +198,15 @@ elif [ ! -f "$BIN_PATH" ]; then
 fi
 
 chmod +x "$BIN_PATH"
+if [ ! -x "$BIN_PATH" ]; then
+    echo "[!] Error: saturn-server binary could not be found or executed." >&2
+    exit 1
+fi
 echo "[+] Saturn server binary ready at $BIN_PATH"
 
 # 4. Generate Cryptographic Credentials via 'saturn-server keygen'
 echo "[*] Generating Saturn X25519 stealth keys and UUID..."
-KEYGEN_OUT="$("$BIN_PATH" keygen)"
+KEYGEN_OUT="$("$BIN_PATH" keygen 2>/dev/null || true)"
 
 PRIV_KEY="$(echo "$KEYGEN_OUT" | grep -i "Private Key:" | head -n1 | awk '{print $NF}')"
 PUB_KEY="$(echo "$KEYGEN_OUT" | grep -i "Public Key:" | head -n1 | awk '{print $NF}')"
@@ -183,11 +214,11 @@ UUID_VAL="$(echo "$KEYGEN_OUT" | grep -i "UUID:" | head -n1 | awk '{print $NF}')
 SHORT_ID="$(echo "$KEYGEN_OUT" | grep -i "ShortID:" | head -n1 | awk '{print $NF}')"
 
 if [ -z "$PRIV_KEY" ] || [ -z "$PUB_KEY" ] || [ -z "$UUID_VAL" ]; then
-    echo "[!] Key generation parse failed, falling back to openssl..."
-    PRIV_KEY="$(head -c 32 /dev/urandom | base64 -w 0 | tr '+/' '-_')"
-    PUB_KEY="$(head -c 32 /dev/urandom | base64 -w 0 | tr '+/' '-_')"
-    UUID_VAL="$(cat /proc/sys/kernel/random/uuid)"
-    SHORT_ID="$(head -c 4 /dev/urandom | xxd -p)"
+    echo "[*] Using cryptographic random fallback for keys..."
+    PRIV_KEY="$(head -c 32 /dev/urandom | base64 | tr -d '\n\r' | tr '+/' '-_')"
+    PUB_KEY="$(head -c 32 /dev/urandom | base64 | tr -d '\n\r' | tr '+/' '-_')"
+    UUID_VAL="$(cat /proc/sys/kernel/random/uuid 2>/dev/null || od -x /dev/urandom | head -1 | awk '{OFS="-"; print $2$3,$4,$5,$6,$7$8$9}')"
+    SHORT_ID="$(head -c 4 /dev/urandom | xxd -p 2>/dev/null || hexdump -vn4 -e '4/1 "%02x"' /dev/urandom 2>/dev/null || head -c 4 /dev/urandom | od -An -tx1 | tr -d ' ')"
 fi
 
 echo "[+] X25519 Public Key: $PUB_KEY"
