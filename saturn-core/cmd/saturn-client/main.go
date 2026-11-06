@@ -90,6 +90,14 @@ func main() {
 	}
 
 	pool := NewClientPool(profile.Server, profile.Port, handshakeCfg, poolSize)
+
+	// Pre-warm primary tunnel session before opening inbound listener so initial ping and tests have 0ms dial latency
+	log.Printf("[Saturn Client] Pre-warming primary tunnel connection to %s:%d...", profile.Server, profile.Port)
+	if err := pool.Warmup(8 * time.Second); err != nil {
+		log.Printf("[Saturn Client] Warning: initial warmup failed (%v), pool will dial on demand", err)
+	} else {
+		log.Printf("[Saturn Client] Primary tunnel session is active and ready")
+	}
 	go pool.Run()
 
 	listener, err := net.Listen("tcp", *listenFlag)
@@ -122,14 +130,14 @@ func main() {
 
 // ClientPool maintains persistent smux connections to the Saturn server.
 type ClientPool struct {
-	server       string
-	port         int
-	cfg          *handshake.ClientHandshakeConfig
-	poolSize     int
-	sessions     []*smux.Session
-	lock         sync.Mutex
-	roundRobin   int
-	isClosed     bool
+	server     string
+	port       int
+	cfg        *handshake.ClientHandshakeConfig
+	poolSize   int
+	sessions   []*smux.Session
+	lock       sync.Mutex
+	roundRobin int
+	isClosed   bool
 }
 
 func NewClientPool(server string, port int, cfg *handshake.ClientHandshakeConfig, poolSize int) *ClientPool {
@@ -141,6 +149,32 @@ func NewClientPool(server string, port int, cfg *handshake.ClientHandshakeConfig
 	}
 }
 
+// Warmup synchronously establishes the primary tunnel session with a bounded timeout.
+func (cp *ClientPool) Warmup(timeout time.Duration) error {
+	type dialResult struct {
+		sess *smux.Session
+		err  error
+	}
+	ch := make(chan dialResult, 1)
+	go func() {
+		sess, err := cp.dialSession()
+		ch <- dialResult{sess: sess, err: err}
+	}()
+
+	select {
+	case res := <-ch:
+		if res.err != nil {
+			return res.err
+		}
+		cp.lock.Lock()
+		cp.sessions = append(cp.sessions, res.sess)
+		cp.lock.Unlock()
+		return nil
+	case <-time.After(timeout):
+		return fmt.Errorf("warmup timed out after %v", timeout)
+	}
+}
+
 func (cp *ClientPool) Run() {
 	for !cp.isClosed {
 		cp.maintainPool()
@@ -149,6 +183,113 @@ func (cp *ClientPool) Run() {
 }
 
 func (cp *ClientPool) maintainPool() {
+	// 1. Clean dead sessions quickly under short lock
+	cp.lock.Lock()
+	alive := cp.sessions[:0]
+	for _, s := range cp.sessions {
+		if !s.IsClosed() {
+			alive = append(alive, s)
+		}
+	}
+	cp.sessions = alive
+	currentCount := len(cp.sessions)
+	cp.lock.Unlock()
+
+	// 2. If more sessions needed, dial OUTSIDE the lock to never freeze inbounds!
+	needed := cp.poolSize - currentCount
+	for i := 0; i < needed; i++ {
+		if cp.isClosed {
+			break
+		}
+		sess, err := cp.dialSession()
+		if err != nil {
+			log.Printf("[Saturn Client] Background tunnel connection to %s:%d failed: %v", cp.server, cp.port, err)
+			break
+		}
+		cp.lock.Lock()
+		if !cp.isClosed {
+			cp.sessions = append(cp.sessions, sess)
+			log.Printf("[Saturn Client] Established tunnel connection (%d/%d active)", len(cp.sessions), cp.poolSize)
+		} else {
+			_ = sess.Close()
+		}
+		cp.lock.Unlock()
+	}
+}
+
+func (cp *ClientPool) dialSession() (*smux.Session, error) {
+	target := fmt.Sprintf("%s:%d", cp.server, cp.port)
+	rawConn, err := net.DialTimeout("tcp", target, 10*time.Second)
+	if err != nil {
+		return nil, err
+	}
+
+	// Optimize socket for mobile networks (disable Nagle delay, keepalive for cellular NAT)
+	if tc, ok := rawConn.(*net.TCPConn); ok {
+		_ = tc.SetNoDelay(true)
+		_ = tc.SetKeepAlive(true)
+		_ = tc.SetKeepAlivePeriod(15 * time.Second)
+	}
+
+	result, authedConn, err := handshake.ClientHandshake(rawConn, cp.cfg)
+	if err != nil {
+		_ = rawConn.Close()
+		return nil, err
+	}
+
+	clientSendCipher, err := crypto.NewCipher(cp.cfg.Cipher, result.ClientKey)
+	if err != nil {
+		_ = authedConn.Close()
+		return nil, err
+	}
+	clientRecvCipher, err := crypto.NewCipher(cp.cfg.Cipher, result.ServerKey)
+	if err != nil {
+		_ = authedConn.Close()
+		return nil, err
+	}
+
+	framedConn := mux.NewDirectionalFramedConn(authedConn, clientSendCipher, clientRecvCipher, result.ClientIV, result.ServerIV)
+	sess, err := smux.Client(framedConn, mux.DefaultSmuxConfig())
+	if err != nil {
+		_ = framedConn.Close()
+		return nil, err
+	}
+	return sess, nil
+}
+
+func (cp *ClientPool) OpenStream() (*smux.Stream, error) {
+	// Try existing healthy sessions from the pool
+	for attempt := 0; attempt < 3; attempt++ {
+		sess := cp.pickSession()
+		if sess != nil {
+			stream, err := sess.OpenStream()
+			if err == nil {
+				return stream, nil
+			}
+			// Failed session: close it and trigger background pool refresh
+			_ = sess.Close()
+			go cp.maintainPool()
+		} else {
+			break
+		}
+	}
+
+	// Pool has no active sessions: dial on-demand outside lock
+	sess, err := cp.dialSession()
+	if err != nil {
+		return nil, fmt.Errorf("tunnel unavailable: %w", err)
+	}
+
+	cp.lock.Lock()
+	if !cp.isClosed {
+		cp.sessions = append(cp.sessions, sess)
+	}
+	cp.lock.Unlock()
+
+	return sess.OpenStream()
+}
+
+func (cp *ClientPool) pickSession() *smux.Session {
 	cp.lock.Lock()
 	defer cp.lock.Unlock()
 
@@ -160,62 +301,12 @@ func (cp *ClientPool) maintainPool() {
 	}
 	cp.sessions = alive
 
-	needed := cp.poolSize - len(cp.sessions)
-	for i := 0; i < needed; i++ {
-		sess, err := cp.dialSession()
-		if err != nil {
-			log.Printf("[Saturn Client] Connection to %s:%d failed: %v", cp.server, cp.port, err)
-			break
-		}
-		cp.sessions = append(cp.sessions, sess)
-		log.Printf("[Saturn Client] Established tunnel connection (%d/%d active)", len(cp.sessions), cp.poolSize)
-	}
-}
-
-func (cp *ClientPool) dialSession() (*smux.Session, error) {
-	target := fmt.Sprintf("%s:%d", cp.server, cp.port)
-	rawConn, err := net.DialTimeout("tcp", target, 10*time.Second)
-	if err != nil {
-		return nil, err
-	}
-
-	result, authedConn, err := handshake.ClientHandshake(rawConn, cp.cfg)
-	if err != nil {
-		_ = rawConn.Close()
-		return nil, err
-	}
-
-	cipherInstance, err := crypto.NewCipher(cp.cfg.Cipher, result.AEADKey)
-	if err != nil {
-		_ = authedConn.Close()
-		return nil, err
-	}
-
-	framedConn := mux.NewFramedConn(authedConn, cipherInstance, result.BaseIV)
-	sess, err := smux.Client(framedConn, mux.DefaultSmuxConfig())
-	if err != nil {
-		_ = framedConn.Close()
-		return nil, err
-	}
-	return sess, nil
-}
-
-func (cp *ClientPool) OpenStream() (*smux.Stream, error) {
-	cp.lock.Lock()
-	defer cp.lock.Unlock()
-
 	if len(cp.sessions) == 0 {
-		// Attempt instant dial if pool is empty
-		sess, err := cp.dialSession()
-		if err != nil {
-			return nil, fmt.Errorf("tunnel unavailable: %w", err)
-		}
-		cp.sessions = append(cp.sessions, sess)
+		return nil
 	}
 
 	cp.roundRobin = (cp.roundRobin + 1) % len(cp.sessions)
-	sess := cp.sessions[cp.roundRobin]
-	return sess.OpenStream()
+	return cp.sessions[cp.roundRobin]
 }
 
 func (cp *ClientPool) Close() {
@@ -390,7 +481,9 @@ func relayBufferedConn(conn net.Conn, br *bufio.Reader, stream *smux.Stream) {
 		_, err := io.CopyBuffer(stream, br, buf)
 		if err != nil {
 			once.Do(closeBoth)
+			return
 		}
+		_ = stream.Close()
 	}()
 
 	// Smux Stream -> Inbound (Download / Response)

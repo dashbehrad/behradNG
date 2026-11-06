@@ -91,6 +91,10 @@ type HandshakeResult struct {
 	SharedSecret []byte
 	AEADKey      []byte
 	BaseIV       []byte
+	ClientKey    []byte
+	ClientIV     []byte
+	ServerKey    []byte
+	ServerIV     []byte
 	ClientRandom []byte
 }
 
@@ -254,7 +258,7 @@ func verifyClientHello(data []byte, cfg *ServerHandshakeConfig) (*HandshakeResul
 		}
 	}
 
-	// Derive AEAD session key and base IV
+	// Derive AEAD session keys and directional base IVs
 	aeadKey, err := crypto.DeriveKey(sharedSecret, salt, crypto.InfoKeyAEAD, 32)
 	if err != nil {
 		return nil, err
@@ -263,11 +267,31 @@ func verifyClientHello(data []byte, cfg *ServerHandshakeConfig) (*HandshakeResul
 	if err != nil {
 		return nil, err
 	}
+	clientKey, err := crypto.DeriveKey(sharedSecret, salt, crypto.InfoClientKey, 32)
+	if err != nil {
+		return nil, err
+	}
+	clientIV, err := crypto.DeriveKey(sharedSecret, salt, crypto.InfoClientIV, crypto.NonceSize)
+	if err != nil {
+		return nil, err
+	}
+	serverKey, err := crypto.DeriveKey(sharedSecret, salt, crypto.InfoServerKey, 32)
+	if err != nil {
+		return nil, err
+	}
+	serverIV, err := crypto.DeriveKey(sharedSecret, salt, crypto.InfoServerIV, crypto.NonceSize)
+	if err != nil {
+		return nil, err
+	}
 
 	return &HandshakeResult{
 		SharedSecret: sharedSecret,
 		AEADKey:      aeadKey,
 		BaseIV:       baseIV,
+		ClientKey:    clientKey,
+		ClientIV:     clientIV,
+		ServerKey:    serverKey,
+		ServerIV:     serverIV,
 		ClientRandom: clientRandom,
 	}, nil
 }

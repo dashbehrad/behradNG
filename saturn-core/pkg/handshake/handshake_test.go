@@ -1,6 +1,7 @@
 package handshake_test
 
 import (
+	"bytes"
 	"net"
 	"testing"
 
@@ -118,7 +119,16 @@ func TestClientServerHandshake(t *testing.T) {
 		t.Fatalf("ClientHandshake failed: %v", clientErr)
 	}
 
-	if string(clientResult.AEADKey) != string(serverResult.AEADKey) {
-		t.Fatalf("AEAD key mismatch between client and server")
+	if !bytes.Equal(clientResult.ClientKey, serverResult.ClientKey) {
+		t.Fatalf("ClientKey mismatch between client and server")
+	}
+	if !bytes.Equal(clientResult.ServerKey, serverResult.ServerKey) {
+		t.Fatalf("ServerKey mismatch between client and server")
+	}
+	if !bytes.Equal(clientResult.ClientIV, serverResult.ClientIV) {
+		t.Fatalf("ClientIV mismatch between client and server")
+	}
+	if !bytes.Equal(clientResult.ServerIV, serverResult.ServerIV) {
+		t.Fatalf("ServerIV mismatch between client and server")
 	}
 }

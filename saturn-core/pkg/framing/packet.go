@@ -13,7 +13,7 @@ import (
 const (
 	RecordTypeApplicationData byte = 0x17
 	TLSRecordHeaderSize            = 5
-	HeaderSize                     = 24 // 6 32-bit words (Word 1: Type+StreamID, Word 2: Len+Pad, Word 3: Seq, Word 4-6: IV)
+	InnerHeaderSize                = 6 // Type (1B) + StreamID (3B) + PayloadLen (2B)
 
 	PacketTypeData  byte = 0x01
 	PacketTypePing  byte = 0x02
@@ -21,9 +21,10 @@ const (
 	PacketTypeClose byte = 0x04
 	PacketTypeUDP   byte = 0x05
 
-	MaxPayloadSize           = 65535 - HeaderSize - TLSRecordHeaderSize - crypto.TagSize - MaxPaddingSize
-	MaxPaddingSize           = 512
-	MorphingPacketsThreshold = 12
+	MaxTLSPlaintext          = 16384 // RFC 8446 standard maximum TLS plaintext (16KB)
+	MaxPayloadSize           = MaxTLSPlaintext - InnerHeaderSize - MaxPaddingSize
+	MaxPaddingSize           = 256
+	MorphingPacketsThreshold = 16
 )
 
 var (
@@ -32,125 +33,112 @@ var (
 	ErrDecryptFailed   = errors.New("packet decryption failed")
 )
 
-// Header models the 24-byte Saturn binary packet header.
-type Header struct {
-	PacketType byte
-	StreamID   uint32 // 24-bit
-	PayloadLen uint16
-	PaddingLen uint16
-	Seq        uint32
-	Nonce      [crypto.NonceSize]byte
-}
-
-// EncodeHeader writes header fields into a 24-byte buffer.
-func (h *Header) Encode(buf []byte) {
-	_ = buf[23] // bounds check hint
-	buf[0] = h.PacketType
-	buf[1] = byte(h.StreamID >> 16)
-	buf[2] = byte(h.StreamID >> 8)
-	buf[3] = byte(h.StreamID)
-	binary.BigEndian.PutUint16(buf[4:6], h.PayloadLen)
-	binary.BigEndian.PutUint16(buf[6:8], h.PaddingLen)
-	binary.BigEndian.PutUint32(buf[8:12], h.Seq)
-	copy(buf[12:24], h.Nonce[:])
-}
-
-// DecodeHeader reads a 24-byte buffer into Header.
-func DecodeHeader(buf []byte) Header {
-	_ = buf[23]
-	streamID := (uint32(buf[1]) << 16) | (uint32(buf[2]) << 8) | uint32(buf[3])
-	var h Header
-	h.PacketType = buf[0]
-	h.StreamID = streamID
-	h.PayloadLen = binary.BigEndian.Uint16(buf[4:6])
-	h.PaddingLen = binary.BigEndian.Uint16(buf[6:8])
-	h.Seq = binary.BigEndian.Uint32(buf[8:12])
-	copy(h.Nonce[:], buf[12:24])
-	return h
-}
-
-// PacketManager manages sequence numbers and dynamic padding for streams.
-type PacketManager struct {
-	seqCounter   atomic.Uint32
-	packetsSent  atomic.Uint32
-	cipher       *crypto.Cipher
-	baseNonce    [crypto.NonceSize]byte
-}
-
-// NewPacketManager initializes a packet manager with a cipher and base IV.
-func NewPacketManager(cipher *crypto.Cipher, baseIV []byte) *PacketManager {
-	pm := &PacketManager{cipher: cipher}
+// deriveNonce derives per-record 12-byte nonce by XORing the static IV with sequence counter (RFC 8446 Section 5.3).
+func deriveNonce(baseIV []byte, seq uint64) [crypto.NonceSize]byte {
+	var nonce [crypto.NonceSize]byte
 	if len(baseIV) >= crypto.NonceSize {
-		copy(pm.baseNonce[:], baseIV[:crypto.NonceSize])
+		copy(nonce[:], baseIV[:crypto.NonceSize])
+	}
+	var seqBytes [8]byte
+	binary.BigEndian.PutUint64(seqBytes[:], seq)
+	for i := 0; i < 8; i++ {
+		nonce[crypto.NonceSize-8+i] ^= seqBytes[i]
+	}
+	return nonce
+}
+
+// PacketManager manages sequence numbers, dynamic obfuscation padding, and TLS 1.3 AEAD record encryption.
+type PacketManager struct {
+	writeSeq    atomic.Uint64
+	readSeq     atomic.Uint64
+	packetsSent atomic.Uint32
+
+	sendCipher *crypto.Cipher
+	recvCipher *crypto.Cipher
+	sendIV     [crypto.NonceSize]byte
+	recvIV     [crypto.NonceSize]byte
+}
+
+// NewPacketManager initializes a symmetric packet manager with a shared cipher and base IV.
+func NewPacketManager(cipher *crypto.Cipher, baseIV []byte) *PacketManager {
+	return NewDirectionalPacketManager(cipher, cipher, baseIV, baseIV)
+}
+
+// NewDirectionalPacketManager initializes a packet manager with separate directional ciphers and IVs.
+func NewDirectionalPacketManager(sendCipher, recvCipher *crypto.Cipher, sendIV, recvIV []byte) *PacketManager {
+	pm := &PacketManager{
+		sendCipher: sendCipher,
+		recvCipher: recvCipher,
+	}
+	if len(sendIV) >= crypto.NonceSize {
+		copy(pm.sendIV[:], sendIV[:crypto.NonceSize])
 	} else {
-		_, _ = io.ReadFull(rand.Reader, pm.baseNonce[:])
+		_, _ = io.ReadFull(rand.Reader, pm.sendIV[:])
+	}
+	if len(recvIV) >= crypto.NonceSize {
+		copy(pm.recvIV[:], recvIV[:crypto.NonceSize])
+	} else {
+		_, _ = io.ReadFull(rand.Reader, pm.recvIV[:])
 	}
 	return pm
 }
 
-// WritePacket encodes, encrypts, pads, and wraps a packet into a standard TLS 1.3 Application Data record.
+// WritePacket encodes, dynamic-pads, and wraps payload into a 100% RFC 8446 TLS 1.3 Application Data record.
+// All metadata (packetType, streamID, payloadLen, padding) is fully encrypted inside the AEAD record.
+// To external DPI, the record appears identical to genuine TLS 1.3 ciphertext with uniform Shannon entropy.
 func (pm *PacketManager) WritePacket(w io.Writer, packetType byte, streamID uint32, plaintext []byte) error {
 	if len(plaintext) > MaxPayloadSize {
 		return ErrPayloadTooLarge
 	}
 
-	seq := pm.seqCounter.Add(1)
+	seq := pm.writeSeq.Add(1)
 	count := pm.packetsSent.Add(1)
 
-	// Calculate dynamic obfuscation padding for the first 12 packets
+	// Dynamic obfuscation padding for the first 16 packets or small packets to eliminate length heuristics
 	var padLen uint16
-	if count <= MorphingPacketsThreshold {
+	if count <= MorphingPacketsThreshold || len(plaintext) < 512 {
 		var r [2]byte
 		_, _ = rand.Read(r[:])
-		padLen = uint16(binary.BigEndian.Uint16(r[:]) % (MaxPaddingSize + 1))
+		padLen = 16 + (binary.BigEndian.Uint16(r[:]) % (MaxPaddingSize - 16 + 1))
 	}
 
-	// Generate IV / Nonce derived from baseNonce ^ seq
-	var nonce [crypto.NonceSize]byte
-	copy(nonce[:], pm.baseNonce[:])
-	binary.BigEndian.PutUint32(nonce[crypto.NonceSize-4:], binary.BigEndian.Uint32(nonce[crypto.NonceSize-4:])^seq)
+	innerLen := InnerHeaderSize + len(plaintext) + int(padLen)
+	plainBuf := make([]byte, innerLen)
 
-	var h Header
-	h.PacketType = packetType
-	h.StreamID = streamID & 0x00FFFFFF
-	h.PayloadLen = uint16(len(plaintext))
-	h.PaddingLen = padLen
-	h.Seq = seq
-	h.Nonce = nonce
+	// Encrypted inner envelope: [Type 1B][StreamID 3B][PayloadLen 2B][Data][Padding]
+	plainBuf[0] = packetType
+	plainBuf[1] = byte(streamID >> 16)
+	plainBuf[2] = byte(streamID >> 8)
+	plainBuf[3] = byte(streamID)
+	binary.BigEndian.PutUint16(plainBuf[4:6], uint16(len(plaintext)))
+	copy(plainBuf[6:6+len(plaintext)], plaintext)
 
-	hdrBuf := make([]byte, HeaderSize)
-	h.Encode(hdrBuf)
-
-	// Authenticate the 12-byte header prefix as Additional Authenticated Data (AAD)
-	aad := hdrBuf[:12]
-	ciphertext := pm.cipher.Encrypt(nonce[:], plaintext, aad)
-
-	// Calculate total TLS record length = HeaderSize + len(ciphertext) + padLen
-	recLen := HeaderSize + len(ciphertext) + int(padLen)
-
-	packetBuf := make([]byte, TLSRecordHeaderSize+recLen)
-	// TLS 1.3 Application Data Record header: 0x17 0x03 0x03 [len_hi] [len_lo]
-	packetBuf[0] = RecordTypeApplicationData
-	packetBuf[1] = 0x03
-	packetBuf[2] = 0x03
-	binary.BigEndian.PutUint16(packetBuf[3:5], uint16(recLen))
-
-	// Copy Saturn header
-	copy(packetBuf[TLSRecordHeaderSize:], hdrBuf)
-	// Copy ciphertext
-	copy(packetBuf[TLSRecordHeaderSize+HeaderSize:], ciphertext)
-
-	// Dynamic obfuscation padding
 	if padLen > 0 {
-		pad := packetBuf[TLSRecordHeaderSize+HeaderSize+len(ciphertext):]
-		_, _ = rand.Read(pad)
+		_, _ = io.ReadFull(rand.Reader, plainBuf[6+len(plaintext):])
 	}
 
-	_, err := w.Write(packetBuf)
+	nonce := deriveNonce(pm.sendIV[:], seq)
+
+	// TLS 1.3 Application Data Record header: 0x17 0x03 0x03 [len_hi] [len_lo]
+	var tlsHeader [TLSRecordHeaderSize]byte
+	tlsHeader[0] = RecordTypeApplicationData
+	tlsHeader[1] = 0x03
+	tlsHeader[2] = 0x03
+	recLen := len(plainBuf) + pm.sendCipher.Overhead()
+	binary.BigEndian.PutUint16(tlsHeader[3:5], uint16(recLen))
+
+	// Additional Authenticated Data is the 5-byte TLS record header with record length
+	ciphertext := pm.sendCipher.Encrypt(nonce[:], plainBuf, tlsHeader[:])
+
+	out := make([]byte, TLSRecordHeaderSize+len(ciphertext))
+	copy(out[:TLSRecordHeaderSize], tlsHeader[:])
+	copy(out[TLSRecordHeaderSize:], ciphertext)
+
+	_, err := w.Write(out)
 	return err
 }
 
-// ReadPacket reads a complete TLS Application Data record, un-pads, decrypts, and returns plaintext.
+// ReadPacket reads a complete TLS Application Data record, decrypts, verifies integrity, un-pads, and returns data.
 func (pm *PacketManager) ReadPacket(r io.Reader) (byte, uint32, []byte, error) {
 	// 1. Read 5-byte TLS record header
 	tlsHeader := make([]byte, TLSRecordHeaderSize)
@@ -162,43 +150,40 @@ func (pm *PacketManager) ReadPacket(r io.Reader) (byte, uint32, []byte, error) {
 	if tlsHeader[0] != RecordTypeApplicationData || tlsHeader[1] != 0x03 || tlsHeader[2] != 0x03 {
 		return 0, 0, nil, ErrInvalidPacket
 	}
+
 	recordLen := int(binary.BigEndian.Uint16(tlsHeader[3:5]))
-	if recordLen < HeaderSize+pm.cipher.Overhead() {
+	if recordLen < InnerHeaderSize+pm.recvCipher.Overhead() || recordLen > MaxTLSPlaintext+pm.recvCipher.Overhead()+MaxPaddingSize {
 		return 0, 0, nil, ErrInvalidPacket
 	}
 
-	// 2. Read Saturn 24-byte header
-	hdrBuf := make([]byte, HeaderSize)
-	if _, err := io.ReadFull(r, hdrBuf); err != nil {
-		return 0, 0, nil, err
-	}
-	h := DecodeHeader(hdrBuf)
-
-	cipherLen := int(h.PayloadLen) + pm.cipher.Overhead()
-	if HeaderSize+cipherLen+int(h.PaddingLen) != recordLen {
-		return 0, 0, nil, ErrInvalidPacket
-	}
-
-	// 3. Read ciphertext
-	cipherBuf := make([]byte, cipherLen)
+	// 2. Read entire encrypted record
+	cipherBuf := make([]byte, recordLen)
 	if _, err := io.ReadFull(r, cipherBuf); err != nil {
 		return 0, 0, nil, err
 	}
 
-	// 4. Read dynamic padding
-	if h.PaddingLen > 0 {
-		padBuf := make([]byte, h.PaddingLen)
-		if _, err := io.ReadFull(r, padBuf); err != nil {
-			return 0, 0, nil, err
-		}
-	}
+	// 3. Derive per-record nonce matching sender sequence
+	seq := pm.readSeq.Add(1)
+	nonce := deriveNonce(pm.recvIV[:], seq)
 
-	// 5. Decrypt and verify AAD
-	aad := hdrBuf[:12]
-	plaintext, err := pm.cipher.Decrypt(h.Nonce[:], cipherBuf, aad)
+	// 4. Decrypt AEAD record and verify AAD
+	plaintext, err := pm.recvCipher.Decrypt(nonce[:], cipherBuf, tlsHeader)
 	if err != nil {
 		return 0, 0, nil, ErrDecryptFailed
 	}
 
-	return h.PacketType, h.StreamID, plaintext, nil
+	if len(plaintext) < InnerHeaderSize {
+		return 0, 0, nil, ErrInvalidPacket
+	}
+
+	packetType := plaintext[0]
+	streamID := (uint32(plaintext[1]) << 16) | (uint32(plaintext[2]) << 8) | uint32(plaintext[3])
+	payloadLen := int(binary.BigEndian.Uint16(plaintext[4:6]))
+
+	if InnerHeaderSize+payloadLen > len(plaintext) {
+		return 0, 0, nil, ErrInvalidPacket
+	}
+
+	payload := plaintext[InnerHeaderSize : InnerHeaderSize+payloadLen]
+	return packetType, streamID, payload, nil
 }

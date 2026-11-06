@@ -40,14 +40,7 @@ internal fun buildServerRowUiModel(
 
 private fun serverProtocolDescription(profile: ProfileItem): String {
     if (profile.configType == com.v2ray.ang.enums.EConfigType.SATURN) {
-        val carrier = if (profile.saturnSettings?.isDirectSaturn() == true) {
-            profile.network?.ifBlank { null } ?: "direct"
-        } else {
-            profile.saturnSettings?.normalizedCarrier()
-                ?: profile.network?.ifBlank { null }
-                ?: "h2"
-        }
-        return "${profile.configType.name} / $carrier"
+        return "${profile.configType.name} / direct"
     }
     if (profile.configType == com.v2ray.ang.enums.EConfigType.AETHER) {
         val carrier = profile.aetherSettings?.carrier?.ifBlank { null } ?: "h2"

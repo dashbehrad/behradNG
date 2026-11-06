@@ -32,9 +32,9 @@ class MainServerRowModelsTest {
         val defaultModel = buildServerRowUiModel(ServersCache("guid-3", defaultSaturn), "")
         val directModel = buildServerRowUiModel(ServersCache("guid-4", directSaturn), "")
 
-        assertEquals("SATURN / h2", h2Model.typeDescription)
-        assertEquals("SATURN / h3", h3Model.typeDescription)
-        assertEquals("SATURN / h2", defaultModel.typeDescription)
+        assertEquals("SATURN / direct", h2Model.typeDescription)
+        assertEquals("SATURN / direct", h3Model.typeDescription)
+        assertEquals("SATURN / direct", defaultModel.typeDescription)
         assertEquals("SATURN / direct", directModel.typeDescription)
     }
 

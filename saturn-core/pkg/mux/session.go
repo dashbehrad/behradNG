@@ -32,6 +32,14 @@ func NewFramedConn(conn net.Conn, cipher *crypto.Cipher, baseIV []byte) *FramedC
 	}
 }
 
+// NewDirectionalFramedConn creates a new Saturn framed connection with separate directional ciphers and IVs.
+func NewDirectionalFramedConn(conn net.Conn, sendCipher, recvCipher *crypto.Cipher, sendIV, recvIV []byte) *FramedConn {
+	return &FramedConn{
+		Conn: conn,
+		pm:   framing.NewDirectionalPacketManager(sendCipher, recvCipher, sendIV, recvIV),
+	}
+}
+
 // Read implements io.Reader with buffered packet extraction.
 func (fc *FramedConn) Read(p []byte) (int, error) {
 	fc.readMutex.Lock()
@@ -121,12 +129,12 @@ func (m *Multiplexer) Close() {
 	m.sessions = nil
 }
 
-// DefaultSmuxConfig returns tuned smux v2 configuration for low latency and BBR.
+// DefaultSmuxConfig returns tuned smux v2 configuration for low latency, Irancell mobile stability, and BBR.
 func DefaultSmuxConfig() *smux.Config {
 	cfg := smux.DefaultConfig()
 	cfg.Version = 2
-	cfg.KeepAliveInterval = 15 * time.Second
-	cfg.KeepAliveTimeout = 45 * time.Second
+	cfg.KeepAliveInterval = 10 * time.Second
+	cfg.KeepAliveTimeout = 30 * time.Second
 	cfg.MaxFrameSize = 32768
 	cfg.MaxReceiveBuffer = 4194304 // 4MB buffer for high-bandwidth links
 	cfg.MaxStreamBuffer = 1048576  // 1MB per stream

@@ -336,14 +336,7 @@ fun ExpressConnectDashboard(
                         val proto = when {
                             selectedProfile == null -> "v2ray"
                             selectedProfile.configType == com.v2ray.ang.enums.EConfigType.SATURN -> {
-                                val carrier = if (selectedProfile.saturnSettings?.isDirectSaturn() == true) {
-                                    selectedProfile.network?.ifBlank { null } ?: "direct"
-                                } else {
-                                    selectedProfile.saturnSettings?.normalizedCarrier()
-                                        ?: selectedProfile.network?.ifBlank { null }
-                                        ?: "h2"
-                                }
-                                "${selectedProfile.configType.name} / $carrier"
+                                "${selectedProfile.configType.name} / direct"
                             }
                             selectedProfile.configType == com.v2ray.ang.enums.EConfigType.AETHER -> {
                                 val carrier = selectedProfile.aetherSettings?.carrier?.ifBlank { null } ?: "h2"

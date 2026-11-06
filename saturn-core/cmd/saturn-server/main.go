@@ -147,15 +147,21 @@ func handleClientConnection(conn net.Conn, cfg *handshake.ServerHandshakeConfig)
 		return
 	}
 
-	// Handshake verified: establish Saturn framing & multiplexer
-	cipherInstance, err := crypto.NewCipher(cfg.Cipher, result.AEADKey)
+	// Handshake verified: establish Saturn stealth framing & multiplexer
+	serverSendCipher, err := crypto.NewCipher(cfg.Cipher, result.ServerKey)
+	if err != nil {
+		log.Printf("Cipher error: %v", err)
+		_ = authedConn.Close()
+		return
+	}
+	serverRecvCipher, err := crypto.NewCipher(cfg.Cipher, result.ClientKey)
 	if err != nil {
 		log.Printf("Cipher error: %v", err)
 		_ = authedConn.Close()
 		return
 	}
 
-	framedConn := mux.NewFramedConn(authedConn, cipherInstance, result.BaseIV)
+	framedConn := mux.NewDirectionalFramedConn(authedConn, serverSendCipher, serverRecvCipher, result.ServerIV, result.ClientIV)
 	smuxSess, err := smux.Server(framedConn, mux.DefaultSmuxConfig())
 	if err != nil {
 		log.Printf("smux server error: %v", err)

@@ -172,7 +172,7 @@ func ClientHandshake(tcpConn net.Conn, cfg *ClientHandshakeConfig) (*HandshakeRe
 		return nil, nil, errors.New("invalid server stealth response")
 	}
 
-	// 9. Derive AEAD keys for framing session
+	// 9. Derive AEAD keys and directional base IVs for framing session
 	aeadKey, err := crypto.DeriveKey(sharedSecret, salt, crypto.InfoKeyAEAD, 32)
 	if err != nil {
 		return nil, nil, err
@@ -181,11 +181,31 @@ func ClientHandshake(tcpConn net.Conn, cfg *ClientHandshakeConfig) (*HandshakeRe
 	if err != nil {
 		return nil, nil, err
 	}
+	clientKey, err := crypto.DeriveKey(sharedSecret, salt, crypto.InfoClientKey, 32)
+	if err != nil {
+		return nil, nil, err
+	}
+	clientIV, err := crypto.DeriveKey(sharedSecret, salt, crypto.InfoClientIV, crypto.NonceSize)
+	if err != nil {
+		return nil, nil, err
+	}
+	serverKey, err := crypto.DeriveKey(sharedSecret, salt, crypto.InfoServerKey, 32)
+	if err != nil {
+		return nil, nil, err
+	}
+	serverIV, err := crypto.DeriveKey(sharedSecret, salt, crypto.InfoServerIV, crypto.NonceSize)
+	if err != nil {
+		return nil, nil, err
+	}
 
 	return &HandshakeResult{
 		SharedSecret: sharedSecret,
 		AEADKey:      aeadKey,
 		BaseIV:       baseIV,
+		ClientKey:    clientKey,
+		ClientIV:     clientIV,
+		ServerKey:    serverKey,
+		ServerIV:     serverIV,
 		ClientRandom: clientRandom[:],
 	}, tcpConn, nil
 }

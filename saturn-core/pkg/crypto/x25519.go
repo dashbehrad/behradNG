@@ -19,9 +19,13 @@ const (
 	KeySize      = 32
 	ShortIDSize  = 8
 	TokenSalt    = "saturn-auth-salt-v1"
-	InfoKeyAuth  = "saturn-auth-token-v1"
-	InfoKeyAEAD  = "saturn-aead-key-v1"
-	InfoKeyIV    = "saturn-aead-iv-v1"
+	InfoKeyAuth   = "saturn-auth-token-v1"
+	InfoKeyAEAD   = "saturn-aead-key-v1"
+	InfoKeyIV     = "saturn-aead-iv-v1"
+	InfoClientKey = "saturn-client-key-v1"
+	InfoClientIV  = "saturn-client-iv-v1"
+	InfoServerKey = "saturn-server-key-v1"
+	InfoServerIV  = "saturn-server-iv-v1"
 )
 
 // Keypair contains X25519 private and public keys.

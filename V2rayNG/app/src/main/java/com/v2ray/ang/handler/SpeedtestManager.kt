@@ -119,6 +119,7 @@ object SpeedtestManager {
         request: suspend (String, Boolean) -> String,
         reportFailure: (String, Exception) -> Unit): ConnectionTestResult {
         var elapsed = -1L
+        var lastError = ""
         for ((index, url) in delayUrls.distinct().withIndex()) {
             currentCoroutineContext().ensureActive()
             val started = System.nanoTime()
@@ -127,8 +128,10 @@ object SpeedtestManager {
                 elapsed = (System.nanoTime() - started) / 1_000_000
                 break
             } catch (e: IOException) {
+                lastError = e.message ?: e.javaClass.simpleName
                 reportFailure("delay-$index", e)
             } catch (e: IllegalArgumentException) {
+                lastError = e.message ?: e.javaClass.simpleName
                 reportFailure("delay-$index", e)
             }
         }
@@ -144,7 +147,7 @@ object SpeedtestManager {
             reportFailure("ip-info", e)
             null
         }
-        return ConnectionTestResult(delayMillis = elapsed, country = endpoint?.country, ipAddress = endpoint?.ipAddress)
+        return ConnectionTestResult(delayMillis = elapsed, errorMessage = lastError, country = endpoint?.country, ipAddress = endpoint?.ipAddress)
     }
 
     private suspend fun fetchSaturnUrl(client: OkHttpClient, url: String, readBody: Boolean): String =
