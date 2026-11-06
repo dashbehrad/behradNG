@@ -29,6 +29,11 @@ func TestPacketFraming(t *testing.T) {
 		t.Fatalf("WritePacket failed: %v", err)
 	}
 
+	rawBytes := buf.Bytes()
+	if len(rawBytes) < framing.TLSRecordHeaderSize || rawBytes[0] != framing.RecordTypeApplicationData || rawBytes[1] != 0x03 || rawBytes[2] != 0x03 {
+		t.Fatalf("Expected TLS 1.3 Application Data record header (0x17 0x03 0x03), got %x", rawBytes[:3])
+	}
+
 	pktType, readStreamID, readPayload, err := pm.ReadPacket(&buf)
 	if err != nil {
 		t.Fatalf("ReadPacket failed: %v", err)

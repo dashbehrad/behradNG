@@ -283,7 +283,7 @@ jobs:
           Fast & Secure V2Ray / Xray client for Android with native **Saturn Direct VPN Protocol** and ExpressVPN-inspired interface.
 
           ### ✨ Key Features
-          - 🪐 **Saturn Direct VPN Protocol**: High-speed, DPI-resistant direct protocol featuring Zero-RTT stealth handshake in TLS 1.3 ClientHello, active probing spliced fallback (to `dl.google.com:443`), First-N-Packets dynamic padding (0-512 bytes), native smux v2 multiplexing, and hardware-accelerated ChaCha20-Poly1305 / AES-128-GCM binary framing.
+          - 🪐 **Saturn Direct VPN Protocol**: High-speed, DPI-resistant direct protocol featuring Zero-RTT stealth handshake in TLS 1.3 ClientHello (100% Google Chrome JA3/JA4 fingerprint compliant without custom extensions), standard TLS 1.3 Application Data record wrapping (0x17 0x03 0x03), bounded anti-replay cache, active probing spliced fallback (to `dl.google.com:443`), First-N-Packets dynamic padding (0-512 bytes), native smux v2 multiplexing, and hardware-accelerated ChaCha20-Poly1305 / AES-128-GCM binary framing.
           - 🚀 **One-Click SSH Server Provisioner**: Automated remote VPS server deployment for fresh Ubuntu/Debian over SSH directly from within the app.
           - 🎨 **ExpressVPN-Style Design**: Giant power button with glowing connected pulse aura, dynamic status banners, and location selector card.
           - ⚙️ **Multi-Protocol Support**: Saturn Direct, VLESS, VMess, Shadowsocks, Trojan, WireGuard, Hysteria2, SOCKS5, HTTP.

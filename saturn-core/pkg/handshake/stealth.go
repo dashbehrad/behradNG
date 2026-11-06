@@ -13,16 +13,68 @@ import (
 	"math"
 	"net"
 	"strings"
+	"sync"
 	"time"
 
 	"saturn-core/pkg/crypto"
 )
 
 const (
-	SaturnExtensionID = 0x5a70 // 'Zp' / Saturn Auth Extension ID
-	HandshakeTimeout  = 10 * time.Second
-	MaxClockSkewSec   = 180    // Maximum clock skew tolerance: 3 minutes
+	HandshakeTimeout = 10 * time.Second
+	MaxClockSkewSec  = 60 // Bounded ±60s anti-replay timestamp window
 )
+
+// ReplayCache provides a thread-safe, memory-bounded TTL cache to prevent replay attacks.
+type ReplayCache struct {
+	mu      sync.Mutex
+	entries map[[32]byte]int64
+}
+
+func NewReplayCache() *ReplayCache {
+	rc := &ReplayCache{
+		entries: make(map[[32]byte]int64),
+	}
+	go func() {
+		ticker := time.NewTicker(30 * time.Second)
+		for range ticker.C {
+			rc.cleanup()
+		}
+	}()
+	return rc
+}
+
+func (rc *ReplayCache) CheckAndAdd(token []byte, ttlSeconds int64) bool {
+	if len(token) != 32 {
+		return false
+	}
+	var k [32]byte
+	copy(k[:], token)
+
+	rc.mu.Lock()
+	defer rc.mu.Unlock()
+
+	now := time.Now().Unix()
+	if exp, exists := rc.entries[k]; exists && exp > now {
+		return false // Replay detected!
+	}
+
+	rc.entries[k] = now + ttlSeconds
+	return true
+}
+
+func (rc *ReplayCache) cleanup() {
+	rc.mu.Lock()
+	defer rc.mu.Unlock()
+
+	now := time.Now().Unix()
+	for k, exp := range rc.entries {
+		if exp <= now {
+			delete(rc.entries, k)
+		}
+	}
+}
+
+var globalReplayCache = NewReplayCache()
 
 // ServerHandshakeConfig holds server credentials for stealth validation.
 type ServerHandshakeConfig struct {
@@ -128,11 +180,19 @@ func verifyClientHello(data []byte, cfg *ServerHandshakeConfig) (*HandshakeResul
 		return nil, errors.New("truncated SessionID")
 	}
 	sessionID := data[44 : 44+sessionIDLen]
+	if len(sessionID) != 32 {
+		return nil, errors.New("invalid session ID length for auth token")
+	}
 
-	// Locate client ephemeral public key and token
+	// Locate client ephemeral public key and token from standard KeyShare (0x0033) and SessionID
 	clientPubKey, token := extractSaturnCredentials(data, sessionID)
 	if len(clientPubKey) != crypto.KeySize {
-		return nil, errors.New("client ephemeral public key not found")
+		return nil, errors.New("client ephemeral public key not found in KeyShare")
+	}
+
+	// Anti-Replay: Check token against bounded memory cache
+	if !globalReplayCache.CheckAndAdd(token, 120) {
+		return nil, errors.New("replay attack detected: token already seen")
 	}
 
 	// Compute shared secret via X25519
@@ -184,9 +244,8 @@ func verifyClientHello(data []byte, cfg *ServerHandshakeConfig) (*HandshakeResul
 	}, nil
 }
 
-// extractSaturnCredentials extracts client X25519 public key and auth token from ClientHello.
+// extractSaturnCredentials extracts client X25519 public key from KeyShare (0x0033) and auth token from SessionID.
 func extractSaturnCredentials(data, sessionID []byte) ([]byte, []byte) {
-	// First search for custom Saturn Extension (0x5a70)
 	extOffset := findExtensionsOffset(data)
 	if extOffset > 0 && extOffset+2 <= len(data) {
 		extLen := int(binary.BigEndian.Uint16(data[extOffset : extOffset+2]))
@@ -202,15 +261,8 @@ func extractSaturnCredentials(data, sessionID []byte) ([]byte, []byte) {
 			if curr+extDataLen > extEnd {
 				break
 			}
-			if extType == SaturnExtensionID && extDataLen >= 64 {
-				// Contains ClientPubKey (32 bytes) + Token (32 bytes)
-				pub := data[curr : curr+32]
-				tok := data[curr+32 : curr+64]
-				return pub, tok
-			}
 			// Extension 0x0033: TLS 1.3 KeyShare
 			if extType == 0x0033 && extDataLen >= 36 {
-				// Search for X25519 group (0x001d)
 				ksData := data[curr : curr+extDataLen]
 				if len(ksData) >= 4 {
 					ksListLen := int(binary.BigEndian.Uint16(ksData[:2]))
@@ -221,10 +273,7 @@ func extractSaturnCredentials(data, sessionID []byte) ([]byte, []byte) {
 						idx += 4
 						if group == 0x001d && kLen == 32 && idx+32 <= len(ksData) {
 							pubKey := ksData[idx : idx+32]
-							// Token is in SessionID
-							if len(sessionID) == 32 {
-								return pubKey, sessionID
-							}
+							return pubKey, sessionID
 						}
 						idx += kLen
 					}
@@ -234,10 +283,6 @@ func extractSaturnCredentials(data, sessionID []byte) ([]byte, []byte) {
 		}
 	}
 
-	// Fallback: If SessionID carries the token, and key share was found
-	if len(sessionID) == 32 {
-		return nil, sessionID
-	}
 	return nil, nil
 }
 
@@ -283,14 +328,14 @@ func buildStealthServerHello(sharedSecret, clientRandom []byte) ([]byte, error) 
 	// Handshake: 0x02, Length (3B), Version: 0x0303, Random (32B), SessionID (0B), CipherSuite (2B: 0x1301 TLS_AES_128_GCM_SHA256), Compression (1B: 0x00)
 	// Extensions: Supported Versions (0x002b -> 0x0304 TLS 1.3)
 	shPayload := []byte{
-		0x02, // ServerHello
+		0x02,             // ServerHello
 		0x00, 0x00, 0x46, // length 70
 		0x03, 0x03, // Version TLS 1.2 legacy
 	}
 	shPayload = append(shPayload, serverRandom[:]...)
-	shPayload = append(shPayload, 0x00) // SessionID length 0
+	shPayload = append(shPayload, 0x00)       // SessionID length 0
 	shPayload = append(shPayload, 0x13, 0x01) // TLS_AES_128_GCM_SHA256
-	shPayload = append(shPayload, 0x00) // Compression None
+	shPayload = append(shPayload, 0x00)       // Compression None
 
 	// Extensions (SupportedVersions TLS 1.3)
 	extensions := []byte{
@@ -324,24 +369,43 @@ func spliceToFallback(clientConn net.Conn, fallbackDest string, initialBytes []b
 	}
 	defer destConn.Close()
 
-	// Write initial client bytes to target destination
+	// Forward initial client ClientHello bytes to target destination
 	if len(initialBytes) > 0 {
+		_ = destConn.SetWriteDeadline(time.Now().Add(5 * time.Second))
 		if _, err := destConn.Write(initialBytes); err != nil {
 			return
 		}
+		_ = destConn.SetWriteDeadline(time.Time{})
 	}
 
-	// Bidirectional zero-copy proxy
-	errc := make(chan error, 2)
-	go func() {
-		_, err := io.Copy(destConn, clientConn)
-		errc <- err
-	}()
-	go func() {
-		_, err := io.Copy(clientConn, destConn)
-		errc <- err
-	}()
-	<-errc
+	// Bidirectional proxy with rolling 30s idle timeout and TCP half-close
+	pipe := func(dst, src net.Conn, done chan<- struct{}) {
+		defer func() {
+			if tc, ok := dst.(*net.TCPConn); ok {
+				_ = tc.CloseWrite()
+			}
+			done <- struct{}{}
+		}()
+		buf := make([]byte, 32*1024)
+		for {
+			_ = src.SetReadDeadline(time.Now().Add(30 * time.Second))
+			n, rerr := src.Read(buf)
+			if n > 0 {
+				_ = dst.SetWriteDeadline(time.Now().Add(30 * time.Second))
+				if _, werr := dst.Write(buf[:n]); werr != nil {
+					break
+				}
+			}
+			if rerr != nil {
+				break
+			}
+		}
+	}
+
+	done := make(chan struct{}, 2)
+	go pipe(destConn, clientConn, done)
+	go pipe(clientConn, destConn, done)
+	<-done
 }
 
 // ParseShortID parses hex or ascii ShortID into byte slice.

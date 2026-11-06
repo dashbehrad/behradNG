@@ -11,7 +11,9 @@ import (
 )
 
 const (
-	HeaderSize = 24 // 6 32-bit words (Word 1: Type+StreamID, Word 2: Len+Pad, Word 3: Seq, Word 4-6: IV)
+	RecordTypeApplicationData byte = 0x17
+	TLSRecordHeaderSize            = 5
+	HeaderSize                     = 24 // 6 32-bit words (Word 1: Type+StreamID, Word 2: Len+Pad, Word 3: Seq, Word 4-6: IV)
 
 	PacketTypeData  byte = 0x01
 	PacketTypePing  byte = 0x02
@@ -19,8 +21,8 @@ const (
 	PacketTypeClose byte = 0x04
 	PacketTypeUDP   byte = 0x05
 
-	MaxPayloadSize = 65535 - crypto.TagSize
-	MaxPaddingSize = 512
+	MaxPayloadSize           = 65535 - HeaderSize - TLSRecordHeaderSize - crypto.TagSize - MaxPaddingSize
+	MaxPaddingSize           = 512
 	MorphingPacketsThreshold = 12
 )
 
@@ -86,7 +88,7 @@ func NewPacketManager(cipher *crypto.Cipher, baseIV []byte) *PacketManager {
 	return pm
 }
 
-// WritePacket encodes, encrypts, pads, and writes a packet to the underlying writer.
+// WritePacket encodes, encrypts, pads, and wraps a packet into a standard TLS 1.3 Application Data record.
 func (pm *PacketManager) WritePacket(w io.Writer, packetType byte, streamID uint32, plaintext []byte) error {
 	if len(plaintext) > MaxPayloadSize {
 		return ErrPayloadTooLarge
@@ -123,27 +125,49 @@ func (pm *PacketManager) WritePacket(w io.Writer, packetType byte, streamID uint
 	aad := hdrBuf[:12]
 	ciphertext := pm.cipher.Encrypt(nonce[:], plaintext, aad)
 
-	// Write header + ciphertext
-	if _, err := w.Write(hdrBuf); err != nil {
-		return err
-	}
-	if _, err := w.Write(ciphertext); err != nil {
-		return err
+	// Calculate total TLS record length = HeaderSize + len(ciphertext) + padLen
+	recLen := HeaderSize + len(ciphertext) + int(padLen)
+
+	packetBuf := make([]byte, TLSRecordHeaderSize+recLen)
+	// TLS 1.3 Application Data Record header: 0x17 0x03 0x03 [len_hi] [len_lo]
+	packetBuf[0] = RecordTypeApplicationData
+	packetBuf[1] = 0x03
+	packetBuf[2] = 0x03
+	binary.BigEndian.PutUint16(packetBuf[3:5], uint16(recLen))
+
+	// Copy Saturn header
+	copy(packetBuf[TLSRecordHeaderSize:], hdrBuf)
+	// Copy ciphertext
+	copy(packetBuf[TLSRecordHeaderSize+HeaderSize:], ciphertext)
+
+	// Dynamic obfuscation padding
+	if padLen > 0 {
+		pad := packetBuf[TLSRecordHeaderSize+HeaderSize+len(ciphertext):]
+		_, _ = rand.Read(pad)
 	}
 
-	// Write dynamic obfuscation padding if needed
-	if padLen > 0 {
-		pad := make([]byte, padLen)
-		_, _ = rand.Read(pad)
-		if _, err := w.Write(pad); err != nil {
-			return err
-		}
-	}
-	return nil
+	_, err := w.Write(packetBuf)
+	return err
 }
 
-// ReadPacket reads a complete packet, verifies auth tag, strips padding, and returns plaintext.
+// ReadPacket reads a complete TLS Application Data record, un-pads, decrypts, and returns plaintext.
 func (pm *PacketManager) ReadPacket(r io.Reader) (byte, uint32, []byte, error) {
+	// 1. Read 5-byte TLS record header
+	tlsHeader := make([]byte, TLSRecordHeaderSize)
+	if _, err := io.ReadFull(r, tlsHeader); err != nil {
+		return 0, 0, nil, err
+	}
+
+	// Verify TLS Application Data header: 0x17 0x03 0x03
+	if tlsHeader[0] != RecordTypeApplicationData || tlsHeader[1] != 0x03 || tlsHeader[2] != 0x03 {
+		return 0, 0, nil, ErrInvalidPacket
+	}
+	recordLen := int(binary.BigEndian.Uint16(tlsHeader[3:5]))
+	if recordLen < HeaderSize+pm.cipher.Overhead() {
+		return 0, 0, nil, ErrInvalidPacket
+	}
+
+	// 2. Read Saturn 24-byte header
 	hdrBuf := make([]byte, HeaderSize)
 	if _, err := io.ReadFull(r, hdrBuf); err != nil {
 		return 0, 0, nil, err
@@ -151,12 +175,17 @@ func (pm *PacketManager) ReadPacket(r io.Reader) (byte, uint32, []byte, error) {
 	h := DecodeHeader(hdrBuf)
 
 	cipherLen := int(h.PayloadLen) + pm.cipher.Overhead()
+	if HeaderSize+cipherLen+int(h.PaddingLen) != recordLen {
+		return 0, 0, nil, ErrInvalidPacket
+	}
+
+	// 3. Read ciphertext
 	cipherBuf := make([]byte, cipherLen)
 	if _, err := io.ReadFull(r, cipherBuf); err != nil {
 		return 0, 0, nil, err
 	}
 
-	// Read & discard padding
+	// 4. Read dynamic padding
 	if h.PaddingLen > 0 {
 		padBuf := make([]byte, h.PaddingLen)
 		if _, err := io.ReadFull(r, padBuf); err != nil {
@@ -164,6 +193,7 @@ func (pm *PacketManager) ReadPacket(r io.Reader) (byte, uint32, []byte, error) {
 		}
 	}
 
+	// 5. Decrypt and verify AAD
 	aad := hdrBuf[:12]
 	plaintext, err := pm.cipher.Decrypt(h.Nonce[:], cipherBuf, aad)
 	if err != nil {

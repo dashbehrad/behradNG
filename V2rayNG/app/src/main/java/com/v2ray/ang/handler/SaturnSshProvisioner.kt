@@ -45,7 +45,7 @@ object SaturnSshProvisioner {
         return if (isRoot) {
             runner
         } else {
-            "sudo -i $runner"
+            "sudo -E env DEBIAN_FRONTEND=noninteractive $runner"
         }
     }
 
@@ -113,12 +113,15 @@ object SaturnSshProvisioner {
             var capturedUri: String? = null
 
             reader.forEachLine { rawLine ->
-                val cleanLine = rawLine.replace(Regex("\u001B\\[[0-9;?]*[a-zA-Z]"), "").trim()
-                if (cleanLine.isNotEmpty() && !cleanLine.startsWith("[?2004")) {
-                    onEvent(DeployEvent.Log(cleanLine))
+                val cleanLine = rawLine.replace(Regex("\u001B\\[[0-9;?]*[a-zA-Z]"), "")
+                    .replace(Regex("^\\[\\?[0-9]+[a-zA-Z]>?\\s*"), "")
+                    .trim()
+                val displayLine = cleanLine.replace(Regex("^([a-zA-Z0-9._-]+@[a-zA-Z0-9._-]+:[^#$]*[#$]\\s*)"), "").trim()
+                if (displayLine.isNotEmpty() && !displayLine.startsWith("[?2004")) {
+                    onEvent(DeployEvent.Log(displayLine))
                 }
 
-                val line = cleanLine
+                val line = if (displayLine.isNotEmpty()) displayLine else cleanLine
 
                 // Detect stages for user progress
                 when {

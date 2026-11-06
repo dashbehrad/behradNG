@@ -84,25 +84,46 @@ func ClientHandshake(tcpConn net.Conn, cfg *ClientHandshakeConfig) (*HandshakeRe
 		sni = "dl.google.com"
 	}
 
-	// 6. Build ClientHello using uTLS
+	// 6. Build ClientHello using uTLS (100% compliant with Chrome JA3/JA4 fingerprint)
 	uConn := utls.UClient(tcpConn, &utls.Config{
 		ServerName:         sni,
 		InsecureSkipVerify: true,
 	}, helloID)
 
-	// Inject ClientRandom and SessionID
+	// Inject ClientRandom and SessionID (legacy_session_id RFC 8446 Appendix D.4 compatibility)
 	uConn.HandshakeState.Hello.Random = clientRandom[:]
 	uConn.HandshakeState.Hello.SessionId = token[:]
 
-	// Add custom Saturn extension (0x5a70) holding ClientPubKey + Token for guaranteed delivery
-	extPayload := make([]byte, 64)
-	copy(extPayload[0:32], ephemKP.PublicKey[:])
-	copy(extPayload[32:64], token[:])
-	saturnExt := &utls.GenericExtension{
-		Id:   SaturnExtensionID,
-		Data: extPayload,
+	// Embed client ephemeral public key strictly inside standard KeyShareExtension (0x0033) for group X25519 (0x001d).
+	// No custom TLS extension is used, preserving identical JA3/JA4 TLS handshake fingerprint.
+	foundKeyShare := false
+	for _, ext := range uConn.Extensions {
+		if ks, ok := ext.(*utls.KeyShareExtension); ok {
+			for i := range ks.KeyShares {
+				if ks.KeyShares[i].Group == utls.X25519 {
+					ks.KeyShares[i].Data = ephemKP.PublicKey[:]
+					foundKeyShare = true
+				}
+			}
+			if !foundKeyShare {
+				ks.KeyShares = append(ks.KeyShares, utls.KeyShare{
+					Group: utls.X25519,
+					Data:  ephemKP.PublicKey[:],
+				})
+				foundKeyShare = true
+			}
+		}
 	}
-	uConn.Extensions = append(uConn.Extensions, saturnExt)
+	if !foundKeyShare {
+		uConn.Extensions = append(uConn.Extensions, &utls.KeyShareExtension{
+			KeyShares: []utls.KeyShare{
+				{
+					Group: utls.X25519,
+					Data:  ephemKP.PublicKey[:],
+				},
+			},
+		})
+	}
 
 	// Build raw ClientHello bytes
 	if err := uConn.BuildHandshakeState(); err != nil {

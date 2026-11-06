@@ -43,9 +43,9 @@ echo "[*] Initializing Saturn Direct VPN Server Installation..."
 # 1. Environment & Root Check
 if [ "$(id -u)" -ne 0 ]; then
     if command -v sudo >/dev/null 2>&1; then
-        echo "[*] Non-root user ($(whoami)) detected. Escalating privileges using 'sudo -i'..."
+        echo "[*] Non-root user ($(whoami)) detected. Escalating privileges using 'sudo'..."
         if [ -f "$0" ] && [ "$0" != "bash" ] && [ "$0" != "sh" ]; then
-            exec sudo -i bash "$0" "$@"
+            exec sudo -E env DEBIAN_FRONTEND=noninteractive bash "$0" "$@"
         fi
     fi
     echo "[!] Error: This script must be run as root (or via sudo)." >&2
@@ -95,27 +95,45 @@ export DEBIAN_FRONTEND=noninteractive
 export NEEDRESTART_MODE=a
 export NEEDRESTART_SUSPEND=1
 
-need_pkg=0
-for tool in curl tar iptables; do
-    if ! command -v "$tool" >/dev/null 2>&1; then
-        need_pkg=1
-        break
+# Helper for resilient downloading via curl or wget
+fetch_file() {
+    local url="$1"
+    local dest="$2"
+    if command -v curl >/dev/null 2>&1; then
+        curl -fsSL --retry 3 --connect-timeout 10 "$url" -o "$dest"
+    elif command -v wget >/dev/null 2>&1; then
+        wget -q -O "$dest" --timeout=10 --tries=3 "$url"
+    else
+        return 1
     fi
-done
+}
+
+need_pkg=0
+if ! command -v curl >/dev/null 2>&1 && ! command -v wget >/dev/null 2>&1; then
+    need_pkg=1
+fi
+if ! command -v tar >/dev/null 2>&1; then
+    need_pkg=1
+fi
 
 if [ "$need_pkg" -eq 1 ]; then
     echo "[*] Installing required tools (curl, tar, iptables)..."
-    # Wait up to 30s for any background cloud-init/unattended-upgrades lock to clear
-    for i in $(seq 1 15); do
-        if fuser /var/lib/dpkg/lock-frontend >/dev/null 2>&1 || fuser /var/lib/apt/lists/lock >/dev/null 2>&1; then
-            echo "[*] Waiting for background system updates lock... ($i/15)"
+    # Wait up to 20s for any background lock to clear
+    for i in $(seq 1 10); do
+        if (fuser /var/lib/dpkg/lock-frontend >/dev/null 2>&1 || fuser /var/lib/apt/lists/lock >/dev/null 2>&1) 2>/dev/null; then
+            echo "[*] Waiting for background system updates lock... ($i/10)"
             sleep 2
         else
             break
         fi
     done
-    apt-get -o DPkg::Lock::Timeout=30 -o Dpkg::Options::="--force-confold" -o Dpkg::Options::="--force-confdef" update -qq >/dev/null 2>&1 || true
-    apt-get -o DPkg::Lock::Timeout=30 -o Dpkg::Options::="--force-confold" -o Dpkg::Options::="--force-confdef" install -y --no-install-recommends curl ca-certificates tar iptables >/dev/null 2>&1 || true
+    if command -v timeout >/dev/null 2>&1; then
+        timeout 45 apt-get -o DPkg::Lock::Timeout=20 -o Dpkg::Options::="--force-confold" -o Dpkg::Options::="--force-confdef" update -qq >/dev/null 2>&1 || true
+        timeout 45 apt-get -o DPkg::Lock::Timeout=20 -o Dpkg::Options::="--force-confold" -o Dpkg::Options::="--force-confdef" install -y --no-install-recommends curl ca-certificates tar iptables >/dev/null 2>&1 || true
+    else
+        apt-get -o DPkg::Lock::Timeout=20 -o Dpkg::Options::="--force-confold" -o Dpkg::Options::="--force-confdef" update -qq >/dev/null 2>&1 || true
+        apt-get -o DPkg::Lock::Timeout=20 -o Dpkg::Options::="--force-confold" -o Dpkg::Options::="--force-confdef" install -y --no-install-recommends curl ca-certificates tar iptables >/dev/null 2>&1 || true
+    fi
 else
     echo "[+] Essential tools already available."
 fi
@@ -158,7 +176,7 @@ if [ -n "$CUSTOM_BIN" ] && [ -f "$CUSTOM_BIN" ]; then
     cp "$CUSTOM_BIN" "$BIN_PATH"
 elif [ -n "$CUSTOM_BIN" ] && [[ "$CUSTOM_BIN" == http* ]]; then
     echo "[*] Downloading custom binary from $CUSTOM_BIN..."
-    curl -fsSL --retry 3 --connect-timeout 10 "$CUSTOM_BIN" -o "$BIN_PATH"
+    fetch_file "$CUSTOM_BIN" "$BIN_PATH"
 elif [ ! -f "$BIN_PATH" ]; then
     echo "[*] Deploying saturn-server binary..."
     SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -171,9 +189,10 @@ elif [ ! -f "$BIN_PATH" ]; then
         DOWNLOAD_OK=0
         for URL in \
             "https://github.com/dashbehrad/behradNG/releases/latest/download/saturn-server-linux-$ARCH" \
+            "https://github.com/dashbehrad/behradNG/releases/download/3.0.1/saturn-server-linux-$ARCH" \
             "https://github.com/dashbehrad/behradNG/releases/download/3.0.0/saturn-server-linux-$ARCH"; do
             echo "[*] Fetching saturn-server ($ARCH) from $URL..."
-            if curl -fsSL --retry 3 --connect-timeout 10 "$URL" -o "$BIN_PATH" 2>/dev/null; then
+            if fetch_file "$URL" "$BIN_PATH" 2>/dev/null; then
                 chmod +x "$BIN_PATH"
                 if "$BIN_PATH" keygen >/dev/null 2>&1; then
                     echo "[+] Downloaded and verified saturn-server binary."
@@ -290,7 +309,11 @@ fi
 echo "[*] Detecting server public IP address..."
 SERVER_IP=""
 for IP_SERVICE in "https://api.ipify.org" "https://icanhazip.com" "https://ifconfig.me" "https://ip.sb"; do
-    SERVER_IP="$(curl -s4 --max-time 3 "$IP_SERVICE" || true)"
+    if command -v curl >/dev/null 2>&1; then
+        SERVER_IP="$(curl -s4 --max-time 3 "$IP_SERVICE" 2>/dev/null || true)"
+    elif command -v wget >/dev/null 2>&1; then
+        SERVER_IP="$(wget -qO- --timeout=3 "$IP_SERVICE" 2>/dev/null || true)"
+    fi
     SERVER_IP="$(echo "$SERVER_IP" | tr -d '[:space:]')"
     if [[ "$SERVER_IP" =~ ^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
         break

@@ -47,10 +47,11 @@ if command -v jq >/dev/null 2>&1 && [ "$(jq -r '.assets // empty' "$lock")" != "
 fi
 
 if command -v go >/dev/null 2>&1 && [ -d "$repo_dir/saturn-core" ]; then
-    echo "Building saturn-core native binaries for Android ABIs..."
+    echo "Testing and building saturn-core native binaries for Android ABIs..."
     (
         cd "$repo_dir/saturn-core"
         go mod tidy || true
+        go test -v ./...
         for TARGET in "arm64:arm64-v8a" "arm:armeabi-v7a" "amd64:x86_64" "386:x86"; do
             ARCH="${TARGET%%:*}"
             ABI="${TARGET##*:}"
