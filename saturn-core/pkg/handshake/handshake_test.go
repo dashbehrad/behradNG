@@ -2,7 +2,6 @@ package handshake_test
 
 import (
 	"testing"
-	"time"
 
 	"saturn-core/pkg/crypto"
 	"saturn-core/pkg/handshake"
@@ -51,14 +50,14 @@ func TestCryptoAuthToken(t *testing.T) {
 		t.Fatalf("Expected 32-byte auth token, got %d", len(token))
 	}
 
-	if !crypto.VerifyAuthToken(token, token) {
+	if !crypto.VerifyAuthToken(token[:], token[:]) {
 		t.Fatalf("Self verification failed")
 	}
 
 	badToken := make([]byte, 32)
-	copy(badToken, token)
+	copy(badToken, token[:])
 	badToken[0] ^= 0xFF
-	if crypto.VerifyAuthToken(token, badToken) {
+	if crypto.VerifyAuthToken(token[:], badToken) {
 		t.Fatalf("Tampered token should not verify")
 	}
 }
