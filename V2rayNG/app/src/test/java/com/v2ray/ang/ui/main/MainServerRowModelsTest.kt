@@ -22,13 +22,20 @@ class MainServerRowModelsTest {
         val defaultSaturn = ProfileItem.create(EConfigType.SATURN).copy(
             remarks = "Saturn Default",
         )
+        val directSaturn = ProfileItem.create(EConfigType.SATURN).copy(
+            remarks = "Saturn Direct",
+            network = "direct",
+            saturnSettings = SaturnSettings(server = "1.2.3.4", publicKey = "abcdef1234567890"),
+        )
         val h2Model = buildServerRowUiModel(ServersCache("guid-1", h2Saturn), "")
         val h3Model = buildServerRowUiModel(ServersCache("guid-2", h3Saturn), "")
         val defaultModel = buildServerRowUiModel(ServersCache("guid-3", defaultSaturn), "")
+        val directModel = buildServerRowUiModel(ServersCache("guid-4", directSaturn), "")
 
         assertEquals("SATURN / h2", h2Model.typeDescription)
         assertEquals("SATURN / h3", h3Model.typeDescription)
         assertEquals("SATURN / h2", defaultModel.typeDescription)
+        assertEquals("SATURN / direct", directModel.typeDescription)
     }
 
     @Test
