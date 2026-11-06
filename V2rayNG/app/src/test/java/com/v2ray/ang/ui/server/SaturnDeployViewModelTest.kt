@@ -1,5 +1,6 @@
 package com.v2ray.ang.ui.server
 
+import com.v2ray.ang.handler.SaturnSshProvisioner
 import org.junit.jupiter.api.Assertions.*
 import org.junit.jupiter.api.Test
 
@@ -89,5 +90,26 @@ class SaturnDeployViewModelTest {
         val vm = SaturnDeployViewModel()
         vm.cancelDeploy()
         assertFalse(vm.uiState.value.isDeploying)
+    }
+
+    @Test
+    fun sshExecutionCommandPrependsSudoForNonRootUsers() {
+        val rootCreds = SaturnSshProvisioner.SshCredentials(host = "1.2.3.4", username = "root", saturnPort = 443, camouflageSni = "dl.google.com")
+        val rootCmd = SaturnSshProvisioner.buildExecutionCommand(rootCreds)
+        assertEquals("bash -s -- --auto --port 443 --sni dl.google.com", rootCmd)
+        assertFalse(rootCmd.startsWith("sudo -i"))
+
+        val ubuntuCreds = rootCreds.copy(username = "ubuntu")
+        val ubuntuCmd = SaturnSshProvisioner.buildExecutionCommand(ubuntuCreds)
+        assertEquals("sudo -i bash -s -- --auto --port 443 --sni dl.google.com", ubuntuCmd)
+        assertTrue(ubuntuCmd.startsWith("sudo -i"))
+
+        val debianCreds = rootCreds.copy(username = "debian")
+        val debianCmd = SaturnSshProvisioner.buildExecutionCommand(debianCreds)
+        assertTrue(debianCmd.startsWith("sudo -i"))
+
+        val customCreds = rootCreds.copy(username = "myuser")
+        val customCmd = SaturnSshProvisioner.buildExecutionCommand(customCreds)
+        assertTrue(customCmd.startsWith("sudo -i"))
     }
 }

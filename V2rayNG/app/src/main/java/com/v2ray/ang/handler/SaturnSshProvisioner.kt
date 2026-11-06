@@ -39,6 +39,16 @@ object SaturnSshProvisioner {
         data class Error(val message: String, val cause: Throwable? = null) : DeployEvent
     }
 
+    fun buildExecutionCommand(creds: SshCredentials): String {
+        val isRoot = creds.username.trim().equals("root", ignoreCase = true)
+        val runner = "bash -s -- --auto --port ${creds.saturnPort} --sni ${creds.camouflageSni}"
+        return if (isRoot) {
+            runner
+        } else {
+            "sudo -i $runner"
+        }
+    }
+
     suspend fun deploy(
         creds: SshCredentials,
         scriptContent: String,
@@ -76,9 +86,14 @@ object SaturnSshProvisioner {
             onEvent(DeployEvent.Progress("Connected. Initializing Installer...", 25))
             onEvent(DeployEvent.Log("SSH session authenticated successfully."))
 
-            // Run installer with script piped to bash
+            val isRoot = creds.username.trim().equals("root", ignoreCase = true)
+            if (!isRoot) {
+                onEvent(DeployEvent.Log("Non-root user '${creds.username}' detected. Escalating privileges to root via 'sudo -i'..."))
+            }
+
+            // Run installer with script piped to bash (or escalated via sudo -i)
             channel = (session.openChannel("exec") as ChannelExec).apply {
-                val cmd = "bash -s -- --auto --port ${creds.saturnPort} --sni ${creds.camouflageSni}"
+                val cmd = buildExecutionCommand(creds)
                 setCommand(cmd)
                 setPty(true)
             }

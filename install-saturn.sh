@@ -42,6 +42,12 @@ echo "[*] Initializing Saturn Direct VPN Server Installation..."
 
 # 1. Environment & Root Check
 if [ "$(id -u)" -ne 0 ]; then
+    if command -v sudo >/dev/null 2>&1; then
+        echo "[*] Non-root user ($(whoami)) detected. Escalating privileges using 'sudo -i'..."
+        if [ -f "$0" ] && [ "$0" != "bash" ] && [ "$0" != "sh" ]; then
+            exec sudo -i bash "$0" "$@"
+        fi
+    fi
     echo "[!] Error: This script must be run as root (or via sudo)." >&2
     exit 1
 fi
