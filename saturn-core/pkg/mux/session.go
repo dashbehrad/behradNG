@@ -8,6 +8,7 @@ import (
 	"io"
 	"net"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/xtaci/smux"
@@ -76,9 +77,42 @@ func (fc *FramedConn) Write(p []byte) (int, error) {
 	return sent, nil
 }
 
-// Multiplexer manages smux v2 sessions over a pool of persistent connections.
+// UplinkRotationThreshold defines the byte volume limit before mobile flow rotation (1.5 MB).
+const UplinkRotationThreshold int64 = 1572864
+
+// TrackedSession wraps an smux session with atomic uplink byte accounting for flow rotation.
+type TrackedSession struct {
+	Session   *smux.Session
+	bytesSent atomic.Int64
+}
+
+// NewTrackedSession creates a new TrackedSession.
+func NewTrackedSession(sess *smux.Session) *TrackedSession {
+	return &TrackedSession{
+		Session: sess,
+	}
+}
+
+// RecordUplinkBytes atomically records bytes written through the session.
+func (ts *TrackedSession) RecordUplinkBytes(n int64) {
+	if n > 0 {
+		ts.bytesSent.Add(n)
+	}
+}
+
+// GetUplinkBytes returns the total uplink bytes sent through this session.
+func (ts *TrackedSession) GetUplinkBytes() int64 {
+	return ts.bytesSent.Load()
+}
+
+// ShouldRotate checks if the session uplink traffic exceeded the 1.5MB threshold.
+func (ts *TrackedSession) ShouldRotate() bool {
+	return ts.bytesSent.Load() >= UplinkRotationThreshold
+}
+
+// Multiplexer manages smux v2 sessions over a pool of persistent connections with uplink rotation.
 type Multiplexer struct {
-	sessions []*smux.Session
+	sessions []*TrackedSession
 	lock     sync.RWMutex
 	idx      int
 }
@@ -86,18 +120,36 @@ type Multiplexer struct {
 // NewMultiplexer creates a multiplexer.
 func NewMultiplexer() *Multiplexer {
 	return &Multiplexer{
-		sessions: make([]*smux.Session, 0, 4),
+		sessions: make([]*TrackedSession, 0, 4),
 	}
 }
 
 // AddSession adds an active smux session to the multiplexer pool.
-func (m *Multiplexer) AddSession(sess *smux.Session) {
+func (m *Multiplexer) AddSession(sess *smux.Session) *TrackedSession {
 	m.lock.Lock()
 	defer m.lock.Unlock()
-	m.sessions = append(m.sessions, sess)
+	ts := NewTrackedSession(sess)
+	m.sessions = append(m.sessions, ts)
+	return ts
 }
 
-// OpenStream opens a new multiplexed stream across the session pool using round-robin.
+// AddTrackedSession adds an existing TrackedSession to the multiplexer pool.
+func (m *Multiplexer) AddTrackedSession(ts *TrackedSession) {
+	m.lock.Lock()
+	defer m.lock.Unlock()
+	m.sessions = append(m.sessions, ts)
+}
+
+// GetTrackedSessions returns a copy of the tracked sessions.
+func (m *Multiplexer) GetTrackedSessions() []*TrackedSession {
+	m.lock.RLock()
+	defer m.lock.RUnlock()
+	res := make([]*TrackedSession, len(m.sessions))
+	copy(res, m.sessions)
+	return res
+}
+
+// OpenStream opens a new multiplexed stream across the session pool, prioritizing unthrottled sessions.
 func (m *Multiplexer) OpenStream() (*smux.Stream, error) {
 	m.lock.Lock()
 	defer m.lock.Unlock()
@@ -105,7 +157,7 @@ func (m *Multiplexer) OpenStream() (*smux.Stream, error) {
 	// Clean dead sessions
 	alive := m.sessions[:0]
 	for _, s := range m.sessions {
-		if !s.IsClosed() {
+		if !s.Session.IsClosed() {
 			alive = append(alive, s)
 		}
 	}
@@ -115,8 +167,18 @@ func (m *Multiplexer) OpenStream() (*smux.Stream, error) {
 		return nil, errors.New("no active sessions available in pool")
 	}
 
+	// 1. Prioritize sessions that have not exceeded the 1.5MB uplink rotation threshold
+	for i := 0; i < len(m.sessions); i++ {
+		targetIdx := (m.idx + i) % len(m.sessions)
+		if !m.sessions[targetIdx].ShouldRotate() {
+			m.idx = (targetIdx + 1) % len(m.sessions)
+			return m.sessions[targetIdx].Session.OpenStream()
+		}
+	}
+
+	// 2. All sessions exceeded threshold: fallback to round-robin
 	m.idx = (m.idx + 1) % len(m.sessions)
-	return m.sessions[m.idx].OpenStream()
+	return m.sessions[m.idx].Session.OpenStream()
 }
 
 // Close closes all sessions in the pool.
@@ -124,7 +186,7 @@ func (m *Multiplexer) Close() {
 	m.lock.Lock()
 	defer m.lock.Unlock()
 	for _, s := range m.sessions {
-		_ = s.Close()
+		_ = s.Session.Close()
 	}
 	m.sessions = nil
 }
@@ -135,7 +197,7 @@ func DefaultSmuxConfig() *smux.Config {
 	cfg.Version = 2
 	cfg.KeepAliveInterval = 8 * time.Second
 	cfg.KeepAliveTimeout = 20 * time.Second
-	cfg.MaxFrameSize = 1200
+	cfg.MaxFrameSize = 1024                // Strict MSS alignment (<= 1024 bytes per frame)
 	cfg.MaxReceiveBuffer = 8 * 1024 * 1024 // 8MB buffer for mobile uplinks
 	cfg.MaxStreamBuffer = 2 * 1024 * 1024  // 2MB per stream
 	return cfg

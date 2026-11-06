@@ -226,13 +226,10 @@ jobs:
       run: |
         unzip -l "$APK_FILE" assets/third_party/saturn/source-pins.json | grep -F source-pins.json
         unzip -l "$APK_FILE" assets/saturn/install-saturn.sh | grep -F install-saturn.sh
+        unzip -l "$APK_FILE" assets/saturn/saturn-server-amd64 | grep -F saturn-server-amd64
+        unzip -l "$APK_FILE" assets/saturn/saturn-server-arm64 | grep -F saturn-server-arm64
         for ABI in armeabi-v7a arm64-v8a x86 x86_64; do
           unzip -l "$APK_FILE" "lib/$ABI/libsaturn.so" | grep -F "lib/$ABI/libsaturn.so"
-        done
-        for ABI in $(jq -r '.assets[].abi // empty' saturn-core.lock.json); do
-          for LIBRARY in liburnetwork.so; do
-            unzip -l "$APK_FILE" "lib/$ABI/$LIBRARY" | grep -F "lib/$ABI/$LIBRARY" || true
-          done
         done
 
     - name: Verify bundled Iran datasets
@@ -258,7 +255,7 @@ jobs:
           exit 1
         fi
         if [ -d bin ]; then
-          cp bin/saturn-server-linux-* release-apks/ 2>/dev/null || true
+          cp bin/saturn-* release-apks/ 2>/dev/null || true
         fi
         if [ -f install-saturn.sh ]; then
           cp install-saturn.sh release-apks/ 2>/dev/null || true

@@ -22,7 +22,7 @@ const (
 	PacketTypeUDP   byte = 0x05
 
 	MaxTLSPlaintext          = 16384 // RFC 8446 standard maximum TLS plaintext (16KB)
-	MaxPayloadChunk          = 1220  // Irancell-tuned MTU chunk limit (fits strictly inside 1360B MTU)
+	MaxPayloadChunk          = 1024  // Base MSS compliance (<= 1024 bytes per frame chunk)
 	MaxPayloadSize           = MaxPayloadChunk
 	MaxPaddingSize           = 256
 	MorphingPacketsThreshold = 12

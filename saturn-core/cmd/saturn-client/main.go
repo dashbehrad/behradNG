@@ -135,7 +135,7 @@ type ClientPool struct {
 	port       int
 	cfg        *handshake.ClientHandshakeConfig
 	poolSize   int
-	sessions   []*smux.Session
+	sessions   []*mux.TrackedSession
 	lock       sync.Mutex
 	roundRobin int
 	isClosed   bool
@@ -168,7 +168,7 @@ func (cp *ClientPool) Warmup(timeout time.Duration) error {
 			return res.err
 		}
 		cp.lock.Lock()
-		cp.sessions = append(cp.sessions, res.sess)
+		cp.sessions = append(cp.sessions, mux.NewTrackedSession(res.sess))
 		cp.lock.Unlock()
 		return nil
 	case <-time.After(timeout):
@@ -184,11 +184,11 @@ func (cp *ClientPool) Run() {
 }
 
 func (cp *ClientPool) maintainPool() {
-	// 1. Clean dead sessions quickly under short lock
+	// 1. Clean dead or rotated sessions quickly under short lock
 	cp.lock.Lock()
 	alive := cp.sessions[:0]
 	for _, s := range cp.sessions {
-		if !s.IsClosed() {
+		if !s.Session.IsClosed() {
 			alive = append(alive, s)
 		}
 	}
@@ -209,7 +209,7 @@ func (cp *ClientPool) maintainPool() {
 		}
 		cp.lock.Lock()
 		if !cp.isClosed {
-			cp.sessions = append(cp.sessions, sess)
+			cp.sessions = append(cp.sessions, mux.NewTrackedSession(sess))
 			log.Printf("[Saturn Client] Established tunnel connection (%d/%d active)", len(cp.sessions), cp.poolSize)
 		} else {
 			_ = sess.Close()
@@ -258,18 +258,18 @@ func (cp *ClientPool) dialSession() (*smux.Session, error) {
 	return sess, nil
 }
 
-func (cp *ClientPool) OpenStream() (*smux.Stream, error) {
+func (cp *ClientPool) OpenStream() (*smux.Stream, *mux.TrackedSession, error) {
 	// Try existing healthy sessions from the pool with strict 3-second timeout per attempt
 	for attempt := 0; attempt < 3; attempt++ {
-		sess := cp.pickSession()
-		if sess != nil {
-			stream, err := openStreamWithTimeout(sess, 3*time.Second)
+		ts := cp.pickSession()
+		if ts != nil {
+			stream, err := openStreamWithTimeout(ts.Session, 3*time.Second)
 			if err == nil {
-				return stream, nil
+				return stream, ts, nil
 			}
 			// Failed/timed out session: evict immediately from pool, close in background, and trigger background pool refresh
 			log.Printf("[Saturn Client] Session stream open failed (%v), evicting and failing over", err)
-			cp.evictSession(sess)
+			cp.evictSession(ts)
 			go cp.maintainPool()
 		} else {
 			break
@@ -279,29 +279,34 @@ func (cp *ClientPool) OpenStream() (*smux.Stream, error) {
 	// Pool has no active sessions: dial on-demand outside lock
 	sess, err := cp.dialSession()
 	if err != nil {
-		return nil, fmt.Errorf("tunnel unavailable: %w", err)
+		return nil, nil, fmt.Errorf("tunnel unavailable: %w", err)
 	}
 
+	ts := mux.NewTrackedSession(sess)
 	cp.lock.Lock()
 	if !cp.isClosed {
-		cp.sessions = append(cp.sessions, sess)
+		cp.sessions = append(cp.sessions, ts)
 	}
 	cp.lock.Unlock()
 
-	return openStreamWithTimeout(sess, 4*time.Second)
+	stream, err := openStreamWithTimeout(sess, 4*time.Second)
+	if err != nil {
+		return nil, nil, err
+	}
+	return stream, ts, nil
 }
 
-func (cp *ClientPool) evictSession(sess *smux.Session) {
+func (cp *ClientPool) evictSession(ts *mux.TrackedSession) {
 	cp.lock.Lock()
 	alive := cp.sessions[:0]
 	for _, s := range cp.sessions {
-		if s != sess && !s.IsClosed() {
+		if s != ts && !s.Session.IsClosed() {
 			alive = append(alive, s)
 		}
 	}
 	cp.sessions = alive
 	cp.lock.Unlock()
-	go func() { _ = sess.Close() }()
+	go func() { _ = ts.Session.Close() }()
 }
 
 func openStreamWithTimeout(sess *smux.Session, timeout time.Duration) (*smux.Stream, error) {
@@ -323,13 +328,13 @@ func openStreamWithTimeout(sess *smux.Session, timeout time.Duration) (*smux.Str
 	}
 }
 
-func (cp *ClientPool) pickSession() *smux.Session {
+func (cp *ClientPool) pickSession() *mux.TrackedSession {
 	cp.lock.Lock()
 	defer cp.lock.Unlock()
 
 	alive := cp.sessions[:0]
 	for _, s := range cp.sessions {
-		if !s.IsClosed() {
+		if !s.Session.IsClosed() {
 			alive = append(alive, s)
 		}
 	}
@@ -337,6 +342,15 @@ func (cp *ClientPool) pickSession() *smux.Session {
 
 	if len(cp.sessions) == 0 {
 		return nil
+	}
+
+	// Prefer session that has not reached UplinkRotationThreshold (1.5 MB)
+	for i := 0; i < len(cp.sessions); i++ {
+		idx := (cp.roundRobin + i) % len(cp.sessions)
+		if !cp.sessions[idx].ShouldRotate() {
+			cp.roundRobin = (idx + 1) % len(cp.sessions)
+			return cp.sessions[idx]
+		}
 	}
 
 	cp.roundRobin = (cp.roundRobin + 1) % len(cp.sessions)
@@ -348,7 +362,7 @@ func (cp *ClientPool) Close() {
 	defer cp.lock.Unlock()
 	cp.isClosed = true
 	for _, s := range cp.sessions {
-		_ = s.Close()
+		_ = s.Session.Close()
 	}
 	cp.sessions = nil
 }
@@ -436,9 +450,10 @@ func handleSocks5(conn net.Conn, br *bufio.Reader, pool *ClientPool) {
 		return
 	}
 	targetPort := strconv.Itoa(int(binary.BigEndian.Uint16(portBuf[:])))
+	targetHost = strings.TrimPrefix(targetHost, "//")
 	targetAddr := net.JoinHostPort(targetHost, targetPort)
 
-	stream, err := pool.OpenStream()
+	stream, tracked, err := pool.OpenStream()
 	if err != nil {
 		_, _ = conn.Write([]byte{0x05, 0x05, 0x00, 0x01, 0, 0, 0, 0, 0, 0})
 		return
@@ -456,7 +471,7 @@ func handleSocks5(conn net.Conn, br *bufio.Reader, pool *ClientPool) {
 	}
 
 	// Relay connection
-	relayBufferedConn(conn, br, stream)
+	relayBufferedConn(conn, br, stream, tracked)
 }
 
 func handleHTTP(conn net.Conn, br *bufio.Reader, pool *ClientPool) {
@@ -465,7 +480,7 @@ func handleHTTP(conn net.Conn, br *bufio.Reader, pool *ClientPool) {
 		return
 	}
 
-	target := req.Host
+	target := strings.TrimPrefix(req.Host, "//")
 	if !strings.Contains(target, ":") {
 		if req.Method == "CONNECT" {
 			target += ":443"
@@ -474,7 +489,7 @@ func handleHTTP(conn net.Conn, br *bufio.Reader, pool *ClientPool) {
 		}
 	}
 
-	stream, err := pool.OpenStream()
+	stream, tracked, err := pool.OpenStream()
 	if err != nil {
 		_, _ = conn.Write([]byte("HTTP/1.1 502 Bad Gateway\r\n\r\n"))
 		return
@@ -490,17 +505,17 @@ func handleHTTP(conn net.Conn, br *bufio.Reader, pool *ClientPool) {
 		if _, err := conn.Write([]byte("HTTP/1.1 200 Connection Established\r\n\r\n")); err != nil {
 			return
 		}
-		relayBufferedConn(conn, br, stream)
+		relayBufferedConn(conn, br, stream, tracked)
 	} else {
 		// Forward non-CONNECT HTTP request
 		if err := req.Write(stream); err != nil {
 			return
 		}
-		relayBufferedConn(conn, br, stream)
+		relayBufferedConn(conn, br, stream, tracked)
 	}
 }
 
-func relayBufferedConn(conn net.Conn, br *bufio.Reader, stream *smux.Stream) {
+func relayBufferedConn(conn net.Conn, br *bufio.Reader, stream *smux.Stream, tracked *mux.TrackedSession) {
 	var once sync.Once
 	closeBoth := func() {
 		_ = conn.Close()
@@ -512,10 +527,24 @@ func relayBufferedConn(conn net.Conn, br *bufio.Reader, stream *smux.Stream) {
 	// Inbound -> Smux Stream (Upload)
 	go func() {
 		buf := make([]byte, 32*1024)
-		_, err := io.CopyBuffer(stream, br, buf)
-		if err != nil {
-			once.Do(closeBoth)
-			return
+		for {
+			n, err := br.Read(buf)
+			if n > 0 {
+				if _, werr := stream.Write(buf[:n]); werr != nil {
+					once.Do(closeBoth)
+					return
+				}
+				if tracked != nil {
+					tracked.RecordUplinkBytes(int64(n))
+				}
+			}
+			if err != nil {
+				if err != io.EOF {
+					once.Do(closeBoth)
+					return
+				}
+				break
+			}
 		}
 		_ = stream.Close()
 	}()

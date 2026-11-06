@@ -181,3 +181,82 @@ func TestMultiplexerFailover(t *testing.T) {
 		t.Fatalf("Expected error when all sessions dead, got nil")
 	}
 }
+
+func TestUplinkRotationThreshold(t *testing.T) {
+	cipherKey := make([]byte, 32)
+	copy(cipherKey, "32-bytes-long-cipher-key-test!!!")
+	baseIV := make([]byte, 12)
+	copy(baseIV, "12-bytes-iv!")
+
+	makePair := func() (*smux.Session, *smux.Session) {
+		c1, c2 := net.Pipe()
+		cip1, _ := crypto.NewCipher("chacha20-poly1305", cipherKey)
+		cip2, _ := crypto.NewCipher("chacha20-poly1305", cipherKey)
+		fc1 := mux.NewFramedConn(c1, cip1, baseIV)
+		fc2 := mux.NewFramedConn(c2, cip2, baseIV)
+		smuxCfg := mux.DefaultSmuxConfig()
+
+		srvChan := make(chan *smux.Session, 1)
+		go func() {
+			s, _ := smux.Server(fc2, smuxCfg)
+			srvChan <- s
+		}()
+		cli, err := smux.Client(fc1, smuxCfg)
+		if err != nil {
+			t.Fatal(err)
+		}
+		srv := <-srvChan
+		return cli, srv
+	}
+
+	cli1, srv1 := makePair()
+	defer cli1.Close()
+	defer srv1.Close()
+
+	cli2, srv2 := makePair()
+	defer cli2.Close()
+	defer srv2.Close()
+
+	go func() {
+		for {
+			s, err := srv1.AcceptStream()
+			if err != nil {
+				return
+			}
+			s.Close()
+		}
+	}()
+	go func() {
+		for {
+			s, err := srv2.AcceptStream()
+			if err != nil {
+				return
+			}
+			s.Close()
+		}
+	}()
+
+	m := mux.NewMultiplexer()
+	ts1 := m.AddSession(cli1)
+	ts2 := m.AddSession(cli2)
+
+	if ts1.ShouldRotate() {
+		t.Fatalf("ts1 should not rotate before bytes recorded")
+	}
+
+	// Record bytes exceeding 1.5MB threshold on session 1
+	ts1.RecordUplinkBytes(mux.UplinkRotationThreshold + 1024)
+	if !ts1.ShouldRotate() {
+		t.Fatalf("ts1 should rotate after exceeding UplinkRotationThreshold")
+	}
+	if ts2.ShouldRotate() {
+		t.Fatalf("ts2 should not rotate")
+	}
+
+	// OpenStream should now prioritize session 2
+	st, err := m.OpenStream()
+	if err != nil {
+		t.Fatalf("OpenStream failed: %v", err)
+	}
+	_ = st.Close()
+}

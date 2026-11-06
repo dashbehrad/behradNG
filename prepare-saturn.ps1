@@ -54,4 +54,48 @@ if ($lock.assets) {
     }
 }
 
-Write-Host "Saturn core prepared (Aether + URnetwork proxy chain v3.0.0)."
+$saturnCoreDir = Join-Path $root 'saturn-core'
+$goExe = $null
+if (Get-Command go -ErrorAction SilentlyContinue) {
+    $goExe = "go"
+} elseif (Test-Path -LiteralPath "C:\Program Files\Go\bin\go.exe") {
+    $goExe = "C:\Program Files\Go\bin\go.exe"
+}
+
+if ($goExe -and (Test-Path -LiteralPath $saturnCoreDir)) {
+    Write-Host "Compiling saturn-core native binaries..."
+    Push-Location $saturnCoreDir
+    try {
+        $binDir = Join-Path $root 'bin'
+        New-Item -ItemType Directory -Path $binDir -Force | Out-Null
+        $assetsSaturn = Join-Path $AppPath 'src/main/assets/saturn'
+        New-Item -ItemType Directory -Path $assetsSaturn -Force | Out-Null
+
+        $env:CGO_ENABLED = "0"
+
+        $env:GOOS = "linux"
+        $env:GOARCH = "amd64"
+        & $goExe build -trimpath -ldflags="-s -w" -o (Join-Path $binDir "saturn-server-linux-amd64") ./cmd/saturn-server
+        Copy-Item -LiteralPath (Join-Path $binDir "saturn-server-linux-amd64") -Destination (Join-Path $assetsSaturn "saturn-server-amd64") -Force
+
+        $env:GOOS = "linux"
+        $env:GOARCH = "arm64"
+        & $goExe build -trimpath -ldflags="-s -w" -o (Join-Path $binDir "saturn-server-linux-arm64") ./cmd/saturn-server
+        Copy-Item -LiteralPath (Join-Path $binDir "saturn-server-linux-arm64") -Destination (Join-Path $assetsSaturn "saturn-server-arm64") -Force
+
+        $env:GOOS = "windows"
+        $env:GOARCH = "amd64"
+        & $goExe build -trimpath -ldflags="-s -w" -o (Join-Path $binDir "saturn-server-windows-amd64.exe") ./cmd/saturn-server
+        & $goExe build -trimpath -ldflags="-s -w" -o (Join-Path $binDir "saturn-client-windows-amd64.exe") ./cmd/saturn-client
+    } finally {
+        Pop-Location
+    }
+}
+
+$installerSource = Join-Path $root 'install-saturn.sh'
+$installerDest = Join-Path $AppPath 'src/main/assets/saturn/install-saturn.sh'
+if (Test-Path -LiteralPath $installerSource) {
+    Copy-Item -LiteralPath $installerSource -Destination $installerDest -Force
+}
+
+Write-Host "Saturn core prepared (Saturn Direct Anti-DPI Protocol)."

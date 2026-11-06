@@ -128,10 +128,10 @@ object SpeedtestManager {
                 elapsed = (System.nanoTime() - started) / 1_000_000
                 break
             } catch (e: IOException) {
-                lastError = e.message ?: e.javaClass.simpleName
+                lastError = e.message?.takeIf { it.isNotBlank() } ?: e.javaClass.simpleName
                 reportFailure("delay-$index", e)
             } catch (e: IllegalArgumentException) {
-                lastError = e.message ?: e.javaClass.simpleName
+                lastError = e.message?.takeIf { it.isNotBlank() } ?: e.javaClass.simpleName
                 reportFailure("delay-$index", e)
             }
         }

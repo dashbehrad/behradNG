@@ -63,9 +63,19 @@ if command -v go >/dev/null 2>&1 && [ -d "$repo_dir/saturn-core" ]; then
                 CGO_ENABLED=0 GOOS=linux GOARCH="$ARCH" go build -trimpath -ldflags="-s -w" -o "$TARGET_DIR/libsaturn.so" ./cmd/saturn-client
             fi
         done
-        mkdir -p "$repo_dir/bin"
+        mkdir -p "$repo_dir/bin" "$app_dir/src/main/assets/saturn"
         CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -trimpath -ldflags="-s -w" -o "$repo_dir/bin/saturn-server-linux-amd64" ./cmd/saturn-server || true
         CGO_ENABLED=0 GOOS=linux GOARCH=arm64 go build -trimpath -ldflags="-s -w" -o "$repo_dir/bin/saturn-server-linux-arm64" ./cmd/saturn-server || true
+        CGO_ENABLED=0 GOOS=windows GOARCH=amd64 go build -trimpath -ldflags="-s -w" -o "$repo_dir/bin/saturn-server-windows-amd64.exe" ./cmd/saturn-server || true
+        CGO_ENABLED=0 GOOS=windows GOARCH=amd64 go build -trimpath -ldflags="-s -w" -o "$repo_dir/bin/saturn-client-windows-amd64.exe" ./cmd/saturn-client || true
+        
+        # Embed compiled Linux server binaries into Android assets for seamless deployment
+        if [ -f "$repo_dir/bin/saturn-server-linux-amd64" ]; then
+            cp -f "$repo_dir/bin/saturn-server-linux-amd64" "$app_dir/src/main/assets/saturn/saturn-server-amd64"
+        fi
+        if [ -f "$repo_dir/bin/saturn-server-linux-arm64" ]; then
+            cp -f "$repo_dir/bin/saturn-server-linux-arm64" "$app_dir/src/main/assets/saturn/saturn-server-arm64"
+        fi
     )
 fi
 

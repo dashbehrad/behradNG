@@ -9,6 +9,7 @@ import (
 	"net"
 	"os"
 	"os/signal"
+	"strings"
 	"syscall"
 	"time"
 
@@ -186,16 +187,14 @@ func handleStream(stream *smux.Stream) {
 	if err != nil {
 		return
 	}
+	targetAddr = strings.TrimPrefix(targetAddr, "//")
 
 	destConn, err := net.DialTimeout("tcp", targetAddr, 10*time.Second)
 	if err != nil {
+		log.Printf("[Saturn Server] Failed to dial target %s: %v", targetAddr, err)
 		return
 	}
 	defer destConn.Close()
-	if tc, ok := destConn.(*net.TCPConn); ok {
-		_ = tc.SetNoDelay(true)
-	}
-
 	if tc, ok := destConn.(*net.TCPConn); ok {
 		_ = tc.SetNoDelay(true)
 	}

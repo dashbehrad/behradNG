@@ -75,3 +75,7 @@ Thumbs.db
 /app/libs/
 
 .saturn-native/
+/bin/
+/release-apks/
+V2rayNG/app/src/main/assets/saturn/saturn-server-*
+V2rayNG/app/src/main/assets/third_party/saturn/

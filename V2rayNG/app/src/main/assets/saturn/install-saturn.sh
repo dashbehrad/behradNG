@@ -181,11 +181,21 @@ else
     echo "[*] Deploying latest saturn-server binary..."
     SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
     DEPLOYED=0
-    if [ -f "$SCRIPT_DIR/bin/saturn-server-linux-$ARCH" ]; then
+    if [ -f "$SCRIPT_DIR/saturn-server-$ARCH" ]; then
+        cp -f "$SCRIPT_DIR/saturn-server-$ARCH" "$BIN_PATH"
+        chmod +x "$BIN_PATH"
+        DEPLOYED=1
+    elif [ -f "$SCRIPT_DIR/saturn-server-linux-$ARCH" ]; then
+        cp -f "$SCRIPT_DIR/saturn-server-linux-$ARCH" "$BIN_PATH"
+        chmod +x "$BIN_PATH"
+        DEPLOYED=1
+    elif [ -f "$SCRIPT_DIR/bin/saturn-server-linux-$ARCH" ]; then
         cp -f "$SCRIPT_DIR/bin/saturn-server-linux-$ARCH" "$BIN_PATH"
+        chmod +x "$BIN_PATH"
         DEPLOYED=1
     elif [ -f "$SCRIPT_DIR/saturn-server" ]; then
         cp -f "$SCRIPT_DIR/saturn-server" "$BIN_PATH"
+        chmod +x "$BIN_PATH"
         DEPLOYED=1
     else
         # Try direct prebuilt binary from GitHub Releases first
