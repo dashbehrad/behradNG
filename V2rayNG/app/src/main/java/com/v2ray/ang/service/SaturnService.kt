@@ -134,7 +134,7 @@ class SaturnService : VpnService(), ServiceControl {
                     failure = R.string.saturn_permission_error
                     check(prepare(this@SaturnService) == null) { "VPN permission missing" }
                     failure = R.string.saturn_vpn_error
-                    vpnOwner = CoreVpnService.OwnedTransportVpn(this@SaturnService) { Builder() }
+                    vpnOwner = CoreVpnService.OwnedTransportVpn(this@SaturnService, { Builder() }, mtuOverride = 1360)
                     vpnOwner!!.establish(profile.remarks)
                 }
                 ownsCore = true

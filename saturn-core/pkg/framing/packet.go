@@ -22,9 +22,10 @@ const (
 	PacketTypeUDP   byte = 0x05
 
 	MaxTLSPlaintext          = 16384 // RFC 8446 standard maximum TLS plaintext (16KB)
-	MaxPayloadSize           = MaxTLSPlaintext - InnerHeaderSize - MaxPaddingSize
+	MaxPayloadChunk          = 1220  // Irancell-tuned MTU chunk limit (fits strictly inside 1360B MTU)
+	MaxPayloadSize           = MaxPayloadChunk
 	MaxPaddingSize           = 256
-	MorphingPacketsThreshold = 16
+	MorphingPacketsThreshold = 12
 )
 
 var (
@@ -83,20 +84,41 @@ func NewDirectionalPacketManager(sendCipher, recvCipher *crypto.Cipher, sendIV, 
 	return pm
 }
 
-// WritePacket encodes, dynamic-pads, and wraps payload into a 100% RFC 8446 TLS 1.3 Application Data record.
+// WritePacket encodes, dynamic-pads, and wraps payload into 100% RFC 8446 TLS 1.3 Application Data records.
+// Large payloads exceeding MaxPayloadChunk (1220 bytes) are split into individual chunks so no IP fragmentation occurs.
 // All metadata (packetType, streamID, payloadLen, padding) is fully encrypted inside the AEAD record.
-// To external DPI, the record appears identical to genuine TLS 1.3 ciphertext with uniform Shannon entropy.
 func (pm *PacketManager) WritePacket(w io.Writer, packetType byte, streamID uint32, plaintext []byte) error {
-	if len(plaintext) > MaxPayloadSize {
+	if len(plaintext) == 0 {
+		return pm.writeSingleRecord(w, packetType, streamID, nil)
+	}
+
+	for len(plaintext) > 0 {
+		chunkSize := len(plaintext)
+		if chunkSize > MaxPayloadChunk {
+			chunkSize = MaxPayloadChunk
+		}
+		if err := pm.writeSingleRecord(w, packetType, streamID, plaintext[:chunkSize]); err != nil {
+			return err
+		}
+		plaintext = plaintext[chunkSize:]
+	}
+	return nil
+}
+
+// writeSingleRecord handles encryption and smart padding for a single frame chunk of at most MaxPayloadChunk.
+func (pm *PacketManager) writeSingleRecord(w io.Writer, packetType byte, streamID uint32, plaintext []byte) error {
+	if len(plaintext) > MaxPayloadChunk {
 		return ErrPayloadTooLarge
 	}
 
 	seq := pm.writeSeq.Add(1)
 	count := pm.packetsSent.Add(1)
 
-	// Dynamic obfuscation padding for the first 16 packets or small packets to eliminate length heuristics
+	// Conditional Smart Padding: During the first 12 packets, ONLY apply random padding
+	// if len(payload) < 400. If a packet is already >= 400 bytes (upload data chunk),
+	// padLen is 0 so uplink throughput is never bloated or fragmented.
 	var padLen uint16
-	if count <= MorphingPacketsThreshold || len(plaintext) < 512 {
+	if count <= MorphingPacketsThreshold && len(plaintext) < 400 {
 		var r [2]byte
 		_, _ = rand.Read(r[:])
 		padLen = 16 + (binary.BigEndian.Uint16(r[:]) % (MaxPaddingSize - 16 + 1))

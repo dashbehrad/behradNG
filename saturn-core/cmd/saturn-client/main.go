@@ -3,6 +3,7 @@ package main
 import (
 	"bufio"
 	"encoding/binary"
+	"errors"
 	"flag"
 	"fmt"
 	"io"
@@ -228,7 +229,7 @@ func (cp *ClientPool) dialSession() (*smux.Session, error) {
 	if tc, ok := rawConn.(*net.TCPConn); ok {
 		_ = tc.SetNoDelay(true)
 		_ = tc.SetKeepAlive(true)
-		_ = tc.SetKeepAlivePeriod(15 * time.Second)
+		_ = tc.SetKeepAlivePeriod(10 * time.Second)
 	}
 
 	result, authedConn, err := handshake.ClientHandshake(rawConn, cp.cfg)
@@ -258,16 +259,17 @@ func (cp *ClientPool) dialSession() (*smux.Session, error) {
 }
 
 func (cp *ClientPool) OpenStream() (*smux.Stream, error) {
-	// Try existing healthy sessions from the pool
+	// Try existing healthy sessions from the pool with strict 3-second timeout per attempt
 	for attempt := 0; attempt < 3; attempt++ {
 		sess := cp.pickSession()
 		if sess != nil {
-			stream, err := sess.OpenStream()
+			stream, err := openStreamWithTimeout(sess, 3*time.Second)
 			if err == nil {
 				return stream, nil
 			}
-			// Failed session: close it and trigger background pool refresh
-			_ = sess.Close()
+			// Failed/timed out session: evict immediately from pool, close in background, and trigger background pool refresh
+			log.Printf("[Saturn Client] Session stream open failed (%v), evicting and failing over", err)
+			cp.evictSession(sess)
 			go cp.maintainPool()
 		} else {
 			break
@@ -286,7 +288,39 @@ func (cp *ClientPool) OpenStream() (*smux.Stream, error) {
 	}
 	cp.lock.Unlock()
 
-	return sess.OpenStream()
+	return openStreamWithTimeout(sess, 4*time.Second)
+}
+
+func (cp *ClientPool) evictSession(sess *smux.Session) {
+	cp.lock.Lock()
+	alive := cp.sessions[:0]
+	for _, s := range cp.sessions {
+		if s != sess && !s.IsClosed() {
+			alive = append(alive, s)
+		}
+	}
+	cp.sessions = alive
+	cp.lock.Unlock()
+	go func() { _ = sess.Close() }()
+}
+
+func openStreamWithTimeout(sess *smux.Session, timeout time.Duration) (*smux.Stream, error) {
+	type result struct {
+		stream *smux.Stream
+		err    error
+	}
+	ch := make(chan result, 1)
+	go func() {
+		s, err := sess.OpenStream()
+		ch <- result{stream: s, err: err}
+	}()
+
+	select {
+	case res := <-ch:
+		return res.stream, res.err
+	case <-time.After(timeout):
+		return nil, errors.New("open stream timed out")
+	}
 }
 
 func (cp *ClientPool) pickSession() *smux.Session {

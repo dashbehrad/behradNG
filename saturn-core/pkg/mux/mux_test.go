@@ -95,3 +95,89 @@ func TestFramedConnAndSmuxRelay(t *testing.T) {
 		t.Fatalf("Payload mismatch")
 	}
 }
+
+func TestMultiplexerFailover(t *testing.T) {
+	cipherKey := make([]byte, 32)
+	copy(cipherKey, "32-bytes-long-cipher-key-test!!!")
+	baseIV := make([]byte, 12)
+	copy(baseIV, "12-bytes-iv!")
+
+	makePair := func() (*smux.Session, *smux.Session) {
+		c1, c2 := net.Pipe()
+		cip1, _ := crypto.NewCipher("chacha20-poly1305", cipherKey)
+		cip2, _ := crypto.NewCipher("chacha20-poly1305", cipherKey)
+		fc1 := mux.NewFramedConn(c1, cip1, baseIV)
+		fc2 := mux.NewFramedConn(c2, cip2, baseIV)
+		smuxCfg := mux.DefaultSmuxConfig()
+
+		srvChan := make(chan *smux.Session, 1)
+		go func() {
+			s, _ := smux.Server(fc2, smuxCfg)
+			srvChan <- s
+		}()
+		cli, err := smux.Client(fc1, smuxCfg)
+		if err != nil {
+			t.Fatal(err)
+		}
+		srv := <-srvChan
+		return cli, srv
+	}
+
+	cli1, srv1 := makePair()
+	defer cli1.Close()
+	defer srv1.Close()
+
+	cli2, srv2 := makePair()
+	defer cli2.Close()
+	defer srv2.Close()
+
+	m := mux.NewMultiplexer()
+	m.AddSession(cli1)
+	m.AddSession(cli2)
+
+	// Accept streams on servers in background
+	go func() {
+		for {
+			s, err := srv1.AcceptStream()
+			if err != nil {
+				return
+			}
+			s.Close()
+		}
+	}()
+	go func() {
+		for {
+			s, err := srv2.AcceptStream()
+			if err != nil {
+				return
+			}
+			s.Close()
+		}
+	}()
+
+	// First stream succeeds
+	st1, err := m.OpenStream()
+	if err != nil {
+		t.Fatalf("OpenStream failed: %v", err)
+	}
+	st1.Close()
+
+	// Kill first session
+	_ = cli1.Close()
+
+	// Second stream should seamlessly failover to cli2
+	st2, err := m.OpenStream()
+	if err != nil {
+		t.Fatalf("OpenStream failover failed: %v", err)
+	}
+	st2.Close()
+
+	// Kill second session
+	_ = cli2.Close()
+
+	// Now all sessions are dead, OpenStream must return error
+	_, err = m.OpenStream()
+	if err == nil {
+		t.Fatalf("Expected error when all sessions dead, got nil")
+	}
+}

@@ -13,8 +13,8 @@ android {
         applicationId = "com.v2ray.ang.behradng"
         minSdk = 24
         targetSdk = 36
-        versionCode = 4000788
-        versionName = "3.0.4"
+        versionCode = 4000789
+        versionName = "3.0.5"
         buildConfigField("String", "DISTRIBUTION", "\"behradNG\"")
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"

@@ -464,9 +464,9 @@ object UrnetworkManager {
                 return@withContext Usage(
                     totalBytes = 30L * 1024L * 1024L * 1024L,
                     usedBytes = 0L,
-                    remainingBytes = 30L * 1024L * 1024L * 1024L,
+                    remainingBytes = 0L,
                     capped = false,
-                    formattedRemaining = "30 GB Remaining"
+                    formattedRemaining = ""
                 )
             }
 
@@ -503,9 +503,9 @@ object UrnetworkManager {
         val defaultUsage = Usage(
             totalBytes = 30L * 1024L * 1024L * 1024L,
             usedBytes = 0L,
-            remainingBytes = 30L * 1024L * 1024L * 1024L,
+            remainingBytes = 0L,
             capped = false,
-            formattedRemaining = "30 GB Remaining"
+            formattedRemaining = ""
         )
         cachedUsage = defaultUsage
         return@withContext defaultUsage

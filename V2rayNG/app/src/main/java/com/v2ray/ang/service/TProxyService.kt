@@ -16,7 +16,8 @@ class TProxyService(
     private val context: Context,
     private val vpnInterface: ParcelFileDescriptor,
     private val isRunningProvider: () -> Boolean,
-    private val restartCallback: () -> Unit
+    private val restartCallback: () -> Unit,
+    private val mtuOverride: Int? = null
 ) : Tun2SocksControl {
     companion object {
         @JvmStatic
@@ -70,9 +71,10 @@ class TProxyService(
         val vpnConfig = SettingsManager.getCurrentVpnInterfaceAddressConfig()
         val escapedSocksUsername = socksUsername?.replace("'", "''")
         val escapedSocksPassword = socksPassword?.replace("'", "''")
+        val effectiveMtu = mtuOverride ?: SettingsManager.getVpnMtu()
         return buildString {
             appendLine("tunnel:")
-            appendLine("  mtu: ${SettingsManager.getVpnMtu()}")
+            appendLine("  mtu: $effectiveMtu")
             appendLine("  ipv4: ${vpnConfig.ipv4Client}")
 
             if (MmkvManager.decodeSettingsBool(AppConfig.PREF_IPV6_ENABLED)) {

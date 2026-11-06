@@ -46,8 +46,6 @@
     <string name="saturn_aether_error">ساترن نتوانست به Aether (تونل کلودفلر) متصل شود.</string>
     <string name="saturn_urnetwork_error">ساترن نتوانست به شبکه URnetwork متصل شود. اطلاعات حساب یا موقعیت سرور را بررسی کنید.</string>
     <string name="saturn_exit_error">آزمایش اتصال پروکسی ساترن ناموفق بود.</string>
-    <string name="saturn_ur_remaining_data">۳۰ گیگابایت باقی‌مانده</string>
-    <string name="saturn_ur_quota_info">سهمیه روزانه: ۳۰ گیگابایت</string>
     <string name="saturn_deploy_title">نصب سرور Saturn</string>
     <string name="saturn_deploy_menu">نصب خودکار سرور Saturn (تک‌کلیک)</string>
     <string name="saturn_deploy_desc">نصب خودکار و پرسرعت پروتکل ضدفیلتر Saturn روی سرور لینوکس از طریق SSH بدون نیاز به رله.</string>

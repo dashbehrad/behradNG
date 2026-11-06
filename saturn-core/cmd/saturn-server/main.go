@@ -134,10 +134,10 @@ func handleRun(args []string) {
 }
 
 func handleClientConnection(conn net.Conn, cfg *handshake.ServerHandshakeConfig) {
-	// Enable TCP KeepAlive
+	// Enable TCP KeepAlive & NoDelay for mobile cellular stability
 	if tc, ok := conn.(*net.TCPConn); ok {
 		_ = tc.SetKeepAlive(true)
-		_ = tc.SetKeepAlivePeriod(30 * time.Second)
+		_ = tc.SetKeepAlivePeriod(10 * time.Second)
 		_ = tc.SetNoDelay(true)
 	}
 
@@ -192,6 +192,9 @@ func handleStream(stream *smux.Stream) {
 		return
 	}
 	defer destConn.Close()
+	if tc, ok := destConn.(*net.TCPConn); ok {
+		_ = tc.SetNoDelay(true)
+	}
 
 	if tc, ok := destConn.(*net.TCPConn); ok {
 		_ = tc.SetNoDelay(true)

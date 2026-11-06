@@ -49,3 +49,54 @@ func TestPacketFraming(t *testing.T) {
 		t.Errorf("Expected %s, got %s", string(payload), string(readPayload))
 	}
 }
+
+func TestLargeUploadChunking(t *testing.T) {
+	key := make([]byte, 32)
+	copy(key, "saturn-32-byte-test-key-secret!!")
+	c, err := crypto.NewCipher(crypto.CipherChaCha20Poly1305, key)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	baseIV := make([]byte, 12)
+	copy(baseIV, "saturn-base-")
+	pm := framing.NewPacketManager(c, baseIV)
+
+	// 32 KB upload payload
+	largePayload := make([]byte, 32768)
+	for i := range largePayload {
+		largePayload[i] = byte(i % 251)
+	}
+
+	var buf bytes.Buffer
+	err = pm.WritePacket(&buf, framing.PacketTypeData, 1, largePayload)
+	if err != nil {
+		t.Fatalf("WritePacket with large payload failed: %v", err)
+	}
+
+	// Read all chunks back and verify each chunk is <= MaxPayloadChunk
+	var assembled bytes.Buffer
+	chunkCount := 0
+	for buf.Len() > 0 {
+		pktType, _, chunk, err := pm.ReadPacket(&buf)
+		if err != nil {
+			t.Fatalf("ReadPacket failed at chunk %d: %v", chunkCount, err)
+		}
+		if pktType != framing.PacketTypeData {
+			t.Errorf("Expected PacketTypeData, got %d", pktType)
+		}
+		if len(chunk) > framing.MaxPayloadChunk {
+			t.Errorf("Chunk %d length %d exceeds MaxPayloadChunk %d", chunkCount, len(chunk), framing.MaxPayloadChunk)
+		}
+		assembled.Write(chunk)
+		chunkCount++
+	}
+
+	if chunkCount != (32768+framing.MaxPayloadChunk-1)/framing.MaxPayloadChunk {
+		t.Errorf("Expected %d chunks, got %d", (32768+framing.MaxPayloadChunk-1)/framing.MaxPayloadChunk, chunkCount)
+	}
+
+	if !bytes.Equal(assembled.Bytes(), largePayload) {
+		t.Errorf("Reassembled payload does not match original 32KB payload")
+	}
+}

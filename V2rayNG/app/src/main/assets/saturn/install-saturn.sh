@@ -191,6 +191,8 @@ else
         # Try direct prebuilt binary from GitHub Releases first
         for URL in \
             "https://github.com/dashbehrad/behradNG/releases/latest/download/saturn-server-linux-$ARCH" \
+            "https://github.com/dashbehrad/behradNG/releases/download/3.0.5/saturn-server-linux-$ARCH" \
+            "https://github.com/dashbehrad/behradNG/releases/download/3.0.4/saturn-server-linux-$ARCH" \
             "https://github.com/dashbehrad/behradNG/releases/download/3.0.3/saturn-server-linux-$ARCH" \
             "https://github.com/dashbehrad/behradNG/releases/download/3.0.2/saturn-server-linux-$ARCH" \
             "https://github.com/dashbehrad/behradNG/releases/download/3.0.1/saturn-server-linux-$ARCH" \
@@ -290,6 +292,18 @@ EOF
 systemctl daemon-reload
 systemctl enable saturn-server.service >/dev/null 2>&1 || true
 systemctl restart saturn-server.service
+
+# 5b. Kernel MTU Probing & Mobile Link Socket Tuning
+echo "[*] Applying kernel MTU probing and socket tuning..."
+cat > /etc/sysctl.d/99-saturn.conf << 'EOF'
+net.ipv4.tcp_mtu_probing = 1
+net.ipv4.tcp_base_mss = 1024
+net.ipv4.tcp_slow_start_after_idle = 0
+net.ipv4.tcp_keepalive_time = 60
+net.ipv4.tcp_keepalive_intvl = 10
+net.ipv4.tcp_keepalive_probes = 3
+EOF
+sysctl --system >/dev/null 2>&1 || sysctl -p /etc/sysctl.d/99-saturn.conf >/dev/null 2>&1 || true
 
 # 6. Firewall Configuration
 echo "[*] Configuring firewall rules for port $PORT..."

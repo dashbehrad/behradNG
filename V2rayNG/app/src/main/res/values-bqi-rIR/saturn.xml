@@ -46,8 +46,6 @@
     <string name="saturn_aether_error">ساترن نتونس وه Aether (تونل کلودفلر) وصل وابو.</string>
     <string name="saturn_urnetwork_error">ساترن نتونس وه زنجیره URnetwork وصل وابو. اطلاعات حساب یا موقعیت سرور نه چک بکنین.</string>
     <string name="saturn_exit_error">آزمایش اتصال پروکسی ساترن با شکست مواجه وابی.</string>
-    <string name="saturn_ur_remaining_data">۳۰ گیگابایت باقی‌مانده</string>
-    <string name="saturn_ur_quota_info">سهمیه روزانه: ۳۰ گیگابایت</string>
     <string name="saturn_deploy_title">نصب سرور Saturn</string>
     <string name="saturn_deploy_menu">نصب خودکار سرور Saturn (یه کلیک)</string>
     <string name="saturn_deploy_desc">نصب خودکار و پرسرعت پروتکل Saturn رو سرور لینوکس وا SSH بدون نیاز به رله.</string>

@@ -64,8 +64,8 @@ func (fc *FramedConn) Write(p []byte) (int, error) {
 	sent := 0
 	for sent < len(p) {
 		chunkSize := len(p) - sent
-		if chunkSize > framing.MaxPayloadSize {
-			chunkSize = framing.MaxPayloadSize
+		if chunkSize > framing.MaxPayloadChunk {
+			chunkSize = framing.MaxPayloadChunk
 		}
 		err := fc.pm.WritePacket(fc.Conn, framing.PacketTypeData, 0, p[sent:sent+chunkSize])
 		if err != nil {
@@ -133,11 +133,11 @@ func (m *Multiplexer) Close() {
 func DefaultSmuxConfig() *smux.Config {
 	cfg := smux.DefaultConfig()
 	cfg.Version = 2
-	cfg.KeepAliveInterval = 10 * time.Second
-	cfg.KeepAliveTimeout = 30 * time.Second
-	cfg.MaxFrameSize = 32768
-	cfg.MaxReceiveBuffer = 4194304 // 4MB buffer for high-bandwidth links
-	cfg.MaxStreamBuffer = 1048576  // 1MB per stream
+	cfg.KeepAliveInterval = 8 * time.Second
+	cfg.KeepAliveTimeout = 20 * time.Second
+	cfg.MaxFrameSize = 1200
+	cfg.MaxReceiveBuffer = 8 * 1024 * 1024 // 8MB buffer for mobile uplinks
+	cfg.MaxStreamBuffer = 2 * 1024 * 1024  // 2MB per stream
 	return cfg
 }
 

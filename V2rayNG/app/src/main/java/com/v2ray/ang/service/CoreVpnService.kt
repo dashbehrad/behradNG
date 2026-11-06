@@ -377,13 +377,18 @@ class CoreVpnService : VpnService(), ServiceControl {
      * Its lifetime belongs to the calling daemon service, separate from this service instance's
      * Android callback-owned interface; all acquisition and release happen on that owner's IO scope.
      */
-    class OwnedTransportVpn(private val context: Context, private val builderFactory: () -> Builder) {
+    class OwnedTransportVpn(
+        private val context: Context,
+        private val builderFactory: () -> Builder,
+        private val mtuOverride: Int? = null
+    ) {
         var descriptor: ParcelFileDescriptor? = null
             private set
         private var tunnel: TProxyService? = null
         fun establish(name: String) {
             val address = SettingsManager.getCurrentVpnInterfaceAddressConfig()
-            val builder = builderFactory().setSession(name).setMtu(SettingsManager.getVpnMtu())
+            val mtu = mtuOverride ?: SettingsManager.getVpnMtu()
+            val builder = builderFactory().setSession(name).setMtu(mtu)
                 .addAddress(address.ipv4Client, 30)
             if (SettingsManager.routingRulesetsBypassLan()) {
                 AppConfig.ROUTED_IP_LIST.forEach { route ->
@@ -414,7 +419,7 @@ class CoreVpnService : VpnService(), ServiceControl {
         fun startTunnel() {
             if (!SettingsManager.isUsingHevTun()) return
             check(tunnel == null)
-            tunnel = TProxyService(context, checkNotNull(descriptor), { CoreServiceManager.isRunning() }, {})
+            tunnel = TProxyService(context, checkNotNull(descriptor), { CoreServiceManager.isRunning() }, {}, mtuOverride = mtuOverride)
             tunnel!!.startTun2Socks()
             check(tunnel!!.isTunnelRunning()) { "Transport tunnel failed" }
         }

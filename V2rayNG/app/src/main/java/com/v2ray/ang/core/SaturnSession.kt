@@ -277,57 +277,57 @@ class SaturnSession {
         actualProxyPort = localPort
         LogUtil.i(AppConfig.TAG, "Saturn: direct connect to ${settings.server}:${settings.serverPort} localProxy=127.0.0.1:$localPort")
 
-        if (saturnCore != null && saturnCore.isFile) {
-            val aetherLauncher = File(nativeDir, "libaether-launcher.so")
-            val saturnArgs = mutableListOf(
-                saturnCore.absolutePath,
-                "-l", "127.0.0.1:$localPort",
-                "-server", settings.server,
-                "-port", settings.serverPort.toString(),
-                "-uuid", settings.uuid,
-                "-sni", settings.sni,
-                "-pbk", settings.publicKey,
-                "-sid", settings.shortId,
-                "-fp", settings.fingerprint,
-                "-frag", settings.fragmentation
-            )
-            val command = if (aetherLauncher.isFile) listOf(aetherLauncher.absolutePath) + saturnArgs else saturnArgs
-            val pb = ProcessBuilder(command)
-            pb.directory(context.filesDir)
-            pb.redirectErrorStream(true)
-            val proc = pb.start()
-            urProcess = proc
+        check(saturnCore != null && saturnCore.isFile) {
+            "Saturn native client binary (libsaturn.so) is missing or not packaged for current ABI (${Build.SUPPORTED_ABIS.firstOrNull()})"
+        }
 
-            val readyDeferred = CompletableDeferred<Boolean>()
-            owner.launch(Dispatchers.IO + CoroutineName("SaturnDirectLogPumper")) {
-                try {
-                    proc.inputStream.bufferedReader().use { reader ->
-                        while (isActive) {
-                            val line = reader.readLine() ?: break
-                            LogUtil.d(AppConfig.TAG, "SaturnDirect: $line")
-                            if (line.contains("active on") || line.contains("Listening") || line.contains("inbound active")) {
-                                if (!readyDeferred.isCompleted) readyDeferred.complete(true)
-                            }
+        val aetherLauncher = File(nativeDir, "libaether-launcher.so")
+        val saturnArgs = mutableListOf(
+            saturnCore.absolutePath,
+            "-l", "127.0.0.1:$localPort",
+            "-server", settings.server,
+            "-port", settings.serverPort.toString(),
+            "-uuid", settings.uuid,
+            "-sni", settings.sni,
+            "-pbk", settings.publicKey,
+            "-sid", settings.shortId,
+            "-fp", settings.fingerprint,
+            "-frag", settings.fragmentation
+        )
+        val command = if (aetherLauncher.isFile) listOf(aetherLauncher.absolutePath) + saturnArgs else saturnArgs
+        val pb = ProcessBuilder(command)
+        pb.directory(context.filesDir)
+        pb.redirectErrorStream(true)
+        val proc = pb.start()
+        urProcess = proc
+
+        val readyDeferred = CompletableDeferred<Boolean>()
+        owner.launch(Dispatchers.IO + CoroutineName("SaturnDirectLogPumper")) {
+            try {
+                proc.inputStream.bufferedReader().use { reader ->
+                    while (isActive) {
+                        val line = reader.readLine() ?: break
+                        LogUtil.d(AppConfig.TAG, "SaturnDirect: $line")
+                        if (line.contains("active on") || line.contains("Listening") || line.contains("inbound active")) {
+                            if (!readyDeferred.isCompleted) readyDeferred.complete(true)
                         }
                     }
-                } catch (_: Exception) {
-                } finally {
-                    if (!readyDeferred.isCompleted) readyDeferred.complete(false)
                 }
+            } catch (_: Exception) {
+            } finally {
+                if (!readyDeferred.isCompleted) readyDeferred.complete(false)
             }
+        }
 
-            bootstrapProgress = 60
-            onProgress?.invoke(60)
+        bootstrapProgress = 60
+        onProgress?.invoke(60)
 
-            val ready = withTimeoutOrNull(15_000L) {
-                readyDeferred.await() || pollTunnelReady(localPort, 10_000L, alive = { proc.isAlive })
-            } ?: false
+        val ready = withTimeoutOrNull(15_000L) {
+            readyDeferred.await() || pollTunnelReady(localPort, 10_000L, alive = { proc.isAlive })
+        } ?: false
 
-            check(ready && (proc.isAlive || testSocketListening(localPort))) {
-                "Saturn direct client daemon failed to start on 127.0.0.1:$localPort"
-            }
-        } else {
-            LogUtil.w(AppConfig.TAG, "Saturn: native libsaturn.so not packaged, waiting for tunnel listener")
+        check(ready && (proc.isAlive || testSocketListening(localPort))) {
+            "Saturn direct client daemon failed to start on 127.0.0.1:$localPort"
         }
 
         stage = Stage.READY
