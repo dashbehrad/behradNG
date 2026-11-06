@@ -56,8 +56,10 @@ object SaturnFmt {
     fun parse(uri: String): ProfileItem? = runCatching {
         require(uri.length <= 65536 && uri.startsWith("saturn://"))
 
-        // Legacy encrypted capability link: saturn://v1/...#...
-        if (uri.startsWith("saturn://v1/")) {
+        // Legacy encrypted capability link: saturn://v1/...#... or rejected newer/wrong version
+        val remainder = uri.removePrefix("saturn://")
+        if (remainder.startsWith("v") && remainder.substringBefore('#').substringBefore('?').contains('/')) {
+            require(uri.startsWith("saturn://v1/"))
             val pieces = uri.removePrefix("saturn://v1/").split('#')
             require(pieces.size == 2)
             val bytes = Base64.UrlSafe.decode(pieces[0])
@@ -84,7 +86,7 @@ object SaturnFmt {
         val uuid = parsedUri.userInfo.orEmpty()
         val host = parsedUri.host.orEmpty()
         val port = if (parsedUri.port > 0) parsedUri.port else 443
-        require(host.isNotBlank() && port in 1..65535)
+        require(uuid.isNotBlank() && host.isNotBlank() && port in 1..65535)
 
         val queryMap = mutableMapOf<String, String>()
         parsedUri.rawQuery?.split('&')?.forEach { param ->
@@ -101,6 +103,8 @@ object SaturnFmt {
         val frag = queryMap["frag"] ?: "1-5"
         val remarks = parsedUri.fragment?.let { Utils.decodeURIComponent(it) }?.ifBlank { "Saturn-Direct" } ?: "Saturn-Direct"
 
+        require(pbk.isNotBlank())
+
         val settings = SaturnSettings(
             server = host,
             serverPort = port,
@@ -111,7 +115,7 @@ object SaturnFmt {
             fingerprint = fp,
             fragmentation = frag
         )
-        require(settings.isValid())
+        require(settings.isDirectSaturn() && settings.isValid())
 
         ProfileItem.create(EConfigType.SATURN).copy(
             remarks = remarks,

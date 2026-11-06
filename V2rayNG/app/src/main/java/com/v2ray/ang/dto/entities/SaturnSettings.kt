@@ -122,10 +122,12 @@ data class SaturnSettings(
             val fields = line.split(Regex("\\s+"))
             if (fields.size != 5 || fields[0] != "obfs4") return false
             val address = fields[1].substringBeforeLast(':').removeSurrounding("[", "]")
-            return (isIpLiteral(address) || address.matches(Regex("[a-zA-Z0-9.-]+"))) &&
-                (fields[1].substringAfterLast(':', "").toIntOrNull() ?: -1) in 1..65535 &&
-                fields[2].matches(Regex("[0-9A-Fa-f]{40}")) &&
-                fields[3].startsWith("cert=") && fields[4].startsWith("iat-mode=")
+            val port = fields[1].substringAfterLast(':', "").toIntOrNull() ?: return false
+            val validHost = isIpLiteral(address) || (address.length in 1..253 &&
+                address.split('.').all { it.matches(Regex("[A-Za-z0-9](?:[A-Za-z0-9-]{0,61}[A-Za-z0-9])?")) })
+            return validHost && port in 1..65535 && fields[2].matches(Regex("[A-Fa-f0-9]{40}")) &&
+                fields[3].matches(Regex("cert=[A-Za-z0-9+/]{70}={0,2}")) &&
+                fields[4] in setOf("iat-mode=0", "iat-mode=1", "iat-mode=2")
         }
     }
 }
