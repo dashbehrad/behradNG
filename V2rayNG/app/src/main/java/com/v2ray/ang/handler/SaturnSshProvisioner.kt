@@ -45,7 +45,7 @@ object SaturnSshProvisioner {
         return if (isRoot) {
             runner
         } else {
-            "sudo -E env DEBIAN_FRONTEND=noninteractive $runner"
+            "sudo -i $runner"
         }
     }
 
@@ -151,15 +151,16 @@ object SaturnSshProvisioner {
             }
 
             val exitStatus = channel.exitStatus
-            if (capturedUri.isNullOrBlank()) {
+            val uri = capturedUri
+            if (uri.isNullOrBlank()) {
                 val err = "Deployment finished with exit code $exitStatus but no Saturn config was generated."
                 onEvent(DeployEvent.Error(err))
                 return@withContext Result.failure(IllegalStateException(err))
             }
 
             onEvent(DeployEvent.Progress("Importing Profile...", 98))
-            val profile = SaturnFmt.parse(capturedUri!!)
-                ?: throw IllegalStateException("Failed to parse generated Saturn URI: $capturedUri")
+            val profile = SaturnFmt.parse(uri)
+                ?: throw IllegalStateException("Failed to parse generated Saturn URI: $uri")
 
             val remarks = "Saturn-${creds.host}"
             val finalProfile = profile.copy(remarks = remarks)
@@ -169,7 +170,7 @@ object SaturnSshProvisioner {
             }
 
             onEvent(DeployEvent.Progress("Saturn Ready!", 100))
-            onEvent(DeployEvent.Success(guid, finalProfile, capturedUri!!))
+            onEvent(DeployEvent.Success(guid, finalProfile, uri))
             Result.success(finalProfile)
         } catch (t: Throwable) {
             LogUtil.e(TAG, "SSH Deployment failed", t)
