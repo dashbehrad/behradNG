@@ -74,7 +74,7 @@ class ServerSaturnActivity : BaseComponentActivity() {
                         .fillMaxWidth()
                         .padding(horizontal = 16.dp, vertical = 4.dp)
                 ) {
-                    Text(stringResource(R.string.saturn_deploy_button))
+                    Text(stringResource(R.string.saturn_deploy_title))
                 }
 
                 if (state.loading) {
