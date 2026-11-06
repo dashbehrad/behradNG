@@ -149,13 +149,23 @@ class SaturnEditorViewModel @JvmOverloads constructor(
         viewModelScope.launch(editorDispatcher) {
             try {
                 val savedGuid = withContext(Dispatchers.IO) {
-                    val profile = initial.copy(
-                        remarks = snapshot.remarks.trim(),
-                        server = "127.0.0.1",
-                        serverPort = AppConfig.PORT_SOCKS,
-                        network = snapshot.settings.normalizedCarrier(),
-                        saturnSettings = snapshot.settings,
-                    )
+                    val profile = if (snapshot.settings.isDirectSaturn()) {
+                        initial.copy(
+                            remarks = snapshot.remarks.trim(),
+                            server = snapshot.settings.server,
+                            serverPort = snapshot.settings.serverPort.toString(),
+                            network = "direct",
+                            saturnSettings = snapshot.settings,
+                        )
+                    } else {
+                        initial.copy(
+                            remarks = snapshot.remarks.trim(),
+                            server = "127.0.0.1",
+                            serverPort = AppConfig.PORT_SOCKS,
+                            network = snapshot.settings.normalizedCarrier(),
+                            saturnSettings = snapshot.settings,
+                        )
+                    }
                     saveProfile(guid, profile)
                 }
                 check(savedGuid.isNotBlank()) { "Saved profile GUID missing" }

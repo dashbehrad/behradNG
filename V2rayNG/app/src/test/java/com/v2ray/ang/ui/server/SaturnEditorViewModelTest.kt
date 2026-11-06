@@ -209,4 +209,27 @@ class SaturnEditorViewModelTest {
         assertNotEquals(accountId, newAccountId)
         assertNotEquals(token, newToken)
     }
+
+    @Test fun directSaturnProfileSavesDirectFields(): Unit = runBlocking {
+        var saved: ProfileItem? = null
+        val directSettings = SaturnSettings(
+            server = "198.51.100.5",
+            serverPort = 8443,
+            uuid = "12345678-1234-1234-1234-123456789abc",
+            publicKey = "saturnPubkey1234567890abcdef",
+            sni = "dl.google.com"
+        )
+        val viewModel = SaturnEditorViewModel(mock<Application>(), SavedStateHandle(), Dispatchers.Unconfined,
+            { _, _ -> ProfileItem.create(EConfigType.SATURN).copy(remarks = "Direct VPS", saturnSettings = directSettings) },
+            { _, profile -> saved = profile; "guid-direct" })
+        viewModel.initialize("guid-direct", "")
+        withTimeout(3_000) { viewModel.state.first { !it.loading } }
+        assertTrue(viewModel.state.value.settings.isDirectSaturn())
+        viewModel.save()
+        withTimeout(3_000) { viewModel.state.first { it.savedGuid != null } }
+        assertEquals("198.51.100.5", saved?.server)
+        assertEquals("8443", saved?.serverPort)
+        assertEquals("direct", saved?.network)
+        assertEquals(directSettings, saved?.saturnSettings)
+    }
 }
