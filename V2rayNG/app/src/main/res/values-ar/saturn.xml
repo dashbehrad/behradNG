@@ -63,6 +63,7 @@
     <string name="saturn_deploy_sni">نطاق التمويه (SNI)</string>
     <string name="saturn_deploy_btn_start">تثبيت Saturn على الخادم</string>
     <string name="saturn_deploy_btn_cancel">إلغاء التثبيت</string>
+    <string name="saturn_deploy_btn_add_to_configs">إضافة إلى التكوينات</string>
     <string name="saturn_deploy_btn_finish">إنهاء والاتصال</string>
     <string name="saturn_deploy_console">سجل وحدة تحكم التثبيت</string>
 </resources>

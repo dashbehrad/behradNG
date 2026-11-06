@@ -376,22 +376,42 @@ func handleHTTP(conn net.Conn, br *bufio.Reader, pool *ClientPool) {
 }
 
 func relayBufferedConn(conn net.Conn, br *bufio.Reader, stream *smux.Stream) {
-	done := make(chan struct{}, 2)
+	var once sync.Once
+	closeBoth := func() {
+		_ = conn.Close()
+		_ = stream.Close()
+	}
 
+	var wg sync.WaitGroup
+	wg.Add(2)
+
+	// Inbound -> Smux Stream (Upload)
 	go func() {
+		defer wg.Done()
 		if br.Buffered() > 0 {
 			buf := make([]byte, br.Buffered())
 			_, _ = io.ReadFull(br, buf)
 			_, _ = stream.Write(buf)
 		}
-		_, _ = io.Copy(stream, conn)
-		done <- struct{}{}
+		buf := make([]byte, 32*1024)
+		_, _ = io.CopyBuffer(stream, conn, buf)
+
+		// Upload complete. Allow up to 30s for the downstream response before closing.
+		time.Sleep(30 * time.Second)
+		once.Do(closeBoth)
 	}()
 
+	// Smux Stream -> Inbound (Download / Response)
 	go func() {
-		_, _ = io.Copy(conn, stream)
-		done <- struct{}{}
+		defer wg.Done()
+		buf := make([]byte, 32*1024)
+		_, _ = io.CopyBuffer(conn, stream, buf)
+		if tc, ok := conn.(*net.TCPConn); ok {
+			_ = tc.CloseWrite()
+		}
+		once.Do(closeBoth)
 	}()
 
-	<-done
+	wg.Wait()
+	once.Do(closeBoth)
 }

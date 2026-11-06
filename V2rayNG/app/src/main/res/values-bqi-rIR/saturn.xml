@@ -63,6 +63,7 @@
     <string name="saturn_deploy_sni">دامنه استتار (SNI)</string>
     <string name="saturn_deploy_btn_start">نصب Saturn رو سرور</string>
     <string name="saturn_deploy_btn_cancel">لغو نصب</string>
+    <string name="saturn_deploy_btn_add_to_configs">اضافه کردن وه کانفیگ‌ها</string>
     <string name="saturn_deploy_btn_finish">پایان و وصل بیین</string>
     <string name="saturn_deploy_console">لاگ کنسول نصب</string>
 </resources>

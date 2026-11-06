@@ -63,6 +63,7 @@
     <string name="saturn_deploy_sni">ছদ্মবেশ SNI</string>
     <string name="saturn_deploy_btn_start">VPS-এ Saturn স্থাপন করুন</string>
     <string name="saturn_deploy_btn_cancel">বাতিল করুন</string>
+    <string name="saturn_deploy_btn_add_to_configs">কনফিগারেশনে যোগ করুন</string>
     <string name="saturn_deploy_btn_finish">শেষ করুন এবং সংযোগ করুন</string>
     <string name="saturn_deploy_console">কনসোল আউটপুট</string>
 </resources>

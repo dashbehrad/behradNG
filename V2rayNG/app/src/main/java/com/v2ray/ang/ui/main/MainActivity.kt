@@ -98,6 +98,11 @@ class MainActivity : HelperBaseComponentActivity() {
         checkAndRequestPermission(PermissionType.POST_NOTIFICATIONS) {}
     }
 
+    override fun onResume() {
+        super.onResume()
+        mainViewModel.reloadServerList()
+    }
+
     @Composable
     override fun ScreenContent() {
         BackHandler { moveTaskToBack(false) }
@@ -111,7 +116,7 @@ class MainActivity : HelperBaseComponentActivity() {
                     MainAction.ImportClipboard -> importClipboard()
                     MainAction.ImportConfigLocal -> importConfigLocal()
                     is MainAction.ImportManually -> importManually(action.type)
-                    MainAction.DeploySaturn -> startActivity(Intent(this, com.v2ray.ang.ui.server.SaturnDeployActivity::class.java))
+                    MainAction.DeploySaturn -> profileEditorLauncher.launch(Intent(this, com.v2ray.ang.ui.server.SaturnDeployActivity::class.java))
                     MainAction.RestartService -> LauncherManager.restartServiceOrStart(this, ::requestServiceStart)
                     MainAction.LocateSelectedServer -> mainViewModel.triggerLocateSelectedServer()
                     is MainAction.SelectServer -> setSelectServer(action.guid)
@@ -145,7 +150,10 @@ class MainActivity : HelperBaseComponentActivity() {
             MainDestination.Routing -> Intent(this, RoutingSettingActivity::class.java)
             MainDestination.UserAssets -> Intent(this, UserAssetActivity::class.java)
             MainDestination.Settings -> Intent(this, SettingsActivity::class.java)
-            MainDestination.SaturnDeploy -> Intent(this, com.v2ray.ang.ui.server.SaturnDeployActivity::class.java)
+            MainDestination.SaturnDeploy -> {
+                profileEditorLauncher.launch(Intent(this, com.v2ray.ang.ui.server.SaturnDeployActivity::class.java))
+                return
+            }
             MainDestination.Logcat -> Intent(this, LogcatActivity::class.java)
             MainDestination.CheckUpdate -> Intent(this, CheckUpdateActivity::class.java)
             MainDestination.BackupRestore -> Intent(this, BackupActivity::class.java)

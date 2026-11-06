@@ -84,18 +84,6 @@ fun ExpressConnectDashboard(
 ) {
     val haptic = LocalHapticFeedback.current
     val scrollState = rememberScrollState()
-    val context = LocalContext.current
-    var remainingDataText by remember { mutableStateOf<String?>(null) }
-    LaunchedEffect(selectedGuid) {
-        if (selectedProfile?.configType == com.v2ray.ang.enums.EConfigType.SATURN) {
-            val usage = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
-                com.v2ray.ang.core.UrnetworkManager.fetchDataCap(context)
-            }
-            if (usage != null) {
-                remainingDataText = usage.formattedRemaining
-            }
-        }
-    }
 
     // Pulse animation for connected state
     val infiniteTransition = rememberInfiniteTransition(label = "ExpressPulse")
@@ -203,40 +191,7 @@ fun ExpressConnectDashboard(
             )
         }
 
-        if (selectedProfile?.configType == com.v2ray.ang.enums.EConfigType.SATURN) {
-            Spacer(modifier = Modifier.height(16.dp))
-            val usageText = remainingDataText
-                ?: com.v2ray.ang.core.UrnetworkManager.cachedUsage?.formattedRemaining
-                ?: stringResource(R.string.saturn_ur_remaining_data)
-            Surface(
-                shape = RoundedCornerShape(14.dp),
-                color = MaterialTheme.colorScheme.surfaceContainerHigh.copy(alpha = 0.9f),
-                border = BorderStroke(1.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.4f)),
-                shadowElevation = 2.dp,
-                modifier = Modifier.padding(horizontal = 16.dp)
-            ) {
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    modifier = Modifier.padding(horizontal = 14.dp, vertical = 6.dp)
-                ) {
-                    Icon(
-                        painter = painterResource(R.drawable.ic_shield_24dp),
-                        contentDescription = null,
-                        tint = MaterialTheme.colorScheme.primary,
-                        modifier = Modifier.size(16.dp)
-                    )
-                    Spacer(modifier = Modifier.width(8.dp))
-                    Text(
-                        text = usageText,
-                        style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.Bold),
-                        color = MaterialTheme.colorScheme.onSurface
-                    )
-                }
-            }
-            Spacer(modifier = Modifier.height(16.dp))
-        } else {
-            Spacer(modifier = Modifier.height(28.dp))
-        }
+        Spacer(modifier = Modifier.height(28.dp))
 
         // ExpressVPN Giant Power Button
         Box(

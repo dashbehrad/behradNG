@@ -52,7 +52,6 @@ fun MainBottomBar(
     displayText: String,
     isRunning: Boolean,
     isDarkTheme: Boolean,
-    saturnRemainingData: String? = null,
     onAction: (MainAction) -> Unit
 ) {
     val scope = rememberCoroutineScope()
@@ -88,40 +87,6 @@ fun MainBottomBar(
                         contentDescription = displayText
                     }
                 )
-            }
-        }
-        if (!saturnRemainingData.isNullOrBlank()) {
-            Surface(
-                shape = RoundedCornerShape(12.dp),
-                color = MaterialTheme.colorScheme.surfaceContainerHigh,
-                border = BorderStroke(
-                    1.dp,
-                    MaterialTheme.colorScheme.primary.copy(alpha = 0.5f)
-                ),
-                shadowElevation = 3.dp,
-                modifier = Modifier
-                    .align(Alignment.TopEnd)
-                    .padding(end = 16.dp)
-                    .offset(y = (-76).dp)
-                    .navigationBarsPadding()
-            ) {
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp)
-                ) {
-                    Icon(
-                        painter = painterResource(R.drawable.ic_cloud_download_24dp),
-                        contentDescription = null,
-                        tint = MaterialTheme.colorScheme.primary,
-                        modifier = Modifier.size(14.dp)
-                    )
-                    Spacer(modifier = Modifier.width(6.dp))
-                    Text(
-                        text = saturnRemainingData,
-                        style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold),
-                        color = MaterialTheme.colorScheme.onSurface
-                    )
-                }
             }
         }
         FloatingActionButton(

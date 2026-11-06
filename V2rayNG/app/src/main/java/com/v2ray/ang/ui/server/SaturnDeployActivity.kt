@@ -53,6 +53,7 @@ import com.v2ray.ang.handler.MmkvManager
 import com.v2ray.ang.ui.base.BaseComponentActivity
 import com.v2ray.ang.ui.compose.AppTopBar
 import com.v2ray.ang.ui.compose.FormTextField
+import com.v2ray.ang.ui.server.ProfileEditorResult.finishSaved
 
 class SaturnDeployActivity : BaseComponentActivity() {
     private val viewModel: SaturnDeployViewModel by viewModels()
@@ -276,27 +277,58 @@ class SaturnDeployActivity : BaseComponentActivity() {
                         Text(stringResource(R.string.saturn_deploy_btn_cancel))
                     }
                 } else if (state.isFinished) {
-                    Button(
-                        onClick = {
-                            state.deployedGuid?.let { guid ->
-                                MmkvManager.setSelectServer(guid)
-                                LauncherManager.restartServiceOrStart(this@SaturnDeployActivity) {
-                                    LauncherManager.startService(this@SaturnDeployActivity)
-                                }
-                            }
-                            finish()
-                        },
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .height(52.dp),
-                        colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary),
-                        shape = RoundedCornerShape(12.dp)
+                    Column(
+                        modifier = Modifier.fillMaxWidth(),
+                        verticalArrangement = Arrangement.spacedBy(8.dp)
                     ) {
-                        Text(
-                            text = stringResource(R.string.saturn_deploy_btn_finish),
-                            fontWeight = FontWeight.Bold,
-                            fontSize = 16.sp
-                        )
+                        Button(
+                            onClick = {
+                                val guid = state.deployedGuid
+                                if (guid != null) {
+                                    MmkvManager.setSelectServer(guid)
+                                    finishSaved(guid, restartService = false)
+                                } else {
+                                    finish()
+                                }
+                            },
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .height(50.dp),
+                            colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.secondary),
+                            shape = RoundedCornerShape(12.dp)
+                        ) {
+                            Text(
+                                text = stringResource(R.string.saturn_deploy_btn_add_to_configs),
+                                fontWeight = FontWeight.Bold,
+                                fontSize = 15.sp
+                            )
+                        }
+
+                        Button(
+                            onClick = {
+                                val guid = state.deployedGuid
+                                if (guid != null) {
+                                    MmkvManager.setSelectServer(guid)
+                                    LauncherManager.restartServiceOrStart(this@SaturnDeployActivity) {
+                                        LauncherManager.startService(this@SaturnDeployActivity)
+                                    }
+                                    finishSaved(guid, restartService = true)
+                                } else {
+                                    finish()
+                                }
+                            },
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .height(50.dp),
+                            colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary),
+                            shape = RoundedCornerShape(12.dp)
+                        ) {
+                            Text(
+                                text = stringResource(R.string.saturn_deploy_btn_finish),
+                                fontWeight = FontWeight.Bold,
+                                fontSize = 15.sp
+                            )
+                        }
                     }
                 }
 

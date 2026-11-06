@@ -94,17 +94,45 @@ type HandshakeResult struct {
 	ClientRandom []byte
 }
 
+// readInitialClientRecord reads the initial TLS record, assembling fragmented records if necessary.
+func readInitialClientRecord(r io.Reader) ([]byte, error) {
+	header := make([]byte, 5)
+	if _, err := io.ReadFull(r, header); err != nil {
+		return nil, err
+	}
+	// Check if this is a TLS record (0x16 0x03)
+	if header[0] == 0x16 && header[1] == 0x03 {
+		recordLen := int(binary.BigEndian.Uint16(header[3:5]))
+		if recordLen > 0 && recordLen <= 16384 {
+			fullRecord := make([]byte, 5+recordLen)
+			copy(fullRecord, header)
+			if _, err := io.ReadFull(r, fullRecord[5:]); err != nil {
+				return nil, err
+			}
+			return fullRecord, nil
+		}
+	}
+	// Non-TLS or abnormal record: read any immediate buffered data (probe fallback)
+	buf := make([]byte, 4096)
+	copy(buf, header)
+	if conn, ok := r.(net.Conn); ok {
+		_ = conn.SetReadDeadline(time.Now().Add(50 * time.Millisecond))
+		n, _ := conn.Read(buf[5:])
+		_ = conn.SetReadDeadline(time.Time{})
+		return buf[:5+n], nil
+	}
+	return header, nil
+}
+
 // HandleServerHandshake performs stealth authentication or transparent active probe fallback.
 func HandleServerHandshake(clientConn net.Conn, cfg *ServerHandshakeConfig) (*HandshakeResult, net.Conn, error) {
 	_ = clientConn.SetReadDeadline(time.Now().Add(HandshakeTimeout))
 
-	// Buffer up to 4KB of initial client bytes (standard ClientHello is 300 - 2000 bytes)
-	buf := make([]byte, 4096)
-	n, err := clientConn.Read(buf)
+	// Reliably assemble initial client record (handling TLS record fragmentation)
+	initialBytes, err := readInitialClientRecord(clientConn)
 	if err != nil {
 		return nil, nil, err
 	}
-	initialBytes := buf[:n]
 
 	// Attempt to authenticate client
 	result, authErr := verifyClientHello(initialBytes, cfg)

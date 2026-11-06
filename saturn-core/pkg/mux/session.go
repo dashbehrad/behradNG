@@ -135,24 +135,38 @@ func DefaultSmuxConfig() *smux.Config {
 
 // RelayStreams proxies bidirectional traffic between two network streams with EOF handling.
 func RelayStreams(stream1, stream2 io.ReadWriteCloser) {
-	defer stream1.Close()
-	defer stream2.Close()
+	var once sync.Once
+	closeBoth := func() {
+		_ = stream1.Close()
+		_ = stream2.Close()
+	}
 
-	done := make(chan struct{}, 2)
+	var wg sync.WaitGroup
+	wg.Add(2)
 
+	// stream1 (smux stream) -> stream2 (remote target TCP)
 	go func() {
+		defer wg.Done()
 		buf := make([]byte, 32768)
 		_, _ = io.CopyBuffer(stream2, stream1, buf)
-		done <- struct{}{}
+		if tc, ok := stream2.(*net.TCPConn); ok {
+			_ = tc.CloseWrite()
+		}
+		// Allow remote destination up to 30s to return any final response data
+		time.Sleep(30 * time.Second)
+		once.Do(closeBoth)
 	}()
 
+	// stream2 (remote target TCP) -> stream1 (smux stream)
 	go func() {
+		defer wg.Done()
 		buf := make([]byte, 32768)
 		_, _ = io.CopyBuffer(stream1, stream2, buf)
-		done <- struct{}{}
+		once.Do(closeBoth)
 	}()
 
-	<-done
+	wg.Wait()
+	once.Do(closeBoth)
 }
 
 // WriteAddressHeader writes target address [addrType, len, host..., port (2B)] to stream.

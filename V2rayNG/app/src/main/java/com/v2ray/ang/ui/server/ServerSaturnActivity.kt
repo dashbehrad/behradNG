@@ -71,11 +71,19 @@ class ServerSaturnActivity : BaseComponentActivity() {
                     Modifier.padding(16.dp),
                     style = MaterialTheme.typography.headlineSmall
                 )
-                Text(
-                    stringResource(R.string.saturn_chain_hint),
-                    Modifier.padding(horizontal = 16.dp),
-                    style = MaterialTheme.typography.bodyMedium
-                )
+                if (settings.isDirectSaturn()) {
+                    Text(
+                        stringResource(R.string.saturn_deploy_desc),
+                        Modifier.padding(horizontal = 16.dp),
+                        style = MaterialTheme.typography.bodyMedium
+                    )
+                } else {
+                    Text(
+                        stringResource(R.string.saturn_chain_hint),
+                        Modifier.padding(horizontal = 16.dp),
+                        style = MaterialTheme.typography.bodyMedium
+                    )
+                }
                 if (state.loading) {
                     Text(stringResource(R.string.saturn_loading), Modifier.padding(16.dp))
                 }

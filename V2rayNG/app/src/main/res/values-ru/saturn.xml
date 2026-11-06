@@ -63,6 +63,7 @@
     <string name="saturn_deploy_sni">Маскирующий SNI</string>
     <string name="saturn_deploy_btn_start">Установить Saturn на VPS</string>
     <string name="saturn_deploy_btn_cancel">Отмена</string>
+    <string name="saturn_deploy_btn_add_to_configs">Добавить в конфигурации</string>
     <string name="saturn_deploy_btn_finish">Завершить и подключиться</string>
     <string name="saturn_deploy_console">Консоль установки</string>
 </resources>

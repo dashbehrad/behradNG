@@ -63,6 +63,7 @@
     <string name="saturn_deploy_sni">伪装 SNI</string>
     <string name="saturn_deploy_btn_start">在 VPS 上部署 Saturn</string>
     <string name="saturn_deploy_btn_cancel">取消部署</string>
+    <string name="saturn_deploy_btn_add_to_configs">添加到配置列表</string>
     <string name="saturn_deploy_btn_finish">完成并连接</string>
     <string name="saturn_deploy_console">部署控制台输出</string>
 </resources>

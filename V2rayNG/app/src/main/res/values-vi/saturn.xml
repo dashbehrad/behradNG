@@ -63,6 +63,7 @@
     <string name="saturn_deploy_sni">SNI ngụy trang</string>
     <string name="saturn_deploy_btn_start">Triển khai Saturn lên VPS</string>
     <string name="saturn_deploy_btn_cancel">Hủy bỏ</string>
+    <string name="saturn_deploy_btn_add_to_configs">Thêm vào cấu hình</string>
     <string name="saturn_deploy_btn_finish">Hoàn tất &amp; Kết nối</string>
     <string name="saturn_deploy_console">Nhật ký bảng điều khiển</string>
 </resources>

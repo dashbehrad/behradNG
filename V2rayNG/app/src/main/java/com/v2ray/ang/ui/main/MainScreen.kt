@@ -187,16 +187,10 @@ fun MainScreen(
                 )
             },
             bottomBar = {
-                val isSaturn = remember(selectedGuid) {
-                    val config = selectedGuid?.let { com.v2ray.ang.handler.MmkvManager.decodeServerConfig(it) }
-                    config?.configType == com.v2ray.ang.enums.EConfigType.SATURN
-                }
-                val saturnRemainingData = if (isSaturn) stringResource(R.string.saturn_ur_remaining_data) else null
                 MainBottomBar(
                     displayText = displayText,
                     isRunning = isRunning,
                     isDarkTheme = isDarkTheme,
-                    saturnRemainingData = saturnRemainingData,
                     onAction = onAction
                 )
             },

@@ -177,18 +177,21 @@ if [ -n "$CUSTOM_BIN" ] && [ -f "$CUSTOM_BIN" ]; then
 elif [ -n "$CUSTOM_BIN" ] && [[ "$CUSTOM_BIN" == http* ]]; then
     echo "[*] Downloading custom binary from $CUSTOM_BIN..."
     fetch_file "$CUSTOM_BIN" "$BIN_PATH"
-elif [ ! -f "$BIN_PATH" ]; then
-    echo "[*] Deploying saturn-server binary..."
+else
+    echo "[*] Deploying latest saturn-server binary..."
     SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+    DEPLOYED=0
     if [ -f "$SCRIPT_DIR/bin/saturn-server-linux-$ARCH" ]; then
-        cp "$SCRIPT_DIR/bin/saturn-server-linux-$ARCH" "$BIN_PATH"
+        cp -f "$SCRIPT_DIR/bin/saturn-server-linux-$ARCH" "$BIN_PATH"
+        DEPLOYED=1
     elif [ -f "$SCRIPT_DIR/saturn-server" ]; then
-        cp "$SCRIPT_DIR/saturn-server" "$BIN_PATH"
+        cp -f "$SCRIPT_DIR/saturn-server" "$BIN_PATH"
+        DEPLOYED=1
     else
         # Try direct prebuilt binary from GitHub Releases first
-        DOWNLOAD_OK=0
         for URL in \
             "https://github.com/dashbehrad/behradNG/releases/latest/download/saturn-server-linux-$ARCH" \
+            "https://github.com/dashbehrad/behradNG/releases/download/3.0.2/saturn-server-linux-$ARCH" \
             "https://github.com/dashbehrad/behradNG/releases/download/3.0.1/saturn-server-linux-$ARCH" \
             "https://github.com/dashbehrad/behradNG/releases/download/3.0.0/saturn-server-linux-$ARCH"; do
             echo "[*] Fetching saturn-server ($ARCH) from $URL..."
@@ -196,19 +199,20 @@ elif [ ! -f "$BIN_PATH" ]; then
                 chmod +x "$BIN_PATH"
                 if "$BIN_PATH" keygen >/dev/null 2>&1; then
                     echo "[+] Downloaded and verified saturn-server binary."
-                    DOWNLOAD_OK=1
+                    DEPLOYED=1
                     break
                 fi
             fi
         done
 
         # If download failed, build from source ONLY if Go compiler already exists
-        if [ "$DOWNLOAD_OK" -ne 1 ]; then
+        if [ "$DEPLOYED" -ne 1 ]; then
             if command -v go >/dev/null 2>&1; then
                 echo "[*] Prebuilt download unavailable. Compiling from repository source..."
                 TMP_SRC="$(mktemp -d /tmp/saturn-src-XXXXXX)"
                 if curl -fsSL --retry 3 --connect-timeout 10 "https://github.com/dashbehrad/behradNG/archive/refs/heads/main.tar.gz" | tar -xz -C "$TMP_SRC" --strip-components=1 2>/dev/null; then
                     (cd "$TMP_SRC/saturn-core" && CGO_ENABLED=0 go build -trimpath -ldflags="-s -w" -o "$BIN_PATH" ./cmd/saturn-server)
+                    DEPLOYED=1
                 fi
                 rm -rf "$TMP_SRC"
             fi

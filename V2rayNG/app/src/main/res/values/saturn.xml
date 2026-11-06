@@ -67,6 +67,7 @@
     <string name="saturn_deploy_sni">Camouflage SNI</string>
     <string name="saturn_deploy_btn_start">Deploy Saturn to VPS</string>
     <string name="saturn_deploy_btn_cancel">Cancel Deployment</string>
+    <string name="saturn_deploy_btn_add_to_configs">Add to Configurations</string>
     <string name="saturn_deploy_btn_finish">Finish &amp; Connect</string>
     <string name="saturn_deploy_console">Deployment Console Output</string>
 </resources>

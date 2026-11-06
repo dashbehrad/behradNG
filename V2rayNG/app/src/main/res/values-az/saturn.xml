@@ -63,6 +63,7 @@
     <string name="saturn_deploy_sni">Kamuflyaj SNI</string>
     <string name="saturn_deploy_btn_start">Saturnu Serverə Quraşdır</string>
     <string name="saturn_deploy_btn_cancel">Quraşdırmanı ləğv et</string>
+    <string name="saturn_deploy_btn_add_to_configs">Konfiqurasiyalara əlavə et</string>
     <string name="saturn_deploy_btn_finish">Bitir və Qoşul</string>
     <string name="saturn_deploy_console">Quraşdırma Konsol Çıxışı</string>
 </resources>
