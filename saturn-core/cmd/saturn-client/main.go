@@ -382,36 +382,25 @@ func relayBufferedConn(conn net.Conn, br *bufio.Reader, stream *smux.Stream) {
 		_ = stream.Close()
 	}
 
-	var wg sync.WaitGroup
-	wg.Add(2)
+	done := make(chan struct{})
 
 	// Inbound -> Smux Stream (Upload)
 	go func() {
-		defer wg.Done()
-		if br.Buffered() > 0 {
-			buf := make([]byte, br.Buffered())
-			_, _ = io.ReadFull(br, buf)
-			_, _ = stream.Write(buf)
-		}
 		buf := make([]byte, 32*1024)
-		_, _ = io.CopyBuffer(stream, conn, buf)
-
-		// Upload complete. Allow up to 30s for the downstream response before closing.
-		time.Sleep(30 * time.Second)
-		once.Do(closeBoth)
+		_, err := io.CopyBuffer(stream, br, buf)
+		if err != nil {
+			once.Do(closeBoth)
+		}
 	}()
 
 	// Smux Stream -> Inbound (Download / Response)
 	go func() {
-		defer wg.Done()
+		defer close(done)
 		buf := make([]byte, 32*1024)
 		_, _ = io.CopyBuffer(conn, stream, buf)
-		if tc, ok := conn.(*net.TCPConn); ok {
-			_ = tc.CloseWrite()
-		}
 		once.Do(closeBoth)
 	}()
 
-	wg.Wait()
+	<-done
 	once.Do(closeBoth)
 }

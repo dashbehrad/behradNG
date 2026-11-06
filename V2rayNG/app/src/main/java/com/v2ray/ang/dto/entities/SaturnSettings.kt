@@ -59,7 +59,9 @@ data class SaturnSettings(
 
     fun usesDirectConnection(): Boolean = bridgeSource == "direct" || (!usesAutomaticBridges() && bridges.trim().equals("DIRECT", ignoreCase = true))
 
-    fun normalizedCarrier(): String = when (carrier?.lowercase()?.trim()) {
+    fun normalizedCarrier(): String = if (isDirectSaturn()) {
+        "Direct"
+    } else when (carrier?.lowercase()?.trim()) {
         "h3", "http3", "http/3" -> "h3"
         else -> normalizedAetherCarrier()
     }

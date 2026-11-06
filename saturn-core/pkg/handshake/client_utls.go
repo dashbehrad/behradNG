@@ -130,8 +130,8 @@ func ClientHandshake(tcpConn net.Conn, cfg *ClientHandshakeConfig) (*HandshakeRe
 		return nil, nil, fmt.Errorf("failed to build handshake state: %w", err)
 	}
 	rawClientHello := uConn.HandshakeState.Hello.Raw
-	if len(rawClientHello) == 0 {
-		return nil, nil, errors.New("raw ClientHello is empty")
+	if len(rawClientHello) < 71 {
+		return nil, nil, errors.New("raw ClientHello is too short")
 	}
 
 	// Wrap in standard TLS record: 0x16 0x03 0x01
@@ -141,6 +141,17 @@ func ClientHandshake(tcpConn net.Conn, cfg *ClientHandshakeConfig) (*HandshakeRe
 	record[2] = 0x01
 	binary.BigEndian.PutUint16(record[3:5], uint16(len(rawClientHello)))
 	copy(record[5:], rawClientHello)
+
+	// Embed Saturn credentials into standard TLS 1.3 ClientHello fields:
+	// 1. ClientRandom (bytes 11..43): timestamp & ShortID
+	// 2. SessionID (bytes 44..76): HMAC-SHA256 Auth Token (RFC 8446 Appendix D.4 legacy_session_id)
+	// 3. KeyShare Extension 0x0033: X25519 group 0x001d ephemeral public key (32 bytes)
+	// This preserves 100% uTLS fingerprint and JA3/JA4 hash consistency with genuine Chrome.
+	copy(record[11:43], clientRandom[:])
+	copy(record[44:76], token[:])
+	if !injectClientKeyShare(record, ephemKP.PublicKey[:]) {
+		return nil, nil, errors.New("failed to inject client ephemeral public key into KeyShare")
+	}
 
 	// 7. Dynamic TLS Record Fragmentation across SNI
 	minDelay, maxDelay := parseFragmentation(cfg.Fragmentation)
@@ -255,4 +266,45 @@ func parseFragmentation(frag string) (time.Duration, time.Duration) {
 		}
 	}
 	return 2 * time.Millisecond, 5 * time.Millisecond
+}
+
+// injectClientKeyShare replaces the X25519 public key inside TLS 1.3 KeyShare extension (0x0033).
+func injectClientKeyShare(data, pubKey []byte) bool {
+	extOffset := findExtensionsOffset(data)
+	if extOffset <= 0 || extOffset+2 > len(data) {
+		return false
+	}
+	extLen := int(binary.BigEndian.Uint16(data[extOffset : extOffset+2]))
+	extEnd := extOffset + 2 + extLen
+	if extEnd > len(data) {
+		extEnd = len(data)
+	}
+	curr := extOffset + 2
+	for curr+4 <= extEnd {
+		extType := binary.BigEndian.Uint16(data[curr : curr+2])
+		extDataLen := int(binary.BigEndian.Uint16(data[curr+2 : curr+4]))
+		curr += 4
+		if curr+extDataLen > extEnd {
+			break
+		}
+		if extType == 0x0033 && extDataLen >= 36 {
+			ksData := data[curr : curr+extDataLen]
+			if len(ksData) >= 4 {
+				ksListLen := int(binary.BigEndian.Uint16(ksData[:2]))
+				idx := 2
+				for idx+4 <= len(ksData) && idx < 2+ksListLen {
+					group := binary.BigEndian.Uint16(ksData[idx : idx+2])
+					kLen := int(binary.BigEndian.Uint16(ksData[idx+2 : idx+4]))
+					idx += 4
+					if group == 0x001d && kLen == 32 && idx+32 <= len(ksData) {
+						copy(ksData[idx:idx+32], pubKey)
+						return true
+					}
+					idx += kLen
+				}
+			}
+		}
+		curr += extDataLen
+	}
+	return false
 }

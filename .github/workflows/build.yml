@@ -283,8 +283,10 @@ jobs:
           Fast & Secure V2Ray / Xray client for Android with native **Saturn Direct VPN Protocol** and ExpressVPN-inspired interface.
 
           ### 🆕 What's New in ${{ env.RELEASE_TAG }}
-          - 🛠️ **Saturn Direct Stream Pipe Stability**: Fixed premature stream termination and half-close EOF handling in both client and server relays (`io: read/write on closed pipe` error resolved).
-          - 🛡️ **Fragmented ClientHello TLS Reassembly**: Enhanced server-side TLS record buffering to cleanly assemble multi-chunk fragmented ClientHellos without tripping active-probe fallbacks.
+          - 🛡️ **TLS 1.3 ClientHello Stealth Auth Fix**: Fixed uTLS `BuildHandshakeState()` key and token overwriting bug by stamping client ephemeral public key directly into TLS 1.3 `KeyShareExtension` (0x0033) and auth token into `SessionID`, resolving server auth rejections and accidental active-probe fallbacks.
+          - ⏰ **Clock Drift Tolerance**: Expanded anti-replay window to 300s (5 minutes) to avoid false active-probe rejections caused by mobile network clock skew.
+          - 🛠️ **Saturn Direct Stream Pipe Stability**: Fixed premature stream termination and half-close EOF handling in both client and server relays (`io: read/write on closed pipe` and `SSLHandshakeException` resolved).
+          - 🏷️ **UI Subtitle Correction**: Corrected protocol subtitle to display `SATURN / Direct` instead of legacy `SATURN / h2`.
           - 🎯 **One-Click Server Deploy UX**: Added explicit "Add to Configurations" and "Connect Directly" buttons after server deployment, ensuring newly deployed configs immediately appear in the configuration list.
           - 🧹 **Legacy Cleanup**: Removed obsolete fake quota badges ("30 GB Remaining") and legacy URnetwork artifacts.
 

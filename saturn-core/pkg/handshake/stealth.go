@@ -21,7 +21,7 @@ import (
 
 const (
 	HandshakeTimeout = 10 * time.Second
-	MaxClockSkewSec  = 60 // Bounded ±60s anti-replay timestamp window
+	MaxClockSkewSec  = 300 // Bounded ±300s (5-minute) anti-replay timestamp window for real mobile networks
 )
 
 // ReplayCache provides a thread-safe, memory-bounded TTL cache to prevent replay attacks.

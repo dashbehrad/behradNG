@@ -1,6 +1,7 @@
 package handshake_test
 
 import (
+	"net"
 	"testing"
 
 	"saturn-core/pkg/crypto"
@@ -59,5 +60,65 @@ func TestCryptoAuthToken(t *testing.T) {
 	badToken[0] ^= 0xFF
 	if crypto.VerifyAuthToken(token[:], badToken) {
 		t.Fatalf("Tampered token should not verify")
+	}
+}
+
+func TestClientServerHandshake(t *testing.T) {
+	serverKP, err := crypto.GenerateKeypair()
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	shortID := []byte("abcd")
+	uuid := "550e8400-e29b-41d4-a716-446655440000"
+
+	serverCfg := &handshake.ServerHandshakeConfig{
+		PrivateKey:   serverKP.PrivateKey[:],
+		PublicKey:    serverKP.PublicKey[:],
+		UUID:         uuid,
+		ShortID:      shortID,
+		FallbackDest: "127.0.0.1:9999",
+		Cipher:       "chacha20-poly1305",
+	}
+
+	clientCfg := &handshake.ClientHandshakeConfig{
+		ServerAddress: "127.0.0.1",
+		ServerPort:    443,
+		SNI:           "dl.google.com",
+		ServerPubKey:  serverKP.PublicKey[:],
+		ShortID:       shortID,
+		UUID:          uuid,
+		Fingerprint:   "chrome",
+		Fragmentation: "0-0",
+		Cipher:        "chacha20-poly1305",
+	}
+
+	clientConn, serverConn := net.Pipe()
+	defer clientConn.Close()
+	defer serverConn.Close()
+
+	serverErrChan := make(chan error, 1)
+	var serverResult *handshake.HandshakeResult
+	go func() {
+		res, _, err := handshake.HandleServerHandshake(serverConn, serverCfg)
+		serverResult = res
+		serverErrChan <- err
+	}()
+
+	clientResult, _, clientErr := handshake.ClientHandshake(clientConn, clientCfg)
+	serverErr := <-serverErrChan
+
+	t.Logf("serverErr: %v", serverErr)
+	t.Logf("clientErr: %v", clientErr)
+
+	if serverErr != nil {
+		t.Fatalf("ServerHandshake failed: %v", serverErr)
+	}
+	if clientErr != nil {
+		t.Fatalf("ClientHandshake failed: %v", clientErr)
+	}
+
+	if string(clientResult.AEADKey) != string(serverResult.AEADKey) {
+		t.Fatalf("AEAD key mismatch between client and server")
 	}
 }

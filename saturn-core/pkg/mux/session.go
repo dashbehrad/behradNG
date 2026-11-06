@@ -141,31 +141,30 @@ func RelayStreams(stream1, stream2 io.ReadWriteCloser) {
 		_ = stream2.Close()
 	}
 
-	var wg sync.WaitGroup
-	wg.Add(2)
+	done := make(chan struct{})
 
 	// stream1 (smux stream) -> stream2 (remote target TCP)
 	go func() {
-		defer wg.Done()
-		buf := make([]byte, 32768)
-		_, _ = io.CopyBuffer(stream2, stream1, buf)
+		buf := make([]byte, 32*1024)
+		_, err := io.CopyBuffer(stream2, stream1, buf)
+		if err != nil {
+			once.Do(closeBoth)
+			return
+		}
 		if tc, ok := stream2.(*net.TCPConn); ok {
 			_ = tc.CloseWrite()
 		}
-		// Allow remote destination up to 30s to return any final response data
-		time.Sleep(30 * time.Second)
-		once.Do(closeBoth)
 	}()
 
 	// stream2 (remote target TCP) -> stream1 (smux stream)
 	go func() {
-		defer wg.Done()
-		buf := make([]byte, 32768)
+		defer close(done)
+		buf := make([]byte, 32*1024)
 		_, _ = io.CopyBuffer(stream1, stream2, buf)
 		once.Do(closeBoth)
 	}()
 
-	wg.Wait()
+	<-done
 	once.Do(closeBoth)
 }
 
