@@ -182,7 +182,7 @@ behradNG بر پایه v2rayNG و Xray-core ساخته شده و در کنار �
 
 برای گزارش مشکل از [Issues](https://github.com/dashbehrad/behradNG/issues) استفاده کنید. کلید امضا، اطلاعات خصوصی پروکسی و فایل APK را commit نکنید.
 
-موتور دور زدن DPI، وکتورهای جهش و مکانیزم‌های تزریق OOB با ذکر منبع و اقتباس از پروژه [Alan-RIP-Dpi](https://github.com/DrAlanK/Alan-RIP-Dpi-Windows) اثر [DrAlanK](https://github.com/DrAlanK) پیاده‌سازی شده است.
+موتور دور زدن DPI، وکتورهای جهش و مکانیزم‌های تزریق OOB با ذکر منبع و اقتباس از پروژه [Alan-RIP-Dpi](https://github.com/Floxu1/UAC-SNI-Spoofer-Android) اثر [Floxu1](https://github.com/DrAlanK) پیاده‌سازی شده است.
 
 این پروژه تحت مجوز [GNU GPLv3](LICENSE) منتشر می‌شود. مجوزها و اعلان‌های وابستگی‌ها نیز باید رعایت شوند.
 
