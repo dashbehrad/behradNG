@@ -5,10 +5,14 @@ import (
 	"encoding/hex"
 	"flag"
 	"fmt"
+	"io"
 	"log"
 	"net"
+	"net/http"
 	"os"
 	"os/signal"
+	"path/filepath"
+	"runtime"
 	"strings"
 	"syscall"
 	"time"
@@ -22,28 +26,40 @@ import (
 )
 
 func main() {
-	if len(os.Args) < 2 {
-		printUsage()
-		os.Exit(1)
+	if len(os.Args) > 1 {
+		cmd := os.Args[1]
+		if cmd == "keygen" || cmd == "-keygen" || cmd == "--keygen" {
+			handleKeygen()
+			return
+		}
+		if cmd == "-h" || cmd == "--help" || cmd == "help" {
+			printUsage()
+			return
+		}
+		if cmd == "run" {
+			handleRun(os.Args[2:])
+			return
+		}
+		if strings.HasPrefix(cmd, "-") {
+			handleRun(os.Args[1:])
+			return
+		}
 	}
 
-	command := os.Args[1]
-	switch command {
-	case "keygen":
-		handleKeygen()
-	case "run":
-		handleRun(os.Args[2:])
-	default:
-		printUsage()
-		os.Exit(1)
-	}
+	// Default with 0 args: run directly with automatic configuration generation
+	handleRun(nil)
 }
 
 func printUsage() {
-	fmt.Println("Usage: saturn-server <command> [options]")
-	fmt.Println("Commands:")
-	fmt.Println("  keygen                    Generate X25519 keys, UUID, and ShortID")
-	fmt.Println("  run -c <config.json>      Start Saturn server daemon")
+	fmt.Println("🪐 Saturn Stealth Tunnel Server")
+	fmt.Println("Usage: saturn-server [command] [options]")
+	fmt.Println("\nCommands:")
+	fmt.Println("  (no args)                 Start Saturn server (auto-generates config if missing)")
+	fmt.Println("  keygen                    Generate fresh X25519 keys, UUID, and ShortID")
+	fmt.Println("  run -c <config.json>      Start Saturn server daemon with explicit config")
+	fmt.Println("\nOptions:")
+	fmt.Println("  -c <path>                 Path to server JSON config")
+	fmt.Println("  -l <address>              Override listening address (e.g. 0.0.0.0:443)")
 }
 
 func handleKeygen() {
@@ -68,14 +84,143 @@ func handleKeygen() {
 	fmt.Printf("ShortID:     %s\n", shortID)
 }
 
-func handleRun(args []string) {
-	fs := flag.NewFlagSet("run", flag.ExitOnError)
-	configPath := fs.String("c", "/etc/saturn/config.json", "Path to server JSON config")
-	_ = fs.Parse(args)
+func getDefaultConfigPath() string {
+	// 1. If ./config.json exists in working directory
+	if _, err := os.Stat("config.json"); err == nil {
+		return "config.json"
+	}
+	// 2. If /etc/saturn/config.json exists
+	if _, err := os.Stat("/etc/saturn/config.json"); err == nil {
+		return "/etc/saturn/config.json"
+	}
+	// 3. For Windows or non-root Unix
+	if runtime.GOOS == "windows" || os.Geteuid() != 0 {
+		return "config.json"
+	}
+	// 4. Default for Linux root
+	return "/etc/saturn/config.json"
+}
 
-	cfg, err := config.LoadServerConfig(*configPath)
+func detectPublicIP() string {
+	client := http.Client{Timeout: 3 * time.Second}
+	endpoints := []string{
+		"https://api.ipify.org",
+		"https://icanhazip.com",
+		"https://ifconfig.me/ip",
+	}
+	for _, ep := range endpoints {
+		resp, err := client.Get(ep)
+		if err == nil {
+			body, err := io.ReadAll(resp.Body)
+			resp.Body.Close()
+			if err == nil {
+				ip := strings.TrimSpace(string(body))
+				if net.ParseIP(ip) != nil {
+					return ip
+				}
+			}
+		}
+	}
+
+	// Fallback to local network interface
+	conn, err := net.Dial("udp", "8.8.8.8:80")
+	if err == nil {
+		defer conn.Close()
+		localAddr := conn.LocalAddr().(*net.UDPAddr)
+		if !localAddr.IP.IsLoopback() {
+			return localAddr.IP.String()
+		}
+	}
+	return "YOUR_SERVER_IP"
+}
+
+func autoGenerateServerConfig(configPath string) (*config.ServerConfig, string, error) {
+	kp, err := crypto.GenerateKeypair()
 	if err != nil {
-		log.Fatalf("Failed to load server config: %v", err)
+		return nil, "", fmt.Errorf("failed to generate keypair: %w", err)
+	}
+
+	clientUUID := uuid.New().String()
+	var sidBytes [4]byte
+	_, _ = rand.Read(sidBytes[:])
+	shortID := hex.EncodeToString(sidBytes[:])
+
+	privStr := crypto.EncodeKeyBase64(kp.PrivateKey[:])
+	pubStr := crypto.EncodeKeyBase64(kp.PublicKey[:])
+
+	cfg := &config.ServerConfig{
+		Listen:       "0.0.0.0:443",
+		PrivateKey:   privStr,
+		PublicKey:    pubStr,
+		UUID:         clientUUID,
+		ShortID:      shortID,
+		FallbackDest: "dl.google.com:443",
+		Cipher:       "chacha20-poly1305",
+	}
+
+	dir := filepath.Dir(configPath)
+	if dir != "" && dir != "." {
+		_ = os.MkdirAll(dir, 0755)
+	}
+
+	if err := config.SaveServerConfig(configPath, cfg); err != nil {
+		// If system path write failed, fallback to local current directory
+		configPath = "config.json"
+		if err2 := config.SaveServerConfig(configPath, cfg); err2 != nil {
+			return nil, "", fmt.Errorf("failed to save config to %s: %w", configPath, err2)
+		}
+	}
+
+	serverIP := detectPublicIP()
+	uri := fmt.Sprintf("saturn://%s@%s:443?pbk=%s&sid=%s&sni=dl.google.com&alpn=h2&fp=chrome&cipher=chacha20-poly1305#Saturn-%s",
+		clientUUID, serverIP, pubStr, shortID, serverIP)
+
+	return cfg, uri, nil
+}
+
+func handleRun(args []string) {
+	defaultPath := getDefaultConfigPath()
+	fs := flag.NewFlagSet("saturn-server", flag.ExitOnError)
+	configPath := fs.String("c", defaultPath, "Path to server JSON config")
+	listenOverride := fs.String("l", "", "Override listening address (e.g. 0.0.0.0:443)")
+	if len(args) > 0 {
+		_ = fs.Parse(args)
+	}
+
+	var cfg *config.ServerConfig
+	var uri string
+	var err error
+
+	if _, statErr := os.Stat(*configPath); os.IsNotExist(statErr) {
+		log.Printf("[Saturn Server] Configuration file '%s' not found.", *configPath)
+		log.Println("[Saturn Server] Generating a fresh high-security configuration automatically...")
+		cfg, uri, err = autoGenerateServerConfig(*configPath)
+		if err != nil {
+			log.Fatalf("Failed to auto-generate server config: %v", err)
+		}
+
+		fmt.Println("\n==================================================================")
+		fmt.Println("       🪐 SATURN SERVER - CONFIGURATION GENERATED AUTOMATICALLY    ")
+		fmt.Println("==================================================================")
+		fmt.Printf("Config File: %s\n", *configPath)
+		fmt.Printf("Public Key:  %s\n", cfg.PublicKey)
+		fmt.Printf("Client UUID: %s\n", cfg.UUID)
+		fmt.Printf("Short ID:    %s\n", cfg.ShortID)
+		fmt.Printf("Listen Port: %s\n", cfg.Listen)
+		fmt.Println("------------------------------------------------------------------")
+		fmt.Println("Client Connection URI (Copy to behradNG or Saturn Client):")
+		fmt.Printf("%s\n", uri)
+		fmt.Println("==================================================================")
+		fmt.Println()
+	} else {
+		cfg, err = config.LoadServerConfig(*configPath)
+		if err != nil {
+			log.Fatalf("Failed to load server config %s: %v", *configPath, err)
+		}
+	}
+
+	if *listenOverride != "" {
+		cfg.Listen = *listenOverride
 	}
 
 	privKey, err := crypto.ParseKey(cfg.PrivateKey)
@@ -99,7 +244,7 @@ func handleRun(args []string) {
 	}
 	defer listener.Close()
 
-	log.Printf("[Saturn Server] Listening on %s | Fallback: %s | Cipher: %s", cfg.Listen, cfg.FallbackDest, cfg.Cipher)
+	log.Printf("[Saturn Server] Running on %s | Fallback: %s | Cipher: %s", cfg.Listen, cfg.FallbackDest, cfg.Cipher)
 
 	handshakeCfg := &handshake.ServerHandshakeConfig{
 		PrivateKey:   privKey,

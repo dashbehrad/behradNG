@@ -61,10 +61,7 @@ func main() {
 		if err != nil {
 			log.Fatalf("Invalid Saturn URI: %v", err)
 		}
-	} else {
-		if *serverFlag == "" || *pbkFlag == "" {
-			log.Fatalf("Error: either -c <config.json>, -u <saturn://URI>, or (-server and -pbk) are required. Use -h for help.")
-		}
+	} else if *serverFlag != "" && *pbkFlag != "" {
 		profile = &config.SaturnProfile{
 			Server:        *serverFlag,
 			Port:          *portFlag,
@@ -75,6 +72,62 @@ func main() {
 			Fingerprint:   *fpFlag,
 			Fragmentation: *fragFlag,
 			Remarks:       "Saturn-Direct",
+		}
+	} else {
+		// Auto-detect client.json or config.json
+		candidatePaths := []string{"client.json", "config.json"}
+		for _, cp := range candidatePaths {
+			if _, statErr := os.Stat(cp); statErr == nil {
+				clientCfg, err := config.LoadClientConfig(cp)
+				if err == nil && clientCfg.Profile.Server != "" && clientCfg.Profile.Server != "YOUR_SERVER_IP" {
+					log.Printf("[Saturn Client] Automatically loaded configuration from %s", cp)
+					profile = &clientCfg.Profile
+					if *listenFlag == "127.0.0.1:10808" && clientCfg.LocalListen != "" {
+						*listenFlag = clientCfg.LocalListen
+					}
+					if *connsFlag == 2 && clientCfg.Connections > 0 {
+						*connsFlag = clientCfg.Connections
+					}
+					break
+				}
+			}
+		}
+
+		if profile == nil {
+			templatePath := "client.json"
+			if _, statErr := os.Stat(templatePath); os.IsNotExist(statErr) {
+				templateCfg := &config.ClientConfig{
+					LocalListen: "127.0.0.1:10808",
+					Connections: 2,
+					Profile: config.SaturnProfile{
+						Server:        "YOUR_SERVER_IP",
+						Port:          443,
+						UUID:          "d3b07384-d113-4660-8438-d6eb406e2329",
+						PublicKey:     "YOUR_SERVER_PUBLIC_KEY_BASE64",
+						ShortID:       "a1b2c3d4",
+						SNI:           "dl.google.com",
+						ALPN:          "h2",
+						Fingerprint:   "chrome",
+						Cipher:        "chacha20-poly1305",
+						DpiVector:     "VEC-10",
+						Remarks:       "Saturn-Profile",
+					},
+				}
+				_ = config.SaveClientConfig(templatePath, templateCfg)
+				fmt.Printf("[*] Template client configuration generated at: %s\n\n", templatePath)
+			}
+
+			fmt.Println("🪐 Saturn Client - Ready to Connect")
+			fmt.Println("------------------------------------------------------------------")
+			fmt.Println("Option 1: Connect via URI:")
+			fmt.Println("  saturn-client -u \"saturn://UUID@SERVER_IP:443?pbk=...&sid=...\"")
+			fmt.Println("\nOption 2: Connect via configuration file:")
+			fmt.Println("  Edit client.json with your server details and run:")
+			fmt.Println("  saturn-client -c client.json")
+			fmt.Println("\nOption 3: Connect via direct flags:")
+			fmt.Println("  saturn-client -server 1.2.3.4 -port 443 -uuid ... -pbk ... -sid ...")
+			fmt.Println("------------------------------------------------------------------")
+			os.Exit(0)
 		}
 	}
 

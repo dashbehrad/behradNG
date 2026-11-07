@@ -17,10 +17,13 @@ type SaturnProfile struct {
 	Server        string `json:"server"`
 	Port          int    `json:"port"`
 	SNI           string `json:"sni"`
+	ALPN          string `json:"alpn,omitempty"`
 	PublicKey     string `json:"public_key"`
 	ShortID       string `json:"short_id"`
 	Fingerprint   string `json:"fingerprint"`
 	Fragmentation string `json:"fragmentation"`
+	Cipher        string `json:"cipher,omitempty"`
+	DpiVector     string `json:"dpi_vector,omitempty"`
 	Remarks       string `json:"remarks"`
 }
 
@@ -79,6 +82,18 @@ func ParseURI(rawURI string) (*SaturnProfile, error) {
 	if profile.Fragmentation == "" {
 		profile.Fragmentation = "1-5"
 	}
+	profile.ALPN = q.Get("alpn")
+	if profile.ALPN == "" {
+		profile.ALPN = "h2"
+	}
+	profile.Cipher = q.Get("cipher")
+	if profile.Cipher == "" {
+		profile.Cipher = "chacha20-poly1305"
+	}
+	profile.DpiVector = q.Get("dpi_vector")
+	if profile.DpiVector == "" {
+		profile.DpiVector = q.Get("vector")
+	}
 
 	// Validate public key
 	if profile.PublicKey != "" {
@@ -124,6 +139,15 @@ func (p *SaturnProfile) BuildURI() string {
 	}
 	q.Set("fp", fp)
 	q.Set("frag", frag)
+	if p.ALPN != "" {
+		q.Set("alpn", p.ALPN)
+	}
+	if p.Cipher != "" {
+		q.Set("cipher", p.Cipher)
+	}
+	if p.DpiVector != "" {
+		q.Set("dpi_vector", p.DpiVector)
+	}
 
 	var hostPart string
 	if strings.Contains(p.Server, ":") {
