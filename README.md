@@ -67,6 +67,10 @@ Unlike conventional configurations (VMess, Trojan, VLESS+WS) or relay tunnels, S
 5. **Built-in One-Click SSH Server Provisioner:**
    - Deploy Saturn to any fresh Ubuntu (20.04/22.04/24.04) or Debian (11/12) VPS directly from behradNG via **+ → Deploy Saturn Server (One-Click)**.
    - Connects via SSH (Password or Private Key), tunes the Linux kernel (`fq`, `bbr`, `tcp_fastopen=3`, conntrack), installs `saturn-server`, configures systemd and firewall, generates X25519 keys, streams logs in real-time, and automatically imports the resulting `saturn://` configuration with a single tap on **Finish & Connect**.
+6. **Alan DPI Evasion Engine (24 Bypass Vectors & TCP OOB Desync):**
+   - Incorporates the sophisticated DPI bypass and mutation algorithms adapted from [Alan-RIP-Dpi](https://github.com/DrAlanK/Alan-RIP-Dpi-Windows) by [DrAlanK](https://github.com/DrAlanK).
+   - Features 24 bypass vectors (`VEC-00` through `VEC-23`) with Autopilot priority dispatching (`VEC-21` Core Omega with Phantom Seam OOB, `VEC-22` Dual-Window Pincer, `VEC-01` Alpha, `VEC-18` Delta, `VEC-17` Aligned Relay, `VEC-20` Fibonacci 7-record segmentation, preambles, and polymorphic `MSG_OOB` urgent data injection).
+   - Implemented via both an ANSI C library ([`libalandpi`](saturn-core/pkg/dpi/c_bridge/)) and a high-performance pure Go native engine ([`pkg/dpi`](saturn-core/pkg/dpi/)) with server-side multi-record assembly.
 
 [Release notes →](RELEASE-3.0.0.md)
 
@@ -129,6 +133,8 @@ Keep signing keys, private proxy credentials, generated APKs, and native build c
 
 Based on [v2rayNG](https://github.com/2dust/v2rayNG), with [Xray-core](https://github.com/XTLS/Xray-core), [HEV](https://github.com/heiher/hev-socks5-tunnel), and [URnetwork](https://github.com/urnetwork) components.
 
+DPI evasion engine, mutation vectors, and urgent OOB desynchronization algorithms adapted from [Alan-RIP-Dpi](https://github.com/DrAlanK/Alan-RIP-Dpi-Windows) by [DrAlanK](https://github.com/DrAlanK).
+
 behradNG is distributed under the [GNU GPLv3](LICENSE). Bundled dependencies retain their respective licenses and notices.
 
 ---
@@ -164,6 +170,7 @@ behradNG بر پایه v2rayNG و Xray-core ساخته شده و در کنار �
   - **دست‌تکان نامرئی (Stealth Handshake):** احراز هویت کلاینت با تبادل کلید `X25519` و توکن `HKDF-SHA256` درون فیلدهای `SessionID` و `Random` پکت اول `TLS 1.3 ClientHello` بدون ایجاد هیچ امضای اضافه.
   - **خنثی‌سازی اسکنرهای فایروال (Active Probe Fallback):** هدایت یکپارچه و نامرئی (Splice) اسکنرها و پروب‌های فیلترینگ به سایت استتار (مانند `dl.google.com:443`) به طوری که سرور گواهی معتبر گوگل را به فایروال نشان می‌دهد.
   - **دور زدن DPI با uTLS و فرگمنت پویا:** جعل اثرانگشت مرورگرهای مطرح و برش چندتکه‌ای پکت اولیه در محل SNI با تاخیرهای ۱ تا ۵ میلی‌ثانیه برای دور زدن فیلترینگ مبتنی بر بازرسی بسته‌ها.
+  - **موتور دور زدن فیلترینگ Alan DPI (۲۴ وکتور و تزریق OOB):** ادغام موتور جهش و دور زدن DPI با ذکر منبع از پروژه [Alan-RIP-Dpi](https://github.com/DrAlanK/Alan-RIP-Dpi-Windows) اثر [DrAlanK](https://github.com/DrAlanK) شامل ۲۴ وکتور دور زدن فیلترینگ (`VEC-00` تا `VEC-23`)، ارسال بایت‌های اضطراری `MSG_OOB` برای به هم ریختن بافر استیت‌فول فایروال‌های DPI ایران، قطعه‌بندی فیبوناچی ۷ رکوردی حول SNI، پیش‌درآمدها (Preambles) و اسمبل هوشمند چندرکوردی در سرور ساتورن.
   - **فریم‌بندی باینری سبک با رمزنگاری سخت‌افزاری:** هدر ۲۴ بایتی فشرده، رمزنگاری `ChaCha20-Poly1305` یا `AES-128-GCM` و تزریق پدینگ تصادفی در ۱۲ پکت اول برای به هم زدن تحلیل سایز و آنتروپی ترافیک.
   - **نصب‌کننده خودکار سرور با یک کلیک (One-Click SSH Deploy):** امکان نصب کامل سرور روی اوبونتو یا دبیان خام، بهینه‌سازی BBR، راه‌اندازی سرویس و دریافت کانفیگ `saturn://` مستقیماً از داخل برنامه.
 
@@ -174,6 +181,8 @@ behradNG بر پایه v2rayNG و Xray-core ساخته شده و در کنار �
 برای ویندوز، [راهنمای ساخت محلی](LOCAL-BUILD.md) و برای مراحل CI، [گردش کار ساخت](.github/workflows/build.yml) را ببینید. دستورهای بخش انگلیسی بدون نیاز به هیچ کپی یا بازنویسی دستی، مستقیماً از پوشه `V2rayNG` قابل اجرا هستند.
 
 برای گزارش مشکل از [Issues](https://github.com/dashbehrad/behradNG/issues) استفاده کنید. کلید امضا، اطلاعات خصوصی پروکسی و فایل APK را commit نکنید.
+
+موتور دور زدن DPI، وکتورهای جهش و مکانیزم‌های تزریق OOB با ذکر منبع و اقتباس از پروژه [Alan-RIP-Dpi](https://github.com/DrAlanK/Alan-RIP-Dpi-Windows) اثر [DrAlanK](https://github.com/DrAlanK) پیاده‌سازی شده است.
 
 این پروژه تحت مجوز [GNU GPLv3](LICENSE) منتشر می‌شود. مجوزها و اعلان‌های وابستگی‌ها نیز باید رعایت شوند.
 

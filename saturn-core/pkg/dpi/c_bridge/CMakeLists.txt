@@ -17,3 +17,4 @@ if(BUILD_SHARED_LIBS)
     )
     set_target_properties(alandpi_shared PROPERTIES OUTPUT_NAME "alandpi")
 endif()
+
