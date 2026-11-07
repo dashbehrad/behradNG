@@ -201,6 +201,8 @@ else
         # Try direct prebuilt binary from GitHub Releases first
         for URL in \
             "https://github.com/dashbehrad/behradNG/releases/latest/download/saturn-server-linux-$ARCH" \
+            "https://github.com/dashbehrad/behradNG/releases/download/3.0.7/saturn-server-linux-$ARCH" \
+            "https://github.com/dashbehrad/behradNG/releases/download/3.0.6/saturn-server-linux-$ARCH" \
             "https://github.com/dashbehrad/behradNG/releases/download/3.0.5/saturn-server-linux-$ARCH" \
             "https://github.com/dashbehrad/behradNG/releases/download/3.0.4/saturn-server-linux-$ARCH" \
             "https://github.com/dashbehrad/behradNG/releases/download/3.0.3/saturn-server-linux-$ARCH" \

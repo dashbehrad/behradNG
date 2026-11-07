@@ -292,7 +292,8 @@ class SaturnSession {
             "-pbk", settings.publicKey,
             "-sid", settings.shortId,
             "-fp", settings.fingerprint,
-            "-frag", settings.fragmentation
+            "-frag", settings.fragmentation,
+            "-dpi-vector", "auto"
         )
         val command = if (aetherLauncher.isFile) listOf(aetherLauncher.absolutePath) + saturnArgs else saturnArgs
         val pb = ProcessBuilder(command)

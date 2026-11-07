@@ -98,24 +98,82 @@ type HandshakeResult struct {
 	ClientRandom []byte
 }
 
-// readInitialClientRecord reads the initial TLS record, assembling fragmented records if necessary.
+// readInitialClientRecord reads the initial TLS record, assembling fragmented records or preambles if necessary.
 func readInitialClientRecord(r io.Reader) ([]byte, error) {
 	header := make([]byte, 5)
-	if _, err := io.ReadFull(r, header); err != nil {
-		return nil, err
-	}
-	// Check if this is a TLS record (0x16 0x03)
-	if header[0] == 0x16 && header[1] == 0x03 {
-		recordLen := int(binary.BigEndian.Uint16(header[3:5]))
-		if recordLen > 0 && recordLen <= 16384 {
-			fullRecord := make([]byte, 5+recordLen)
-			copy(fullRecord, header)
-			if _, err := io.ReadFull(r, fullRecord[5:]); err != nil {
-				return nil, err
-			}
-			return fullRecord, nil
+
+	// Loop to skip any 0-length TLS records (preambles like 16 03 04 00 00 or 16 03 01 00 00)
+	for {
+		if _, err := io.ReadFull(r, header); err != nil {
+			return nil, err
 		}
+		// Check if this is a TLS record (0x16 0x03)
+		if header[0] == 0x16 && header[1] == 0x03 {
+			recordLen := int(binary.BigEndian.Uint16(header[3:5]))
+			if recordLen == 0 {
+				// Empty preamble record (e.g. zero0304, 2xzero, 4xzero), read next record
+				continue
+			}
+			if recordLen > 0 && recordLen <= 16384 {
+				firstPayload := make([]byte, recordLen)
+				if _, err := io.ReadFull(r, firstPayload); err != nil {
+					return nil, err
+				}
+
+				// Check if this payload starts a ClientHello (type 0x01)
+				if len(firstPayload) >= 4 && firstPayload[0] == 0x01 {
+					totalHandshakeLen := int(firstPayload[1])<<16 | int(firstPayload[2])<<8 | int(firstPayload[3])
+					totalExpected := 4 + totalHandshakeLen
+
+					if len(firstPayload) >= totalExpected {
+						// Single complete ClientHello record
+						fullRecord := make([]byte, 5+len(firstPayload))
+						copy(fullRecord, header)
+						copy(fullRecord[5:], firstPayload)
+						return fullRecord, nil
+					}
+
+					// Multi-record fragmented ClientHello (e.g. Alan DPI vectors)
+					assembled := make([]byte, 0, totalExpected)
+					assembled = append(assembled, firstPayload...)
+
+					for len(assembled) < totalExpected {
+						subHeader := make([]byte, 5)
+						if _, err := io.ReadFull(r, subHeader); err != nil {
+							break
+						}
+						if subHeader[0] != 0x16 {
+							break
+						}
+						subLen := int(binary.BigEndian.Uint16(subHeader[3:5]))
+						if subLen == 0 {
+							continue
+						}
+						subPayload := make([]byte, subLen)
+						if _, err := io.ReadFull(r, subPayload); err != nil {
+							break
+						}
+						assembled = append(assembled, subPayload...)
+					}
+
+					fullRecord := make([]byte, 5+len(assembled))
+					fullRecord[0] = 0x16
+					fullRecord[1] = 0x03
+					fullRecord[2] = 0x01
+					binary.BigEndian.PutUint16(fullRecord[3:5], uint16(len(assembled)))
+					copy(fullRecord[5:], assembled)
+					return fullRecord, nil
+				}
+
+				fullRecord := make([]byte, 5+recordLen)
+				copy(fullRecord, header)
+				copy(fullRecord[5:], firstPayload)
+				return fullRecord, nil
+			}
+		}
+		break
 	}
+
 	// Non-TLS or abnormal record: read any immediate buffered data (probe fallback)
 	buf := make([]byte, 4096)
 	copy(buf, header)

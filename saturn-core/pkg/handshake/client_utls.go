@@ -14,6 +14,7 @@ import (
 
 	utls "github.com/refraction-networking/utls"
 	"saturn-core/pkg/crypto"
+	"saturn-core/pkg/dpi"
 )
 
 // ClientHandshakeConfig contains configuration for client-side stealth handshake.
@@ -25,7 +26,8 @@ type ClientHandshakeConfig struct {
 	ShortID       []byte
 	UUID          string
 	Fingerprint   string // "chrome", "firefox", "auto"
-	Fragmentation string // "1-5" (minDelay-maxDelay ms)
+	Fragmentation string // "1-5" (minDelay-maxDelay ms) or Vector ID e.g. "VEC-21"
+	DpiVector     string // Alan DPI vector ID: "auto", "VEC-21", "VEC-22", "VEC-01", etc.
 	Cipher        string
 }
 
@@ -153,10 +155,22 @@ func ClientHandshake(tcpConn net.Conn, cfg *ClientHandshakeConfig) (*HandshakeRe
 		return nil, nil, errors.New("failed to inject client ephemeral public key into KeyShare")
 	}
 
-	// 7. Dynamic TLS Record Fragmentation across SNI
-	minDelay, maxDelay := parseFragmentation(cfg.Fragmentation)
-	if err := sendFragmentedPayload(tcpConn, record, sni, minDelay, maxDelay); err != nil {
-		return nil, nil, fmt.Errorf("fragmentation write failed: %w", err)
+	// 7. Alan DPI Evasion & Stealth Dispatch
+	targetVector := cfg.DpiVector
+	if targetVector == "" || targetVector == "auto" {
+		if strings.HasPrefix(cfg.Fragmentation, "VEC-") {
+			targetVector = cfg.Fragmentation
+		} else {
+			targetVector = "VEC-21" // Adaptive Core Omega default autopilot
+		}
+	}
+	vec := dpi.GetVector(targetVector)
+	if vec == nil {
+		vec = dpi.GetVector("VEC-21")
+	}
+
+	if _, _, err := dpi.TransmitClientHello(tcpConn, record, vec, 400, 20); err != nil {
+		return nil, nil, fmt.Errorf("DPI bypass transmit (%s) failed: %w", vec.VectorID, err)
 	}
 
 	// 8. Read server response (ServerHello + ChangeCipherSpec)

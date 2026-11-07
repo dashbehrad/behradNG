@@ -36,6 +36,7 @@ func main() {
 	sidFlag := flag.String("sid", "", "ShortID")
 	fpFlag := flag.String("fp", "chrome", "Fingerprint (chrome/firefox)")
 	fragFlag := flag.String("frag", "1-5", "Fragmentation range (e.g. 1-5)")
+	dpiVectorFlag := flag.String("dpi-vector", "auto", "Alan DPI evasion vector (auto/VEC-21/VEC-22/VEC-01/etc.)")
 	connsFlag := flag.Int("conns", 2, "Number of persistent connections (1-4)")
 	flag.Parse()
 
@@ -80,6 +81,7 @@ func main() {
 		UUID:          profile.UUID,
 		Fingerprint:   profile.Fingerprint,
 		Fragmentation: profile.Fragmentation,
+		DpiVector:     *dpiVectorFlag,
 		Cipher:        "chacha20-poly1305",
 	}
 

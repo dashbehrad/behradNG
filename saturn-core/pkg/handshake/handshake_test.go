@@ -132,3 +132,74 @@ func TestClientServerHandshake(t *testing.T) {
 		t.Fatalf("ServerIV mismatch between client and server")
 	}
 }
+
+func TestHandshakeWithVariousAlanDpiVectors(t *testing.T) {
+	testVectors := []string{
+		"VEC-21", // Phantom Seam OOB
+		"VEC-22", // SNI Microcell Pincer
+		"VEC-01", // Adaptive Core Alpha (sni_tag)
+		"VEC-20", // Fibonacci 7-record segmentation
+		"VEC-17", // Aligned Record Relay (sni_dot_3rec)
+		"VEC-04", // Preamble Fusion + Stride
+		"VEC-09", // Atomic Mid-SNI Record Split
+		"VEC-00", // Direct passthrough
+	}
+
+	for _, vecID := range testVectors {
+		t.Run(vecID, func(t *testing.T) {
+			serverKP, err := crypto.GenerateKeypair()
+			if err != nil {
+				t.Fatal(err)
+			}
+
+			shortID := []byte("alan")
+			uuid := "11111111-2222-3333-4444-555555555555"
+
+			serverCfg := &handshake.ServerHandshakeConfig{
+				PrivateKey:   serverKP.PrivateKey[:],
+				PublicKey:    serverKP.PublicKey[:],
+				UUID:         uuid,
+				ShortID:      shortID,
+				FallbackDest: "127.0.0.1:9999",
+				Cipher:       "chacha20-poly1305",
+			}
+
+			clientCfg := &handshake.ClientHandshakeConfig{
+				ServerAddress: "127.0.0.1",
+				ServerPort:    443,
+				SNI:           "dl.google.com",
+				ServerPubKey:  serverKP.PublicKey[:],
+				ShortID:       shortID,
+				UUID:          uuid,
+				Fingerprint:   "chrome",
+				DpiVector:     vecID,
+				Cipher:        "chacha20-poly1305",
+			}
+
+			clientConn, serverConn := net.Pipe()
+			defer clientConn.Close()
+			defer serverConn.Close()
+
+			serverErrChan := make(chan error, 1)
+			var serverResult *handshake.HandshakeResult
+			go func() {
+				res, _, err := handshake.HandleServerHandshake(serverConn, serverCfg)
+				serverResult = res
+				serverErrChan <- err
+			}()
+
+			clientResult, _, clientErr := handshake.ClientHandshake(clientConn, clientCfg)
+			serverErr := <-serverErrChan
+
+			if serverErr != nil {
+				t.Fatalf("Vector %s ServerHandshake failed: %v", vecID, serverErr)
+			}
+			if clientErr != nil {
+				t.Fatalf("Vector %s ClientHandshake failed: %v", vecID, clientErr)
+			}
+			if !bytes.Equal(clientResult.ClientKey, serverResult.ClientKey) {
+				t.Fatalf("Vector %s ClientKey mismatch", vecID)
+			}
+		})
+	}
+}
