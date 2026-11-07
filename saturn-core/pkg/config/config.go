@@ -53,3 +53,31 @@ func SaveServerConfig(path string, cfg *ServerConfig) error {
 	}
 	return os.WriteFile(path, data, 0600)
 }
+
+// LoadClientConfig reads and parses client JSON configuration.
+func LoadClientConfig(path string) (*ClientConfig, error) {
+	data, err := os.ReadFile(path)
+	if err != nil {
+		return nil, err
+	}
+	var cfg ClientConfig
+	if err := json.Unmarshal(data, &cfg); err != nil {
+		return nil, err
+	}
+	if cfg.LocalListen == "" {
+		cfg.LocalListen = "127.0.0.1:10808"
+	}
+	if cfg.Connections <= 0 {
+		cfg.Connections = 2
+	}
+	return &cfg, nil
+}
+
+// SaveClientConfig writes client configuration to disk.
+func SaveClientConfig(path string, cfg *ClientConfig) error {
+	data, err := json.MarshalIndent(cfg, "", "  ")
+	if err != nil {
+		return err
+	}
+	return os.WriteFile(path, data, 0644)
+}

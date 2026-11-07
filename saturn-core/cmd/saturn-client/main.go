@@ -26,6 +26,7 @@ import (
 )
 
 func main() {
+	configFlag := flag.String("c", "", "Path to client JSON config file")
 	uriFlag := flag.String("u", "", "saturn:// URI configuration")
 	listenFlag := flag.String("l", "127.0.0.1:10808", "Local inbound listen address (SOCKS5/HTTP)")
 	serverFlag := flag.String("server", "", "Server address or IP")
@@ -43,14 +44,26 @@ func main() {
 	var profile *config.SaturnProfile
 	var err error
 
-	if *uriFlag != "" {
+	if *configFlag != "" {
+		clientCfg, err := config.LoadClientConfig(*configFlag)
+		if err != nil {
+			log.Fatalf("Failed to load client config %s: %v", *configFlag, err)
+		}
+		profile = &clientCfg.Profile
+		if *listenFlag == "127.0.0.1:10808" && clientCfg.LocalListen != "" {
+			*listenFlag = clientCfg.LocalListen
+		}
+		if *connsFlag == 2 && clientCfg.Connections > 0 {
+			*connsFlag = clientCfg.Connections
+		}
+	} else if *uriFlag != "" {
 		profile, err = config.ParseURI(*uriFlag)
 		if err != nil {
 			log.Fatalf("Invalid Saturn URI: %v", err)
 		}
 	} else {
 		if *serverFlag == "" || *pbkFlag == "" {
-			log.Fatalf("Error: either -u <saturn://URI> or (-server and -pbk) are required")
+			log.Fatalf("Error: either -c <config.json>, -u <saturn://URI>, or (-server and -pbk) are required. Use -h for help.")
 		}
 		profile = &config.SaturnProfile{
 			Server:        *serverFlag,
