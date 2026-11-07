@@ -68,7 +68,7 @@ Unlike conventional configurations (VMess, Trojan, VLESS+WS) or relay tunnels, S
    - Deploy Saturn to any fresh Ubuntu (20.04/22.04/24.04) or Debian (11/12) VPS directly from behradNG via **+ → Deploy Saturn Server (One-Click)**.
    - Connects via SSH (Password or Private Key), tunes the Linux kernel (`fq`, `bbr`, `tcp_fastopen=3`, conntrack), installs `saturn-server`, configures systemd and firewall, generates X25519 keys, streams logs in real-time, and automatically imports the resulting `saturn://` configuration with a single tap on **Finish & Connect**.
 6. **Alan DPI Evasion Engine (24 Bypass Vectors & TCP OOB Desync):**
-   - Incorporates the sophisticated DPI bypass and mutation algorithms adapted from [Alan-RIP-Dpi](https://github.com/DrAlanK/Alan-RIP-Dpi-Windows) by [DrAlanK](https://github.com/DrAlanK).
+   - Incorporates the sophisticated DPI bypass and mutation algorithms adapted from [Alan-RIP-Dpi](https://github.com/Floxu1/UAC-SNI-Spoofer-Android) by [Floxu1](https://github.com/Floxu1).
    - Features 24 bypass vectors (`VEC-00` through `VEC-23`) with Autopilot priority dispatching (`VEC-21` Core Omega with Phantom Seam OOB, `VEC-22` Dual-Window Pincer, `VEC-01` Alpha, `VEC-18` Delta, `VEC-17` Aligned Relay, `VEC-20` Fibonacci 7-record segmentation, preambles, and polymorphic `MSG_OOB` urgent data injection).
    - Implemented via both an ANSI C library ([`libalandpi`](saturn-core/pkg/dpi/c_bridge/)) and a high-performance pure Go native engine ([`pkg/dpi`](saturn-core/pkg/dpi/)) with server-side multi-record assembly.
 
@@ -133,7 +133,7 @@ Keep signing keys, private proxy credentials, generated APKs, and native build c
 
 Based on [v2rayNG](https://github.com/2dust/v2rayNG), with [Xray-core](https://github.com/XTLS/Xray-core), [HEV](https://github.com/heiher/hev-socks5-tunnel), and [URnetwork](https://github.com/urnetwork) components.
 
-DPI evasion engine, mutation vectors, and urgent OOB desynchronization algorithms adapted from [Alan-RIP-Dpi](https://github.com/DrAlanK/Alan-RIP-Dpi-Windows) by [DrAlanK](https://github.com/DrAlanK).
+DPI evasion engine, mutation vectors, and urgent OOB desynchronization algorithms adapted from [Floxu1](https://github.com/Floxu1/UAC-SNI-Spoofer-Android) by [Floxu1](https://github.com/Floxu1).
 
 behradNG is distributed under the [GNU GPLv3](LICENSE). Bundled dependencies retain their respective licenses and notices.
 
@@ -182,7 +182,7 @@ behradNG بر پایه v2rayNG و Xray-core ساخته شده و در کنار �
 
 برای گزارش مشکل از [Issues](https://github.com/dashbehrad/behradNG/issues) استفاده کنید. کلید امضا، اطلاعات خصوصی پروکسی و فایل APK را commit نکنید.
 
-موتور دور زدن DPI، وکتورهای جهش و مکانیزم‌های تزریق OOB با ذکر منبع و اقتباس از پروژه [Alan-RIP-Dpi](https://github.com/Floxu1/UAC-SNI-Spoofer-Android) اثر [Floxu1](https://github.com/DrAlanK) پیاده‌سازی شده است.
+موتور دور زدن DPI، وکتورهای جهش و مکانیزم‌های تزریق OOB با ذکر منبع و اقتباس از پروژه [Floxu1](https://github.com/Floxu1/UAC-SNI-Spoofer-Android) اثر [Floxu1](https://github.com/Floxu1) پیاده‌سازی شده است.
 
 این پروژه تحت مجوز [GNU GPLv3](LICENSE) منتشر می‌شود. مجوزها و اعلان‌های وابستگی‌ها نیز باید رعایت شوند.
 
