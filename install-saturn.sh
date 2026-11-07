@@ -181,56 +181,95 @@ else
     echo "[*] Deploying latest saturn-server binary..."
     SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
     DEPLOYED=0
-    if [ -f "$SCRIPT_DIR/saturn-server-$ARCH" ]; then
-        cp -f "$SCRIPT_DIR/saturn-server-$ARCH" "$BIN_PATH"
+
+    # 1. Check if binary was uploaded directly by the Android app to /tmp
+    if [ -f "/tmp/saturn-server" ]; then
+        cp -f "/tmp/saturn-server" "$BIN_PATH"
         chmod +x "$BIN_PATH"
-        DEPLOYED=1
-    elif [ -f "$SCRIPT_DIR/saturn-server-linux-$ARCH" ]; then
-        cp -f "$SCRIPT_DIR/saturn-server-linux-$ARCH" "$BIN_PATH"
+        if "$BIN_PATH" keygen >/dev/null 2>&1; then
+            echo "[+] Successfully deployed saturn-server uploaded from client app."
+            DEPLOYED=1
+            rm -f "/tmp/saturn-server"
+        fi
+    elif [ -f "/tmp/saturn-server-$ARCH" ]; then
+        cp -f "/tmp/saturn-server-$ARCH" "$BIN_PATH"
         chmod +x "$BIN_PATH"
-        DEPLOYED=1
-    elif [ -f "$SCRIPT_DIR/bin/saturn-server-linux-$ARCH" ]; then
-        cp -f "$SCRIPT_DIR/bin/saturn-server-linux-$ARCH" "$BIN_PATH"
-        chmod +x "$BIN_PATH"
-        DEPLOYED=1
-    elif [ -f "$SCRIPT_DIR/saturn-server" ]; then
-        cp -f "$SCRIPT_DIR/saturn-server" "$BIN_PATH"
-        chmod +x "$BIN_PATH"
-        DEPLOYED=1
-    else
-        # Try direct prebuilt binary from GitHub Releases first
+        if "$BIN_PATH" keygen >/dev/null 2>&1; then
+            echo "[+] Successfully deployed saturn-server ($ARCH) uploaded from client app."
+            DEPLOYED=1
+            rm -f "/tmp/saturn-server-$ARCH"
+        fi
+    fi
+
+    # 2. Check local script directory (if cloned or run locally)
+    if [ "$DEPLOYED" -ne 1 ]; then
+        if [ -f "$SCRIPT_DIR/saturn-server-$ARCH" ]; then
+            cp -f "$SCRIPT_DIR/saturn-server-$ARCH" "$BIN_PATH"
+            chmod +x "$BIN_PATH"
+            DEPLOYED=1
+        elif [ -f "$SCRIPT_DIR/saturn-server-linux-$ARCH" ]; then
+            cp -f "$SCRIPT_DIR/saturn-server-linux-$ARCH" "$BIN_PATH"
+            chmod +x "$BIN_PATH"
+            DEPLOYED=1
+        elif [ -f "$SCRIPT_DIR/bin/saturn-server-linux-$ARCH" ]; then
+            cp -f "$SCRIPT_DIR/bin/saturn-server-linux-$ARCH" "$BIN_PATH"
+            chmod +x "$BIN_PATH"
+            DEPLOYED=1
+        elif [ -f "$SCRIPT_DIR/saturn-server" ]; then
+            cp -f "$SCRIPT_DIR/saturn-server" "$BIN_PATH"
+            chmod +x "$BIN_PATH"
+            DEPLOYED=1
+        fi
+    fi
+
+    # 3. If prebuilt binary is needed from web, fetch from Saturn-core releases
+    if [ "$DEPLOYED" -ne 1 ]; then
         for URL in \
-            "https://github.com/dashbehrad/behradNG/releases/latest/download/saturn-server-linux-$ARCH" \
-            "https://github.com/dashbehrad/behradNG/releases/download/3.0.7/saturn-server-linux-$ARCH" \
-            "https://github.com/dashbehrad/behradNG/releases/download/3.0.6/saturn-server-linux-$ARCH" \
-            "https://github.com/dashbehrad/behradNG/releases/download/3.0.5/saturn-server-linux-$ARCH" \
-            "https://github.com/dashbehrad/behradNG/releases/download/3.0.4/saturn-server-linux-$ARCH" \
-            "https://github.com/dashbehrad/behradNG/releases/download/3.0.3/saturn-server-linux-$ARCH" \
-            "https://github.com/dashbehrad/behradNG/releases/download/3.0.2/saturn-server-linux-$ARCH" \
-            "https://github.com/dashbehrad/behradNG/releases/download/3.0.1/saturn-server-linux-$ARCH" \
-            "https://github.com/dashbehrad/behradNG/releases/download/3.0.0/saturn-server-linux-$ARCH"; do
+            "https://github.com/dashbehrad/Saturn-core/releases/latest/download/saturn-linux-$ARCH.tar.gz" \
+            "https://github.com/dashbehrad/Saturn-core/releases/download/v1.0.1/saturn-linux-$ARCH.tar.gz" \
+            "https://github.com/dashbehrad/Saturn-core/releases/download/v1.0.0/saturn-linux-$ARCH.tar.gz"; do
             echo "[*] Fetching saturn-server ($ARCH) from $URL..."
-            if fetch_file "$URL" "$BIN_PATH" 2>/dev/null; then
-                chmod +x "$BIN_PATH"
-                if "$BIN_PATH" keygen >/dev/null 2>&1; then
-                    echo "[+] Downloaded and verified saturn-server binary."
-                    DEPLOYED=1
-                    break
+            TMP_TGZ="$(mktemp /tmp/saturn-XXXXXX.tar.gz)"
+            if fetch_file "$URL" "$TMP_TGZ" 2>/dev/null; then
+                TMP_EXT="$(mktemp -d /tmp/saturn-ext-XXXXXX)"
+                if tar -xzf "$TMP_TGZ" -C "$TMP_EXT" 2>/dev/null; then
+                    EXTRACTED_BIN=$(find "$TMP_EXT" -type f -name "saturn-server" | head -n 1)
+                    if [ -n "$EXTRACTED_BIN" ]; then
+                        cp -f "$EXTRACTED_BIN" "$BIN_PATH"
+                        chmod +x "$BIN_PATH"
+                        if "$BIN_PATH" keygen >/dev/null 2>&1; then
+                            echo "[+] Downloaded and verified saturn-server from Saturn-core."
+                            DEPLOYED=1
+                            rm -rf "$TMP_EXT" "$TMP_TGZ"
+                            break
+                        fi
+                    fi
                 fi
+                rm -rf "$TMP_EXT" "$TMP_TGZ"
             fi
         done
+    fi
 
-        # If download failed, build from source ONLY if Go compiler already exists
-        if [ "$DEPLOYED" -ne 1 ]; then
-            if command -v go >/dev/null 2>&1; then
-                echo "[*] Prebuilt download unavailable. Compiling from repository source..."
-                TMP_SRC="$(mktemp -d /tmp/saturn-src-XXXXXX)"
-                if curl -fsSL --retry 3 --connect-timeout 10 "https://github.com/dashbehrad/behradNG/archive/refs/heads/main.tar.gz" | tar -xz -C "$TMP_SRC" --strip-components=1 2>/dev/null; then
-                    (cd "$TMP_SRC/saturn-core" && CGO_ENABLED=0 go build -trimpath -ldflags="-s -w" -o "$BIN_PATH" ./cmd/saturn-server)
+    # 4. Fallback: compile from Saturn-core repository
+    if [ "$DEPLOYED" -ne 1 ]; then
+        if ! command -v go >/dev/null 2>&1; then
+            if command -v apt-get >/dev/null 2>&1; then
+                echo "[*] Installing Go to compile Saturn Server..."
+                apt-get update -qq && apt-get install -y -qq golang git
+            elif command -v yum >/dev/null 2>&1; then
+                yum install -y -q golang git
+            fi
+        fi
+        if command -v go >/dev/null 2>&1; then
+            echo "[*] Compiling saturn-server from Saturn-core source..."
+            TMP_SRC="$(mktemp -d /tmp/saturn-src-XXXXXX)"
+            if curl -fsSL --retry 3 --connect-timeout 10 "https://github.com/dashbehrad/Saturn-core/archive/refs/heads/main.tar.gz" | tar -xz -C "$TMP_SRC" --strip-components=1 2>/dev/null; then
+                (cd "$TMP_SRC" && CGO_ENABLED=0 go build -trimpath -ldflags="-s -w" -o "$BIN_PATH" ./cmd/saturn-server)
+                if "$BIN_PATH" keygen >/dev/null 2>&1; then
                     DEPLOYED=1
                 fi
-                rm -rf "$TMP_SRC"
             fi
+            rm -rf "$TMP_SRC"
         fi
     fi
 fi

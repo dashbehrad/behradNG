@@ -53,7 +53,10 @@ class SaturnDeployViewModel : ViewModel() {
     fun updateCamouflageSni(sni: String) = _uiState.update { it.copy(camouflageSni = sni.trim()) }
     fun clearError() = _uiState.update { it.copy(error = null) }
 
-    fun startDeploy(scriptContent: String) {
+    fun startDeploy(
+        scriptContent: String,
+        binaryProvider: ((String) -> java.io.InputStream?)? = null
+    ) {
         val state = _uiState.value
         if (state.host.isBlank()) {
             _uiState.update { it.copy(error = "Server IP / Hostname is required") }
@@ -94,7 +97,7 @@ class SaturnDeployViewModel : ViewModel() {
         }
 
         deployJob = viewModelScope.launch {
-            val result = SaturnSshProvisioner.deploy(creds, scriptContent) { event ->
+            val result = SaturnSshProvisioner.deploy(creds, scriptContent, binaryProvider) { event ->
                 when (event) {
                     is SaturnSshProvisioner.DeployEvent.Log -> {
                         _uiState.update { current ->

@@ -255,7 +255,15 @@ class SaturnDeployActivity : BaseComponentActivity() {
                 // Action Buttons
                 if (!state.isDeploying && !state.isFinished) {
                     Button(
-                        onClick = { viewModel.startDeploy(scriptContent) },
+                        onClick = {
+                            viewModel.startDeploy(
+                                scriptContent = scriptContent,
+                                binaryProvider = { arch ->
+                                    val assetName = if (arch == "arm64") "saturn/saturn-server-arm64" else "saturn/saturn-server-amd64"
+                                    runCatching { assets.open(assetName) }.getOrNull()
+                                }
+                            )
+                        },
                         modifier = Modifier
                             .fillMaxWidth()
                             .height(50.dp),

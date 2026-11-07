@@ -254,19 +254,13 @@ jobs:
           echo "No APK found at $APK_FILE!"
           exit 1
         fi
-        if [ -d bin ]; then
-          cp bin/saturn-* release-apks/ 2>/dev/null || true
-        fi
-        if [ -f install-saturn.sh ]; then
-          cp install-saturn.sh release-apks/ 2>/dev/null || true
-        fi
         ls -la release-apks/
 
     - name: Upload APK Artifact
       uses: actions/upload-artifact@v4
       with:
         name: ${{ env.APK_ARTIFACT }}
-        path: release-apks/*
+        path: release-apks/*.apk
 
     - name: Publish to GitHub Releases
       if: github.event_name != 'pull_request'
@@ -302,17 +296,16 @@ jobs:
 
           ### 📥 Download & Deployment
           - **Android Client**: Download the attached `behradNG-${{ env.RELEASE_TAG }}.apk` below and install it directly on your Android device (Android 7.0+).
-          - **Linux Server Binaries**: Attached `saturn-server-linux-amd64` and `saturn-server-linux-arm64`.
-          - **Windows Binaries**: Attached `saturn-server-windows-amd64.exe` and `saturn-client-windows-amd64.exe`.
+          - **Standalone Server / Multi-Platform Binaries**: For standalone server and multi-platform core binaries (Linux, Windows, macOS, Termux), visit [Saturn-core](https://github.com/dashbehrad/Saturn-core).
           - **One-Line Server Installer**:
             ```bash
-            curl -fsSL https://raw.githubusercontent.com/dashbehrad/behradNG/main/install-saturn.sh | sudo bash
+            curl -fsSL https://raw.githubusercontent.com/dashbehrad/Saturn-core/main/install.sh | sudo bash
             ```
 
           ---
           *Automated Release from commit: ${{ github.sha }}*
         files: |
-          release-apks/*
+          release-apks/*.apk
         draft: false
         prerelease: false
         make_latest: 'true'
