@@ -104,20 +104,18 @@ if (-not $saturnUri) {
     }
 }
 
-# 4. Create launcher batch script with Admin Self-Elevation and Windows System Proxy
+# 4. Create launcher batch script with Admin Self-Elevation
 $batPath = "$installDir\start-saturn.bat"
 $uriPath = "$installDir\connection.uri"
 
-$elevateHeader = "@echo off`r`nnet session >nul 2>&1`r`nif %errorlevel% neq 0 (`r`n    powershell -NoProfile -ExecutionPolicy Bypass -Command `"Start-Process -FilePath '%~f0' -Verb RunAs`"`r`n    exit /b`r`n)`r`ntitle Saturn Client Proxy (Admin)`r`ncd /d `"%~dp0`"`r`ntaskkill /f /im saturn-client.exe >nul 2>&1`r`necho ==========================================================`r`necho        Saturn Client SOCKS5/HTTP Proxy (Admin)`r`necho ==========================================================`r`necho Enabling Windows System Proxy on 127.0.0.1:10809...`r`nreg add `"HKCU\Software\Microsoft\Windows\CurrentVersion\Internet Settings`" /v ProxyEnable /t REG_DWORD /d 1 /f >nul`r`nreg add `"HKCU\Software\Microsoft\Windows\CurrentVersion\Internet Settings`" /v ProxyServer /t REG_SZ /d `"127.0.0.1:10809`" /f >nul`r`nreg add `"HKCU\Software\Microsoft\Windows\CurrentVersion\Internet Settings`" /v ProxyOverride /t REG_SZ /d `"localhost;127.*;10.*;172.16.*;172.17.*;172.18.*;172.19.*;172.20.*;172.21.*;172.22.*;172.23.*;172.24.*;172.25.*;172.26.*;172.27.*;172.28.*;172.29.*;172.30.*;172.31.*;192.168.*;<local>`" /f >nul`r`npowershell -NoProfile -ExecutionPolicy Bypass -Command `"try { Add-Type -TypeDefinition 'using System; using System.Runtime.InteropServices; public class W { [DllImport(\"wininet.dll\")] public static extern bool InternetSetOption(IntPtr h, int o, IntPtr b, int l); }'; [W]::InternetSetOption([IntPtr]::Zero, 39, [IntPtr]::Zero, 0); [W]::InternetSetOption([IntPtr]::Zero, 37, [IntPtr]::Zero, 0); } catch {}`" >nul 2>&1`r`necho Windows System Proxy is ACTIVE (127.0.0.1:10809).`r`necho Starting Saturn Client Proxy...`r`necho.`r`n"
-
-$cleanupFooter = "`r`necho.`r`necho Disabling Windows System Proxy...`r`nreg add `"HKCU\Software\Microsoft\Windows\CurrentVersion\Internet Settings`" /v ProxyEnable /t REG_DWORD /d 0 /f >nul`r`npowershell -NoProfile -ExecutionPolicy Bypass -Command `"try { Add-Type -TypeDefinition 'using System; using System.Runtime.InteropServices; public class W { [DllImport(\"wininet.dll\")] public static extern bool InternetSetOption(IntPtr h, int o, IntPtr b, int l); }'; [W]::InternetSetOption([IntPtr]::Zero, 39, [IntPtr]::Zero, 0); [W]::InternetSetOption([IntPtr]::Zero, 37, [IntPtr]::Zero, 0); } catch {}`" >nul 2>&1`r`necho Windows System Proxy disabled.`r`npause"
+$elevateHeader = "@echo off`r`nnet session >nul 2>&1`r`nif %errorlevel% neq 0 (`r`n    powershell -NoProfile -ExecutionPolicy Bypass -Command `"Start-Process -FilePath '%~f0' -Verb RunAs`"`r`n    exit /b`r`n)`r`ntitle Saturn Client Proxy (Admin)`r`ncd /d `"%~dp0`"`r`ntaskkill /f /im saturn-client.exe >nul 2>&1`r`necho ==========================================================`r`necho        Saturn Client SOCKS5/HTTP Proxy (Admin)`r`necho ==========================================================`r`necho Local Proxy Address: 127.0.0.1:10809`r`necho Windows System Proxy is automatically managed by Saturn.`r`necho Starting Saturn Client Proxy...`r`necho.`r`n"
 
 if ($saturnUri -and $saturnUri.StartsWith("saturn://")) {
     Set-Content -Path $uriPath -Value $saturnUri -Encoding ASCII
-    $batContent = $elevateHeader + "`"$binPath`" -u `"$saturnUri`" -l 127.0.0.1:10809" + $cleanupFooter
+    $batContent = $elevateHeader + "`"$binPath`" -u `"$saturnUri`" -l 127.0.0.1:10809`r`npause"
     Set-Content -Path $batPath -Value $batContent -Encoding ASCII
 } else {
-    $batContent = $elevateHeader + "`"$binPath`" -l 127.0.0.1:10809" + $cleanupFooter
+    $batContent = $elevateHeader + "`"$binPath`" -l 127.0.0.1:10809`r`npause"
     Set-Content -Path $batPath -Value $batContent -Encoding ASCII
 }
 
@@ -147,7 +145,7 @@ if (Test-Path $desktopPath) {
 
         # Also create Disable Proxy shortcut on Desktop
         $disableBat = [System.IO.Path]::Combine($desktopPath, "Disable Proxy.bat")
-        $disableCode = "@echo off`r`ntitle Disable Windows Proxy`r`nreg add `"HKCU\Software\Microsoft\Windows\CurrentVersion\Internet Settings`" /v ProxyEnable /t REG_DWORD /d 0 /f >nul`r`npowershell -NoProfile -ExecutionPolicy Bypass -Command `"try { Add-Type -TypeDefinition 'using System; using System.Runtime.InteropServices; public class W { [DllImport(\"wininet.dll\")] public static extern bool InternetSetOption(IntPtr h, int o, IntPtr b, int l); }'; [W]::InternetSetOption([IntPtr]::Zero, 39, [IntPtr]::Zero, 0); [W]::InternetSetOption([IntPtr]::Zero, 37, [IntPtr]::Zero, 0); } catch {}`" >nul 2>&1`r`necho Windows System Proxy is now DISABLED.`r`ntimeout /t 2 >nul"
+        $disableCode = "@echo off`r`ntitle Disable Windows Proxy`r`nreg add `"HKCU\Software\Microsoft\Windows\CurrentVersion\Internet Settings`" /v ProxyEnable /t REG_DWORD /d 0 /f >nul`r`necho Windows System Proxy is now DISABLED.`r`ntimeout /t 2 >nul"
         [System.IO.File]::WriteAllText($disableBat, $disableCode, [System.Text.Encoding]::ASCII)
 
         $shortcutCreated = $true
