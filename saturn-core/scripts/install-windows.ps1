@@ -112,10 +112,10 @@ $elevateHeader = "@echo off`r`nnet session >nul 2>&1`r`nif %errorlevel% neq 0 (`
 
 if ($saturnUri -and $saturnUri.StartsWith("saturn://")) {
     Set-Content -Path $uriPath -Value $saturnUri -Encoding ASCII
-    $batContent = $elevateHeader + "`"$binPath`" -u `"$saturnUri`" -l 127.0.0.1:10809`r`npause"
+    $batContent = $elevateHeader + "`"$binPath`" -u `"$saturnUri`" -l 127.0.0.1:10809`r`nreg add `"HKCU\Software\Microsoft\Windows\CurrentVersion\Internet Settings`" /v ProxyEnable /t REG_DWORD /d 0 /f >nul"
     Set-Content -Path $batPath -Value $batContent -Encoding ASCII
 } else {
-    $batContent = $elevateHeader + "`"$binPath`" -l 127.0.0.1:10809`r`npause"
+    $batContent = $elevateHeader + "`"$binPath`" -l 127.0.0.1:10809`r`nreg add `"HKCU\Software\Microsoft\Windows\CurrentVersion\Internet Settings`" /v ProxyEnable /t REG_DWORD /d 0 /f >nul"
     Set-Content -Path $batPath -Value $batContent -Encoding ASCII
 }
 
@@ -142,11 +142,6 @@ if (Test-Path $desktopPath) {
             $bytes[0x15] = $bytes[0x15] -bor 0x20
             [System.IO.File]::WriteAllBytes($shortcutPath, $bytes)
         } catch {}
-
-        # Also create Disable Proxy shortcut on Desktop
-        $disableBat = [System.IO.Path]::Combine($desktopPath, "Disable Proxy.bat")
-        $disableCode = "@echo off`r`ntitle Disable Windows Proxy`r`nreg add `"HKCU\Software\Microsoft\Windows\CurrentVersion\Internet Settings`" /v ProxyEnable /t REG_DWORD /d 0 /f >nul`r`necho Windows System Proxy is now DISABLED.`r`ntimeout /t 2 >nul"
-        [System.IO.File]::WriteAllText($disableBat, $disableCode, [System.Text.Encoding]::ASCII)
 
         $shortcutCreated = $true
         Write-Host "[+] Desktop shortcut created (Run As Admin): $shortcutPath" -ForegroundColor Green

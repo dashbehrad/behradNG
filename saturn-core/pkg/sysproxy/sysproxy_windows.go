@@ -5,6 +5,7 @@ package sysproxy
 import (
 	"log"
 	"syscall"
+	"time"
 
 	"golang.org/x/sys/windows/registry"
 )
@@ -14,11 +15,19 @@ var (
 	procInternetSetOption     = modwininet.NewProc("InternetSetOptionW")
 	modkernel32               = syscall.NewLazyDLL("kernel32.dll")
 	procSetConsoleCtrlHandler = modkernel32.NewProc("SetConsoleCtrlHandler")
+
+	savedCallback uintptr
 )
 
 const (
 	INTERNET_OPTION_REFRESH          = 37
 	INTERNET_OPTION_SETTINGS_CHANGED = 39
+
+	CTRL_C_EVENT        = 0
+	CTRL_BREAK_EVENT    = 1
+	CTRL_CLOSE_EVENT    = 2
+	CTRL_LOGOFF_EVENT   = 5
+	CTRL_SHUTDOWN_EVENT = 6
 )
 
 func SetSystemProxy(addr string) error {
@@ -60,9 +69,14 @@ func NotifyWinINet() {
 }
 
 func RegisterCloseHandler(cleanup func()) {
-	handler := syscall.NewCallback(func(ctrlType uint32) uintptr {
-		cleanup()
+	savedCallback = syscall.NewCallback(func(ctrlType uint32) uintptr {
+		switch ctrlType {
+		case CTRL_C_EVENT, CTRL_BREAK_EVENT, CTRL_CLOSE_EVENT, CTRL_LOGOFF_EVENT, CTRL_SHUTDOWN_EVENT:
+			cleanup()
+			time.Sleep(150 * time.Millisecond)
+			return 1
+		}
 		return 0
 	})
-	_, _, _ = procSetConsoleCtrlHandler.Call(handler, 1)
+	procSetConsoleCtrlHandler.Call(savedCallback, 1)
 }
