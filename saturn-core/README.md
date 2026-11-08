@@ -28,8 +28,8 @@ Install and run Saturn across any operating system using a single command:
 | :--- | :--- |
 | **🌐 Universal (Auto-Detect)** | `curl -fsSL https://cdn.jsdelivr.net/gh/dashbehrad/Saturn-core@main/install.sh \| bash` |
 | **🐧 Linux Server (Automated)** | `curl -fsSL https://cdn.jsdelivr.net/gh/dashbehrad/Saturn-core@main/scripts/install-server.sh \| sudo bash` |
-| **🪟 Windows (PowerShell - ضد فیلتر ایران)** | `irm https://cdn.jsdelivr.net/gh/dashbehrad/Saturn-core@v1.0.2/scripts/install-windows.ps1 \| iex` |
-| **🪟 Windows (CMD / بدون نیاز به پاورشل)** | `curl -fsSL https://cdn.jsdelivr.net/gh/dashbehrad/Saturn-core@v1.0.2/scripts/install-windows.bat -o install.bat && install.bat` |
+| **🪟 Windows (PowerShell - ضد فیلتر ایران)** | `irm https://cdn.jsdelivr.net/gh/dashbehrad/Saturn-core@v1.0.3/scripts/install-windows.ps1 \| iex` |
+| **🪟 Windows (CMD / بدون نیاز به پاورشل)** | `curl -fsSL https://cdn.jsdelivr.net/gh/dashbehrad/Saturn-core@v1.0.3/scripts/install-windows.bat -o install.bat && install.bat` |
 | **📱 Android Termux** | `curl -fsSL https://cdn.jsdelivr.net/gh/dashbehrad/Saturn-core@main/scripts/install-termux.sh \| bash` |
 | **🍏 macOS (Intel & M-Series)** | `curl -fsSL https://cdn.jsdelivr.net/gh/dashbehrad/Saturn-core@main/scripts/install-mac.sh \| bash` |
 
@@ -105,13 +105,13 @@ Saturn conceals traffic inside authentic **TLS 1.3 ClientHello** records using g
 #### روش اول: پاورشل با CDN پرسرعت ضد تحریم (پیشنهادی)
 پاورشل (PowerShell) را باز کرده و دستور زیر را اجرا کنید:
 ```powershell
-irm https://cdn.jsdelivr.net/gh/dashbehrad/Saturn-core@v1.0.2/scripts/install-windows.ps1 | iex
+irm https://cdn.jsdelivr.net/gh/dashbehrad/Saturn-core@v1.0.3/scripts/install-windows.ps1 | iex
 ```
 
 #### روش دوم: خط فرمان معمولی CMD (بدون نیاز به پاورشل)
 کلیدهای `Win + R` را بزنید، `cmd` را تایپ و Enter کنید، سپس دستور زیر را پیست کنید:
 ```cmd
-curl -fsSL https://cdn.jsdelivr.net/gh/dashbehrad/Saturn-core@v1.0.2/scripts/install-windows.bat -o install.bat && install.bat
+curl -fsSL https://cdn.jsdelivr.net/gh/dashbehrad/Saturn-core@v1.0.3/scripts/install-windows.bat -o install.bat && install.bat
 ```
 
 #### روش سوم: چند مسیره خودکار (Multi-Mirror Auto-Fallback)

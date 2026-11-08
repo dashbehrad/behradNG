@@ -10,7 +10,7 @@ try {
 $ErrorActionPreference = "Stop"
 
 Write-Host "==========================================================" -ForegroundColor Cyan
-Write-Host "         Saturn Client Windows One-Click Installer        " -ForegroundColor Cyan
+Write-Host "    Saturn Client Windows One-Click Installer (Admin)     " -ForegroundColor Cyan
 Write-Host "==========================================================" -ForegroundColor Cyan
 
 # 1. Detect Architecture
@@ -73,6 +73,8 @@ if (!(Test-Path $binPath)) {
         Copy-Item -Path "saturn-client.exe" -Destination $binPath -Force
     } elseif (Test-Path "..\build\saturn-client-windows-$arch.exe") {
         Copy-Item -Path "..\build\saturn-client-windows-$arch.exe" -Destination $binPath -Force
+    } elseif (Test-Path "..\bin\saturn-client.exe") {
+        Copy-Item -Path "..\bin\saturn-client.exe" -Destination $binPath -Force
     } else {
         Write-Error "Failed to locate saturn-client.exe binary."
         exit 1
@@ -101,20 +103,22 @@ if (-not $saturnUri) {
     }
 }
 
-# 4. Create launcher batch script
+# 4. Create launcher batch script with Admin Self-Elevation and Port Fallback Support
 $batPath = "$installDir\start-saturn.bat"
 $uriPath = "$installDir\connection.uri"
 
+$elevateHeader = "@echo off`r`nnet session >nul 2>&1`r`nif %errorlevel% neq 0 (`r`n    powershell -NoProfile -ExecutionPolicy Bypass -Command `"Start-Process -FilePath '%~f0' -Verb RunAs`"`r`n    exit /b`r`n)`r`ntitle Saturn Client Proxy (Admin)`r`ncd /d `"%~dp0`"`r`ntaskkill /f /im saturn-client.exe >nul 2>&1`r`necho ==========================================================`r`necho        Saturn Client SOCKS5/HTTP Proxy (Admin)`r`necho ==========================================================`r`necho Local Proxy Default Address: 127.0.0.1:10808`r`necho Starting Saturn Client Proxy...`r`necho.`r`n"
+
 if ($saturnUri -and $saturnUri.StartsWith("saturn://")) {
     Set-Content -Path $uriPath -Value $saturnUri -Encoding ASCII
-    $batContent = "@echo off`r`ntitle Saturn Client Proxy`r`ncd /d `"%~dp0`"`r`necho ==========================================================`r`necho        Saturn Client SOCKS5/HTTP Proxy Running`r`necho ==========================================================`r`necho Local Proxy Address: 127.0.0.1:10808`r`necho.`r`n`"$binPath`" -u `"$saturnUri`" -l 127.0.0.1:10808`r`npause"
+    $batContent = $elevateHeader + "`"$binPath`" -u `"$saturnUri`" -l 127.0.0.1:10808`r`npause"
     Set-Content -Path $batPath -Value $batContent -Encoding ASCII
 } else {
-    $batContent = "@echo off`r`ntitle Saturn Client Proxy`r`ncd /d `"%~dp0`"`r`necho ==========================================================`r`necho        Saturn Client SOCKS5/HTTP Proxy Running`r`necho ==========================================================`r`necho Local Proxy Address: 127.0.0.1:10808`r`necho.`r`n`"$binPath`" -l 127.0.0.1:10808`r`npause"
+    $batContent = $elevateHeader + "`"$binPath`" -l 127.0.0.1:10808`r`npause"
     Set-Content -Path $batPath -Value $batContent -Encoding ASCII
 }
 
-# 5. Create Desktop Shortcut (Clean ASCII - no special characters)
+# 5. Create Desktop Shortcut (With Run as Administrator Flag SLDF_RUNAS_USER 0x20)
 $desktopPath = [System.Environment]::GetFolderPath([System.Environment+SpecialFolder]::Desktop)
 if (-not $desktopPath -or -not (Test-Path $desktopPath)) {
     $desktopPath = [System.IO.Path]::Combine($env:USERPROFILE, "Desktop")
@@ -128,10 +132,18 @@ if (Test-Path $desktopPath) {
         $Shortcut = $WScriptShell.CreateShortcut($shortcutPath)
         $Shortcut.TargetPath = $batPath
         $Shortcut.WorkingDirectory = $installDir
-        $Shortcut.Description = "Start Saturn Stealth Proxy Client"
+        $Shortcut.Description = "Start Saturn Stealth Proxy Client (Admin)"
         $Shortcut.Save()
+
+        # Set Run as Administrator flag (0x20 bit at byte offset 0x15 of .lnk)
+        try {
+            $bytes = [System.IO.File]::ReadAllBytes($shortcutPath)
+            $bytes[0x15] = $bytes[0x15] -bor 0x20
+            [System.IO.File]::WriteAllBytes($shortcutPath, $bytes)
+        } catch {}
+
         $shortcutCreated = $true
-        Write-Host "[+] Desktop shortcut created: $shortcutPath" -ForegroundColor Green
+        Write-Host "[+] Desktop shortcut created (Run As Admin): $shortcutPath" -ForegroundColor Green
     } catch {
         Write-Host "[!] Note: Could not create desktop shortcut automatically: $_" -ForegroundColor Yellow
     }
@@ -141,10 +153,11 @@ Write-Host "`n==========================================================" -Foreg
 Write-Host "       Saturn Client successfully installed on Windows!   " -ForegroundColor Green
 Write-Host "==========================================================" -ForegroundColor Green
 if ($shortcutCreated) {
-    Write-Host "1. A shortcut 'Saturn Client' has been placed on your Desktop." -ForegroundColor Cyan
+    Write-Host "1. A shortcut 'Saturn Client' (Admin) has been placed on your Desktop." -ForegroundColor Cyan
 } else {
     Write-Host "1. Launcher script created at: $batPath" -ForegroundColor Cyan
 }
-Write-Host "2. Double-click it anytime to start your proxy on 127.0.0.1:10808." -ForegroundColor Cyan
-Write-Host "3. Set your browser or Telegram proxy to SOCKS5 127.0.0.1:10808." -ForegroundColor Cyan
+Write-Host "2. Double-click it anytime to start your proxy." -ForegroundColor Cyan
+Write-Host "3. It will automatically Run as Administrator and handle port conflicts." -ForegroundColor Cyan
+Write-Host "4. Default proxy is 127.0.0.1:10808 (or 10809 if 10808 is occupied)." -ForegroundColor Cyan
 Write-Host "==========================================================`n" -ForegroundColor Green

@@ -171,6 +171,24 @@ func main() {
 
 	listener, err := net.Listen("tcp", *listenFlag)
 	if err != nil {
+		host, portStr, splitErr := net.SplitHostPort(*listenFlag)
+		if splitErr == nil {
+			basePort, _ := strconv.Atoi(portStr)
+			log.Printf("[Saturn Client] Inbound port %d is in use by another application. Searching for next free port...", basePort)
+			for nextPort := basePort + 1; nextPort <= basePort+20; nextPort++ {
+				candidate := fmt.Sprintf("%s:%d", host, nextPort)
+				candListener, candErr := net.Listen("tcp", candidate)
+				if candErr == nil {
+					listener = candListener
+					*listenFlag = candidate
+					err = nil
+					log.Printf("[Saturn Client] Switched local inbound to available port: %s", candidate)
+					break
+				}
+			}
+		}
+	}
+	if err != nil {
 		log.Fatalf("Failed to bind local inbound %s: %v", *listenFlag, err)
 	}
 	defer listener.Close()
