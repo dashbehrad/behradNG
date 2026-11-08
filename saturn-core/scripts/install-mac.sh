@@ -36,15 +36,35 @@ TARGET_DIR="/usr/local/bin"
 sudo mkdir -p "$TARGET_DIR"
 
 echo -e "${YELLOW}[*] Downloading saturn-client for macOS ($SATURN_ARCH)...${NC}"
-RELEASE_URL=$(curl -s https://api.github.com/repos/dashbehrad/Saturn-core/releases/latest | grep "browser_download_url.*darwin-${SATURN_ARCH}.tar.gz" | cut -d '"' -f 4 || true)
+
+DOWNLOAD_URLS=(
+    "https://github.com/dashbehrad/Saturn-core/releases/download/v1.0/saturn-darwin-${SATURN_ARCH}.tar.gz"
+    "https://github.com/dashbehrad/Saturn-core/releases/latest/download/saturn-darwin-${SATURN_ARCH}.tar.gz"
+    "https://ghproxy.net/https://github.com/dashbehrad/Saturn-core/releases/download/v1.0/saturn-darwin-${SATURN_ARCH}.tar.gz"
+    "https://github.moeyy.xyz/https://github.com/dashbehrad/Saturn-core/releases/download/v1.0/saturn-darwin-${SATURN_ARCH}.tar.gz"
+    "https://mirror.ghproxy.com/https://github.com/dashbehrad/Saturn-core/releases/download/v1.0/saturn-darwin-${SATURN_ARCH}.tar.gz"
+)
 
 TMP_DIR=$(mktemp -d)
-if [ -n "$RELEASE_URL" ]; then
-    curl -sSL "$RELEASE_URL" | tar -xz -C "$TMP_DIR"
-    sudo cp "$TMP_DIR"/*/saturn-client "$TARGET_DIR/saturn-client"
-    sudo chmod +x "$TARGET_DIR/saturn-client"
-    rm -rf "$TMP_DIR"
-else
+DOWNLOADED=false
+
+for URL in "${DOWNLOAD_URLS[@]}"; do
+    if curl -fsSL -m 35 "$URL" -o "$TMP_DIR/saturn.tar.gz" 2>/dev/null; then
+        if [ -s "$TMP_DIR/saturn.tar.gz" ] && [ $(wc -c < "$TMP_DIR/saturn.tar.gz") -gt 100000 ]; then
+            tar -xzf "$TMP_DIR/saturn.tar.gz" -C "$TMP_DIR" 2>/dev/null || true
+            FOUND_CLIENT=$(find "$TMP_DIR" -type f -name "saturn-client" | head -n 1)
+            if [ -n "$FOUND_CLIENT" ]; then
+                sudo cp "$FOUND_CLIENT" "$TARGET_DIR/saturn-client"
+                sudo chmod +x "$TARGET_DIR/saturn-client"
+                DOWNLOADED=true
+                break
+            fi
+        fi
+    fi
+done
+rm -rf "$TMP_DIR"
+
+if [ "$DOWNLOADED" != true ]; then
     echo -e "${YELLOW}[*] Release download URL not found. Checking local binaries...${NC}"
     if [ -f "./saturn-client" ]; then
         sudo cp "./saturn-client" "$TARGET_DIR/saturn-client"
@@ -63,9 +83,9 @@ fi
 sudo tee /usr/local/bin/saturn-mac-on > /dev/null << 'EOF'
 #!/bin/bash
 INTERFACE=$(networksetup -listallnetworkservices | grep -E "Wi-Fi|Ethernet" | head -n 1)
-networksetup -setsocksfirewallproxy "$INTERFACE" 127.0.0.1 10808
+networksetup -setsocksfirewallproxy "$INTERFACE" 127.0.0.1 10809
 networksetup -setsocksfirewallproxystate "$INTERFACE" on
-echo "macOS SOCKS5 Proxy enabled for $INTERFACE (127.0.0.1:10808)"
+echo "macOS SOCKS5 Proxy enabled for $INTERFACE (127.0.0.1:10809)"
 EOF
 sudo chmod +x /usr/local/bin/saturn-mac-on
 

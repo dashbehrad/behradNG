@@ -23,6 +23,13 @@ if [ "$(id -u)" -ne 0 ]; then
     exit 1
 fi
 
+# Ensure basic utilities exist
+for pkg in curl tar gzip; do
+    if ! command -v "$pkg" &>/dev/null; then
+        (apt-get update -qq && apt-get install -y -qq "$pkg") 2>/dev/null || (yum install -y "$pkg") 2>/dev/null || true
+    fi
+done
+
 # Detect Architecture
 ARCH=$(uname -m)
 case "$ARCH" in
@@ -31,6 +38,9 @@ case "$ARCH" in
         ;;
     aarch64|arm64)
         SATURN_ARCH="arm64"
+        ;;
+    armv7l|armhf|arm)
+        SATURN_ARCH="arm"
         ;;
     *)
         echo -e "${RED}Unsupported CPU architecture: $ARCH${NC}"
@@ -43,9 +53,9 @@ CONF_DIR="/etc/saturn"
 CONF_FILE="$CONF_DIR/config.json"
 SERVICE_FILE="/etc/systemd/system/saturn-server.service"
 
-mkdir -p "$CONF_DIR"
+mkdir -p "$BIN_DIR" "$CONF_DIR"
 
-# Check if binary is present locally or download from GitHub Releases
+# 1. Check local binaries or download prebuilt release
 if [ -f "./saturn-server" ]; then
     echo -e "${GREEN}[+] Using local saturn-server binary.${NC}"
     cp "./saturn-server" "$BIN_DIR/saturn-server"
@@ -55,21 +65,68 @@ elif [ -f "../build/saturn-server-linux-$SATURN_ARCH" ]; then
     cp "../build/saturn-server-linux-$SATURN_ARCH" "$BIN_DIR/saturn-server"
     chmod +x "$BIN_DIR/saturn-server"
 else
-    echo -e "${YELLOW}[*] Downloading latest release from GitHub...${NC}"
-    RELEASE_URL=$(curl -s https://api.github.com/repos/dashbehrad/Saturn-core/releases/latest | grep "browser_download_url.*linux-${SATURN_ARCH}.tar.gz" | cut -d '"' -f 4 || true)
-    
-    if [ -n "$RELEASE_URL" ]; then
-        curl -sSL "$RELEASE_URL" | tar -xz -C "$BIN_DIR"
-        chmod +x "$BIN_DIR/saturn-server"
-    else
-        echo -e "${YELLOW}[*] Fallback: Building from source using Go...${NC}"
-        if ! command -v go &> /dev/null; then
-            apt-get update -qq && apt-get install -y -qq golang curl jq
+    echo -e "${YELLOW}[*] Downloading latest Saturn Server release for linux-${SATURN_ARCH}...${NC}"
+
+    DOWNLOAD_URLS=(
+        "https://github.com/dashbehrad/Saturn-core/releases/download/v1.0/saturn-linux-${SATURN_ARCH}.tar.gz"
+        "https://github.com/dashbehrad/Saturn-core/releases/latest/download/saturn-linux-${SATURN_ARCH}.tar.gz"
+        "https://ghproxy.net/https://github.com/dashbehrad/Saturn-core/releases/download/v1.0/saturn-linux-${SATURN_ARCH}.tar.gz"
+        "https://github.moeyy.xyz/https://github.com/dashbehrad/Saturn-core/releases/download/v1.0/saturn-linux-${SATURN_ARCH}.tar.gz"
+        "https://mirror.ghproxy.com/https://github.com/dashbehrad/Saturn-core/releases/download/v1.0/saturn-linux-${SATURN_ARCH}.tar.gz"
+    )
+
+    TMP_DIR=$(mktemp -d)
+    DOWNLOADED=false
+
+    for URL in "${DOWNLOAD_URLS[@]}"; do
+        echo -e "${YELLOW}[*] Trying download: $URL...${NC}"
+        if curl -fsSL -m 35 "$URL" -o "$TMP_DIR/saturn.tar.gz" 2>/dev/null; then
+            if [ -s "$TMP_DIR/saturn.tar.gz" ] && [ $(wc -c < "$TMP_DIR/saturn.tar.gz") -gt 100000 ]; then
+                echo -e "${GREEN}[+] Download complete! Extracting...${NC}"
+                tar -xzf "$TMP_DIR/saturn.tar.gz" -C "$TMP_DIR" 2>/dev/null || true
+
+                FOUND_SERVER=$(find "$TMP_DIR" -type f -name "saturn-server" | head -n 1)
+                FOUND_CLIENT=$(find "$TMP_DIR" -type f -name "saturn-client" | head -n 1)
+
+                if [ -n "$FOUND_SERVER" ]; then
+                    cp "$FOUND_SERVER" "$BIN_DIR/saturn-server"
+                    chmod +x "$BIN_DIR/saturn-server"
+                    DOWNLOADED=true
+                fi
+                if [ -n "$FOUND_CLIENT" ]; then
+                    cp "$FOUND_CLIENT" "$BIN_DIR/saturn-client"
+                    chmod +x "$BIN_DIR/saturn-client"
+                fi
+
+                if [ "$DOWNLOADED" = true ]; then
+                    break
+                fi
+            fi
         fi
-        CGO_ENABLED=0 go build -trimpath -ldflags="-s -w" -o "$BIN_DIR/saturn-server" ./cmd/saturn-server
-        chmod +x "$BIN_DIR/saturn-server"
+    done
+    rm -rf "$TMP_DIR"
+
+    # Fallback to Go build from source if download failed
+    if [ ! -f "$BIN_DIR/saturn-server" ]; then
+        echo -e "${YELLOW}[*] Binary mirrors failed. Building from source via Go...${NC}"
+        if ! command -v go &> /dev/null; then
+            (apt-get update -qq && apt-get install -y -qq golang git curl jq) 2>/dev/null || true
+        fi
+        BUILD_TMP=$(mktemp -d)
+        if git clone --depth 1 https://github.com/dashbehrad/Saturn-core.git "$BUILD_TMP" 2>/dev/null; then
+            (cd "$BUILD_TMP" && CGO_ENABLED=0 go build -trimpath -ldflags="-s -w" -o "$BIN_DIR/saturn-server" ./cmd/saturn-server)
+            (cd "$BUILD_TMP" && CGO_ENABLED=0 go build -trimpath -ldflags="-s -w" -o "$BIN_DIR/saturn-client" ./cmd/saturn-client)
+            chmod +x "$BIN_DIR/saturn-server" "$BIN_DIR/saturn-client"
+        fi
+        rm -rf "$BUILD_TMP"
     fi
 fi
+
+if [ ! -f "$BIN_DIR/saturn-server" ]; then
+    echo -e "${RED}Error: Failed to install saturn-server binary.${NC}"
+    exit 1
+fi
+chmod +x "$BIN_DIR/saturn-server"
 
 # Kernel Tuning for High Speed & Low Latency (BBR + Window Scale + MTU)
 echo -e "${GREEN}[+] Tuning Linux network stack...${NC}"
@@ -89,12 +146,12 @@ sysctl --system > /dev/null 2>&1 || true
 if [ ! -f "$CONF_FILE" ]; then
     echo -e "${GREEN}[+] Generating new cryptographic keys and configuration...${NC}"
     OUTPUT=$("$BIN_DIR/saturn-server" -keygen)
-    
+
     PUB_KEY=$(echo "$OUTPUT" | grep "Public Key" | awk '{print $NF}')
     PRIV_KEY=$(echo "$OUTPUT" | grep "Private Key" | awk '{print $NF}')
     UUID=$(echo "$OUTPUT" | grep "Client UUID" | awk '{print $NF}')
     SHORT_ID=$(echo "$OUTPUT" | grep "Short ID" | awk '{print $NF}')
-    
+
     cat > "$CONF_FILE" << EOF
 {
   "listen": "0.0.0.0:443",
@@ -109,9 +166,15 @@ EOF
     chmod 600 "$CONF_FILE"
 else
     echo -e "${YELLOW}[*] Existing configuration found at $CONF_FILE. Retaining keys.${NC}"
-    PUB_KEY=$(jq -r '.public_key' "$CONF_FILE")
-    UUID=$(jq -r '.uuid' "$CONF_FILE")
-    SHORT_ID=$(jq -r '.short_id' "$CONF_FILE")
+    if command -v jq &>/dev/null; then
+        PUB_KEY=$(jq -r '.public_key' "$CONF_FILE")
+        UUID=$(jq -r '.uuid' "$CONF_FILE")
+        SHORT_ID=$(jq -r '.short_id' "$CONF_FILE")
+    else
+        PUB_KEY=$(grep '"public_key"' "$CONF_FILE" | cut -d '"' -f 4)
+        UUID=$(grep '"uuid"' "$CONF_FILE" | cut -d '"' -f 4)
+        SHORT_ID=$(grep '"short_id"' "$CONF_FILE" | cut -d '"' -f 4)
+    fi
 fi
 
 # Install systemd service
@@ -139,7 +202,7 @@ systemctl daemon-reload
 systemctl enable saturn-server
 systemctl restart saturn-server
 
-SERVER_IP=$(curl -s https://api.ipify.org || hostname -I | awk '{print $1}')
+SERVER_IP=$(curl -sSL -m 5 https://api.ipify.org 2>/dev/null || curl -sSL -m 5 https://ifconfig.me 2>/dev/null || hostname -I | awk '{print $1}')
 SATURN_URI="saturn://${UUID}@${SERVER_IP}:443?pbk=${PUB_KEY}&sid=${SHORT_ID}&sni=dl.google.com&alpn=h2&fp=chrome&cipher=chacha20-poly1305#Saturn-${SERVER_IP}"
 
 echo -e "\n${GREEN}==========================================================${NC}"

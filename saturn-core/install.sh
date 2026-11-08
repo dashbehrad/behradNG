@@ -53,22 +53,43 @@ if [ "$OS" = "Linux" ]; then
         echo -e "To install Saturn Server (with systemd & BBR tuning), run with sudo:"
         echo -e "  ${CYAN}curl -fsSL $BASE_URL/scripts/install-server.sh | sudo bash${NC}\n"
         echo -e "Installing Saturn Client locally for current user..."
-        
+
         ARCH=$(uname -m)
         case "$ARCH" in
             x86_64|amd64) SATURN_ARCH="amd64" ;;
             aarch64|arm64) SATURN_ARCH="arm64" ;;
             *) SATURN_ARCH="amd64" ;;
         esac
-        
+
         BIN_DIR="$HOME/.local/bin"
         mkdir -p "$BIN_DIR"
-        RELEASE_URL=$(curl -s https://api.github.com/repos/dashbehrad/Saturn-core/releases/latest | grep "browser_download_url.*client-linux-${SATURN_ARCH}.tar.gz" | cut -d '"' -f 4 || true)
-        if [ -n "$RELEASE_URL" ]; then
-            curl -sSL "$RELEASE_URL" | tar -xz -C "$BIN_DIR"
-            chmod +x "$BIN_DIR/saturn-client"
+        DOWNLOAD_URLS=(
+            "https://github.com/dashbehrad/Saturn-core/releases/download/v1.0/saturn-linux-${SATURN_ARCH}.tar.gz"
+            "https://github.com/dashbehrad/Saturn-core/releases/latest/download/saturn-linux-${SATURN_ARCH}.tar.gz"
+            "https://ghproxy.net/https://github.com/dashbehrad/Saturn-core/releases/download/v1.0/saturn-linux-${SATURN_ARCH}.tar.gz"
+            "https://github.moeyy.xyz/https://github.com/dashbehrad/Saturn-core/releases/download/v1.0/saturn-linux-${SATURN_ARCH}.tar.gz"
+            "https://mirror.ghproxy.com/https://github.com/dashbehrad/Saturn-core/releases/download/v1.0/saturn-linux-${SATURN_ARCH}.tar.gz"
+        )
+        TMP_DIR=$(mktemp -d)
+        for URL in "${DOWNLOAD_URLS[@]}"; do
+            if curl -fsSL -m 35 "$URL" -o "$TMP_DIR/saturn.tar.gz" 2>/dev/null; then
+                if [ -s "$TMP_DIR/saturn.tar.gz" ] && [ $(wc -c < "$TMP_DIR/saturn.tar.gz") -gt 100000 ]; then
+                    tar -xzf "$TMP_DIR/saturn.tar.gz" -C "$TMP_DIR" 2>/dev/null || true
+                    FOUND_CLIENT=$(find "$TMP_DIR" -type f -name "saturn-client" | head -n 1)
+                    if [ -n "$FOUND_CLIENT" ]; then
+                        cp "$FOUND_CLIENT" "$BIN_DIR/saturn-client"
+                        chmod +x "$BIN_DIR/saturn-client"
+                        break
+                    fi
+                fi
+            fi
+        done
+        rm -rf "$TMP_DIR"
+        if [ -f "$BIN_DIR/saturn-client" ]; then
+            echo -e "${GREEN}[+] Saturn Client installed to $BIN_DIR/saturn-client${NC}"
+        else
+            echo -e "${RED}[-] Failed to download saturn-client binary.${NC}"
         fi
-        echo -e "${GREEN}[+] Saturn Client installed to $BIN_DIR/saturn-client${NC}"
     fi
     exit 0
 fi
