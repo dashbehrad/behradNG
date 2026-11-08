@@ -81,7 +81,9 @@ func handleKeygen() {
 	fmt.Printf("Private Key: %s\n", privStr)
 	fmt.Printf("Public Key:  %s\n", pubStr)
 	fmt.Printf("UUID:        %s\n", clientUUID)
+	fmt.Printf("Client UUID: %s\n", clientUUID)
 	fmt.Printf("ShortID:     %s\n", shortID)
+	fmt.Printf("Short ID:    %s\n", shortID)
 }
 
 func getDefaultConfigPath() string {
