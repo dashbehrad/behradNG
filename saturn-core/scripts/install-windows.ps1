@@ -1,9 +1,12 @@
-﻿# ==============================================================================
+# ==============================================================================
 # Saturn Client - One-Click Installer for Windows
 # Repository: https://github.com/dashbehrad/Saturn-core
 # ==============================================================================
 
-[Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
+try {
+    [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
+} catch {}
+
 $ErrorActionPreference = "Stop"
 
 Write-Host "==========================================================" -ForegroundColor Cyan
@@ -66,7 +69,6 @@ foreach ($zipUrl in $downloadUrls) {
 }
 
 if (!(Test-Path $binPath)) {
-    # Check if saturn-client.exe exists in current directory or build folder
     if (Test-Path "saturn-client.exe") {
         Copy-Item -Path "saturn-client.exe" -Destination $binPath -Force
     } elseif (Test-Path "..\build\saturn-client-windows-$arch.exe") {
@@ -82,43 +84,67 @@ Write-Host "[+] Saturn Client binary installed to: $binPath" -ForegroundColor Gr
 # 3. Check Clipboard or prompt for Saturn URI
 $clipboard = ""
 try {
-    $clipboard = Get-Clipboard
+    $clipboard = (Get-Clipboard -Raw)
 } catch {}
 
 $saturnUri = ""
-if ($clipboard -and $clipboard.StartsWith("saturn://")) {
+if ($clipboard -and ($clipboard -match "(saturn://[^\s`"'\r\n]+)")) {
+    $saturnUri = $Matches[1].Trim()
     Write-Host "[+] Detected saturn:// link in clipboard!" -ForegroundColor Green
-    $saturnUri = $clipboard.Trim()
 }
 
 if (-not $saturnUri) {
     Write-Host "`nPlease paste your saturn:// connection link (or press Enter to configure later):" -ForegroundColor Cyan
-    $saturnUri = Read-Host
+    $rawInput = Read-Host
+    if ($rawInput -and ($rawInput -match "(saturn://[^\s`"'\r\n]+)")) {
+        $saturnUri = $Matches[1].Trim()
+    }
 }
 
 # 4. Create launcher batch script
 $batPath = "$installDir\start-saturn.bat"
+$uriPath = "$installDir\connection.uri"
+
 if ($saturnUri -and $saturnUri.StartsWith("saturn://")) {
-    Set-Content -Path $batPath -Value "@echo off`r`ntitle Saturn Client Proxy`r`necho Starting Saturn Client...`r`nstart `"`" `"$binPath`" -u `"$saturnUri`" -l 127.0.0.1:10808`r`necho Saturn SOCKS5/HTTP Proxy is running on 127.0.0.1:10808`r`npause"
+    Set-Content -Path $uriPath -Value $saturnUri -Encoding ASCII
+    $batContent = "@echo off`r`ntitle Saturn Client Proxy`r`ncd /d `"%~dp0`"`r`necho ==========================================================`r`necho        Saturn Client SOCKS5/HTTP Proxy Running`r`necho ==========================================================`r`necho Local Proxy Address: 127.0.0.1:10808`r`necho.`r`n`"$binPath`" -u `"$saturnUri`" -l 127.0.0.1:10808`r`npause"
+    Set-Content -Path $batPath -Value $batContent -Encoding ASCII
 } else {
-    Set-Content -Path $batPath -Value "@echo off`r`ntitle Saturn Client Proxy`r`ncd /d `"$installDir`"`r`n`"$binPath`"`r`npause"
+    $batContent = "@echo off`r`ntitle Saturn Client Proxy`r`ncd /d `"%~dp0`"`r`necho ==========================================================`r`necho        Saturn Client SOCKS5/HTTP Proxy Running`r`necho ==========================================================`r`necho Local Proxy Address: 127.0.0.1:10808`r`necho.`r`n`"$binPath`" -l 127.0.0.1:10808`r`npause"
+    Set-Content -Path $batPath -Value $batContent -Encoding ASCII
 }
 
-# 5. Create Desktop Shortcut
+# 5. Create Desktop Shortcut (Clean ASCII - no special characters)
 $desktopPath = [System.Environment]::GetFolderPath([System.Environment+SpecialFolder]::Desktop)
-$shortcutPath = "$desktopPath\🪐 Saturn Client.lnk"
+if (-not $desktopPath -or -not (Test-Path $desktopPath)) {
+    $desktopPath = [System.IO.Path]::Combine($env:USERPROFILE, "Desktop")
+}
 
-$WScriptShell = New-Object -ComObject WScript.Shell
-$Shortcut = $WScriptShell.CreateShortcut($shortcutPath)
-$Shortcut.TargetPath = $batPath
-$Shortcut.WorkingDirectory = $installDir
-$Shortcut.Description = "Start Saturn Stealth Proxy Client"
-$Shortcut.Save()
+$shortcutCreated = $false
+if (Test-Path $desktopPath) {
+    try {
+        $shortcutPath = [System.IO.Path]::Combine($desktopPath, "Saturn Client.lnk")
+        $WScriptShell = New-Object -ComObject WScript.Shell
+        $Shortcut = $WScriptShell.CreateShortcut($shortcutPath)
+        $Shortcut.TargetPath = $batPath
+        $Shortcut.WorkingDirectory = $installDir
+        $Shortcut.Description = "Start Saturn Stealth Proxy Client"
+        $Shortcut.Save()
+        $shortcutCreated = $true
+        Write-Host "[+] Desktop shortcut created: $shortcutPath" -ForegroundColor Green
+    } catch {
+        Write-Host "[!] Note: Could not create desktop shortcut automatically: $_" -ForegroundColor Yellow
+    }
+}
 
 Write-Host "`n==========================================================" -ForegroundColor Green
 Write-Host "       Saturn Client successfully installed on Windows!   " -ForegroundColor Green
 Write-Host "==========================================================" -ForegroundColor Green
-Write-Host "1. A shortcut '🪐 Saturn Client' has been placed on your Desktop." -ForegroundColor Cyan
+if ($shortcutCreated) {
+    Write-Host "1. A shortcut 'Saturn Client' has been placed on your Desktop." -ForegroundColor Cyan
+} else {
+    Write-Host "1. Launcher script created at: $batPath" -ForegroundColor Cyan
+}
 Write-Host "2. Double-click it anytime to start your proxy on 127.0.0.1:10808." -ForegroundColor Cyan
 Write-Host "3. Set your browser or Telegram proxy to SOCKS5 127.0.0.1:10808." -ForegroundColor Cyan
 Write-Host "==========================================================`n" -ForegroundColor Green
