@@ -1,4 +1,4 @@
-# ==============================================================================
+﻿# ==============================================================================
 # Saturn Client - One-Click Installer for Windows
 # Repository: https://github.com/dashbehrad/Saturn-core
 # ==============================================================================
@@ -24,28 +24,45 @@ if (!(Test-Path $installDir)) {
     New-Item -ItemType Directory -Path $installDir -Force | Out-Null
 }
 
-# 2. Download latest binary from GitHub Releases
+# 2. Download latest binary (with multi-mirror fallback for Iran / restricted networks)
 Write-Host "[*] Fetching latest release for windows-$arch..." -ForegroundColor Yellow
-$releaseApi = "https://api.github.com/repos/dashbehrad/Saturn-core/releases/latest"
-try {
-    $releaseInfo = Invoke-RestMethod -Uri $releaseApi -UseBasicParsing
-    $zipAsset = $releaseInfo.assets | Where-Object { $_.name -like "*windows-$arch.zip" } | Select-Object -First 1
-    if ($zipAsset) {
-        $zipUrl = $zipAsset.browser_download_url
-        $tempZip = "$env:TEMP\saturn-windows-$arch.zip"
-        Write-Host "[+] Downloading from $zipUrl..." -ForegroundColor Green
-        Invoke-WebRequest -Uri $zipUrl -OutFile $tempZip -UseBasicParsing
-        Expand-Archive -Path $tempZip -DestinationPath "$env:TEMP\saturn_extract" -Force
-        
-        $extractedExe = Get-ChildItem -Path "$env:TEMP\saturn_extract" -Filter "saturn-client.exe" -Recurse | Select-Object -First 1
-        if ($extractedExe) {
-            Copy-Item -Path $extractedExe.FullName -Destination $binPath -Force
+
+$downloadUrls = @(
+    "https://github.com/dashbehrad/Saturn-core/releases/latest/download/saturn-windows-$arch.zip",
+    "https://ghproxy.net/https://github.com/dashbehrad/Saturn-core/releases/latest/download/saturn-windows-$arch.zip",
+    "https://github.moeyy.xyz/https://github.com/dashbehrad/Saturn-core/releases/latest/download/saturn-windows-$arch.zip",
+    "https://mirror.ghproxy.com/https://github.com/dashbehrad/Saturn-core/releases/latest/download/saturn-windows-$arch.zip"
+)
+
+$downloaded = $false
+$tempZip = "$env:TEMP\saturn-windows-$arch.zip"
+
+foreach ($zipUrl in $downloadUrls) {
+    try {
+        Write-Host "[*] Trying download: $zipUrl" -ForegroundColor DarkCyan
+        if (Get-Command curl.exe -ErrorAction SilentlyContinue) {
+            & curl.exe -fsSL -m 35 "$zipUrl" -o "$tempZip"
+        } else {
+            Invoke-WebRequest -Uri $zipUrl -OutFile $tempZip -UseBasicParsing -TimeoutSec 35
         }
-        Remove-Item "$env:TEMP\saturn_extract" -Recurse -Force -ErrorAction SilentlyContinue
-        Remove-Item $tempZip -Force -ErrorAction SilentlyContinue
+
+        if ((Test-Path $tempZip) -and ((Get-Item $tempZip).Length -gt 100000)) {
+            Write-Host "[+] Download complete! Extracting..." -ForegroundColor Green
+            $extractDir = "$env:TEMP\saturn_ext_$([System.IO.Path]::GetRandomFileName())"
+            Expand-Archive -Path $tempZip -DestinationPath $extractDir -Force
+
+            $extractedExe = Get-ChildItem -Path $extractDir -Filter "saturn-client.exe" -Recurse | Select-Object -First 1
+            if ($extractedExe) {
+                Copy-Item -Path $extractedExe.FullName -Destination $binPath -Force
+                $downloaded = $true
+            }
+            Remove-Item $extractDir -Recurse -Force -ErrorAction SilentlyContinue
+            Remove-Item $tempZip -Force -ErrorAction SilentlyContinue
+            if ($downloaded) { break }
+        }
+    } catch {
+        Write-Host "[!] Mirror failed: $_" -ForegroundColor DarkGray
     }
-} catch {
-    Write-Host "[!] Could not fetch from GitHub API: $_. Checking local binaries..." -ForegroundColor Yellow
 }
 
 if (!(Test-Path $binPath)) {

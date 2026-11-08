@@ -39,7 +39,7 @@ fi
 if [[ "$OS" == *"MINGW"* ]] || [[ "$OS" == *"CYGWIN"* ]] || [[ "$OS" == *"MSYS"* ]]; then
     echo -e "${YELLOW}[!] Windows detected via Bash shell.${NC}"
     echo -e "Please run the following one-line command in Windows PowerShell:"
-    echo -e "${CYAN}irm https://raw.githubusercontent.com/dashbehrad/Saturn-core/main/scripts/install-windows.ps1 | iex${NC}"
+    echo -e "${CYAN}irm https://cdn.jsdelivr.net/gh/dashbehrad/Saturn-core@main/scripts/install-windows.ps1 | iex${NC}"
     exit 0
 fi
 

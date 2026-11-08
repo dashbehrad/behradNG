@@ -4,7 +4,7 @@
 
 # 🪐 Saturn Core
 
-**The Next-Generation, Ultra-Stealth, Anti-Censorship Tunnel Engine**  
+**The Next-Generation, Ultra-Stealth, Anti-Censorship Tunnel Engine**
 *Defeating Deep Packet Inspection (DPI) & Active Probing on Hostile Networks*
 
 [![Go Version](https://img.shields.io/github/go-mod/go-version/dashbehrad/Saturn-core?style=flat-square&logo=go)](https://go.dev/)
@@ -26,18 +26,19 @@ Install and run Saturn across any operating system using a single command:
 
 | Platform / محیط | One-Line Installation Command / دستور نصب یک‌خطی |
 | :--- | :--- |
-| **🌐 Universal (Auto-Detect)** | `curl -fsSL https://raw.githubusercontent.com/dashbehrad/Saturn-core/main/install.sh \| bash` |
-| **🐧 Linux Server (Automated)** | `curl -fsSL https://raw.githubusercontent.com/dashbehrad/Saturn-core/main/scripts/install-server.sh \| sudo bash` |
-| **🪟 Windows (PowerShell)** | `irm https://raw.githubusercontent.com/dashbehrad/Saturn-core/main/scripts/install-windows.ps1 \| iex` |
-| **📱 Android Termux** | `curl -fsSL https://raw.githubusercontent.com/dashbehrad/Saturn-core/main/scripts/install-termux.sh \| bash` |
-| **🍏 macOS (Intel & M-Series)** | `curl -fsSL https://raw.githubusercontent.com/dashbehrad/Saturn-core/main/scripts/install-mac.sh \| bash` |
+| **🌐 Universal (Auto-Detect)** | `curl -fsSL https://cdn.jsdelivr.net/gh/dashbehrad/Saturn-core@main/install.sh \| bash` |
+| **🐧 Linux Server (Automated)** | `curl -fsSL https://cdn.jsdelivr.net/gh/dashbehrad/Saturn-core@main/scripts/install-server.sh \| sudo bash` |
+| **🪟 Windows (PowerShell - ضد فیلتر ایران)** | `irm https://cdn.jsdelivr.net/gh/dashbehrad/Saturn-core@main/scripts/install-windows.ps1 \| iex` |
+| **🪟 Windows (CMD / بدون نیاز به پاورشل)** | `curl -fsSL https://cdn.jsdelivr.net/gh/dashbehrad/Saturn-core@main/scripts/install-windows.bat -o install.bat && install.bat` |
+| **📱 Android Termux** | `curl -fsSL https://cdn.jsdelivr.net/gh/dashbehrad/Saturn-core@main/scripts/install-termux.sh \| bash` |
+| **🍏 macOS (Intel & M-Series)** | `curl -fsSL https://cdn.jsdelivr.net/gh/dashbehrad/Saturn-core@main/scripts/install-mac.sh \| bash` |
 
 ---
 
 <a name="zero-config"></a>
 ## 🪄 Zero-Config Auto Generation (تولید خودکار کانفیگ در هر سیستم‌عامل)
 
-> **آیا با اجرای هسته روی هر سیستم‌عامل، کانفیگ به صورت خودکار تولید می‌شود؟**  
+> **آیا با اجرای هسته روی هر سیستم‌عامل، کانفیگ به صورت خودکار تولید می‌شود؟**
 > **بله! ۱۰۰٪ خودکار.**
 
 هسته ساتورن کاملاً **Zero-Configuration** طراحی شده است:
@@ -97,12 +98,35 @@ Saturn conceals traffic inside authentic **TLS 1.3 ClientHello** records using g
 
 ### 1. 🪟 Windows (ویندوز)
 
-#### One-Click Install & Desktop Shortcut (نصب با یک کلیک در ویندوز)
-دستور زیر را در PowerShell ویندوز کپی و اینتر کنید:
+> [!TIP]
+> **راهنمای کاربران داخل ایران:**
+> دامنه `raw.githubusercontent.com` در اکثر اینترنت‌های ایران فیلتر است و دستور قدیمی `irm` ممکن است با تایم‌اوت مواجه شود. برای نصب بدون مشکل، از **روش اول (CDN)** یا **روش دوم (CMD)** استفاده کنید که ۱۰۰٪ روی اپراتورهای ایران کار می‌کنند.
+
+#### روش اول: پاورشل با CDN پرسرعت ضد تحریم (پیشنهادی)
+پاورشل (PowerShell) را باز کرده و دستور زیر را اجرا کنید:
 ```powershell
-irm https://raw.githubusercontent.com/dashbehrad/Saturn-core/main/scripts/install-windows.ps1 | iex
+irm https://cdn.jsdelivr.net/gh/dashbehrad/Saturn-core@main/scripts/install-windows.ps1 | iex
 ```
-اسکریپت به صورت خودکار آخرین نسخه کلاینت را دانلود کرده، شورتکات دسکتاپ **🪐 Saturn Client** را می‌سازد و لینک سرور شما را دریافت می‌کند. با دوبار کلیک روی آیکون دسکتاپ، پروکسی محلی روی `127.0.0.1:10808` فعال می‌شود.
+
+#### روش دوم: خط فرمان معمولی CMD (بدون نیاز به پاورشل)
+کلیدهای `Win + R` را بزنید، `cmd` را تایپ و Enter کنید، سپس دستور زیر را پیست کنید:
+```cmd
+curl -fsSL https://cdn.jsdelivr.net/gh/dashbehrad/Saturn-core@main/scripts/install-windows.bat -o install.bat && install.bat
+```
+
+#### روش سوم: چند مسیره خودکار (Multi-Mirror Auto-Fallback)
+اگر در شبکه بسیار بسته‌ای هستید، این دستور در پاورشل به نوبت از ۳ سرور مختلف تست می‌کند:
+```powershell
+[Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12 -bor [Net.SecurityProtocolType]::Tls13; @('https://cdn.jsdelivr.net/gh/dashbehrad/Saturn-core@main/scripts/install-windows.ps1','https://raw.gitmirror.com/dashbehrad/Saturn-core/main/scripts/install-windows.ps1','https://ghproxy.net/https://raw.githubusercontent.com/dashbehrad/Saturn-core/main/scripts/install-windows.ps1') | ForEach-Object { try { $s = (New-Object Net.WebClient).DownloadString($_); if ($s) { Invoke-Expression $s; break } } catch {} }
+```
+
+#### روش چهارم: دانلود مستقیم و دستی (بدون دستور و اسکریپت)
+1. فایل زیپ باینری را مستقیماً دانلود کنید:
+   - [دانلود مستقیم saturn-windows-amd64.zip از گیت‌هاب](https://github.com/dashbehrad/Saturn-core/releases/latest/download/saturn-windows-amd64.zip)
+   - [دانلود از میرور پرسرعت بدون فیلتر](https://ghproxy.net/https://github.com/dashbehrad/Saturn-core/releases/latest/download/saturn-windows-amd64.zip)
+2. فایل را اکسترکت (Extract) کنید.
+3. روی فایل `install-windows.bat` یا `saturn-client.exe` دو بار کلیک کنید!
+اسکریپت به صورت خودکار شورتکات دسکتاپ **🪐 Saturn Client** را ایجاد می‌کند و با دو بار کلیک، پروکسی لوکال روی `127.0.0.1:10808` فعال می‌شود.
 
 #### Manual Run (اجرای دستی)
 ```powershell
@@ -262,7 +286,7 @@ bash ./scripts/build.sh
 
 ## 💖 Acknowledgments & Credits
 
-- DPI evasion algorithms, polymorphic TCP urgent pointer mutation, and record desynchronization techniques are inspired by and adapted from the research in **[Alan-RIP-Dpi-Windows](https://github.com/DrAlanK/Alan-RIP-Dpi-Windows)** by **DrAlanK**.
+- DPI evasion algorithms, polymorphic TCP urgent pointer mutation, and record desynchronization techniques are inspired by and adapted from the research in **[UAC-SNI-Spoofer](https://github.com/Floxu1/UAC-SNI-Spoofer-Android)** by **Floxu1** and **[Alan-RIP-Dpi-Windows](https://github.com/DrAlanK/Alan-RIP-Dpi-Windows)** by **DrAlanK**.
 - uTLS library by **Refraction Networking**.
 - smux multiplexing by **xtaci**.
 
