@@ -146,18 +146,55 @@ curl -fsSL https://cdn.jsdelivr.net/gh/dashbehrad/Saturn-core@v1.0/scripts/insta
 
 ### 2. 🐧 Linux (Desktop & Server)
 
-#### Automated Server Setup (نصب یک‌کلیکی سرور لینوکس)
+#### 🚀 Automated Server Setup (نصب یک‌کلیکی سرور لینوکس)
+Execute the one-line auto-installer with root privileges:
 ```bash
 curl -fsSL https://raw.githubusercontent.com/dashbehrad/Saturn-core/main/scripts/install-server.sh | sudo bash
 ```
 
-#### Client Mode (کلاینت لینوکس)
+> [!TIP]
+> **میرور ضد تحریم / CDN:** در صورت اختلال در دسترسی به گیت‌هاب خام، از لینک CDN استفاده کنید:
+> ```bash
+> curl -fsSL https://cdn.jsdelivr.net/gh/dashbehrad/Saturn-core@main/scripts/install-server.sh | sudo bash
+> ```
+
+#### 🛠️ Server Management Commands (دستورات مدیریت سرور لینوکس)
+
+| Action / عملیات | Command / دستور |
+| :--- | :--- |
+| **مشاهده وضعیت سرویس** | `sudo systemctl status saturn-server` |
+| **راه‌اندازی مجدد (Restart)** | `sudo systemctl restart saturn-server` |
+| **متوقف کردن سرور (Stop)** | `sudo systemctl stop saturn-server` |
+| **روشن کردن سرور (Start)** | `sudo systemctl start saturn-server` |
+| **فعال‌سازی در بوت سیستم** | `sudo systemctl enable saturn-server` |
+| **مشاهده لاگ‌های زنده (Live Logs)** | `sudo journalctl -u saturn-server -f` |
+| **مشاهده آخرین ۵۰ خط لاگ** | `sudo journalctl -u saturn-server -n 50 --no-pager` |
+| **مشاهده فایل کانفیگ و کلیدها** | `sudo cat /etc/saturn/config.json` |
+| **ویرایش کانفیگ (پورت یا SNI)** | `sudo nano /etc/saturn/config.json` *(سپس restart کنید)* |
+| **تولید جفت‌کلید و UUID جدید** | `saturn-server keygen` |
+| **باز کردن پورت ۴۴۳ در فایروال** | `sudo ufw allow 443/tcp` |
+
+#### 🔗 Display Connection URI (نمایش مجدد لینک اتصال `saturn://`)
+برای نمایش مجدد لینک اتصال کانکشن سرور خود:
+```bash
+sudo python3 -c "import json, urllib.request; c=json.load(open('/etc/saturn/config.json')); ip=urllib.request.urlopen('https://api.ipify.org').read().decode('utf-8'); print(f'saturn://{c[\"uuid\"]}@{ip}:443?pbk={c[\"public_key\"]}&sid={c[\"short_id\"]}&sni=dl.google.com&alpn=h2&fp=chrome&cipher=chacha20-poly1305#Saturn-{ip}')"
+```
+
+#### 🗑️ Uninstall Saturn Server (حذف کامل سرور)
+```bash
+sudo systemctl stop saturn-server && sudo systemctl disable saturn-server
+sudo rm -f /etc/systemd/system/saturn-server.service /usr/local/bin/saturn-server
+sudo rm -rf /etc/saturn
+sudo systemctl daemon-reload
+```
+
+#### 🖥️ Client Mode on Linux (کلاینت لینوکس)
 ```bash
 # Universal install
-curl -fsSL https://raw.githubusercontent.com/dashbehrad/Saturn-core/main/install.sh | bash
+curl -fsSL https://cdn.jsdelivr.net/gh/dashbehrad/Saturn-core@main/install.sh | bash
 
 # Run client
-saturn-client -u "saturn://UUID@SERVER_IP:443?pbk=KEY&sid=SID"
+saturn-client -u "saturn://UUID@SERVER_IP:443?pbk=KEY&sid=SID#Saturn"
 ```
 
 ---
