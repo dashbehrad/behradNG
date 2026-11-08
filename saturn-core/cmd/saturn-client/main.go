@@ -23,12 +23,14 @@ import (
 	"saturn-core/pkg/crypto"
 	"saturn-core/pkg/handshake"
 	"saturn-core/pkg/mux"
+	"saturn-core/pkg/sysproxy"
 )
 
 func main() {
 	configFlag := flag.String("c", "", "Path to client JSON config file")
 	uriFlag := flag.String("u", "", "saturn:// URI configuration")
-	listenFlag := flag.String("l", "127.0.0.1:10808", "Local inbound listen address (SOCKS5/HTTP)")
+	listenFlag := flag.String("l", "127.0.0.1:10809", "Local inbound listen address (SOCKS5/HTTP)")
+	sysProxyFlag := flag.Bool("sysproxy", true, "Automatically configure Windows system proxy")
 	serverFlag := flag.String("server", "", "Server address or IP")
 	portFlag := flag.Int("port", 443, "Server port")
 	uuidFlag := flag.String("uuid", "", "Client UUID")
@@ -50,7 +52,7 @@ func main() {
 			log.Fatalf("Failed to load client config %s: %v", *configFlag, err)
 		}
 		profile = &clientCfg.Profile
-		if *listenFlag == "127.0.0.1:10808" && clientCfg.LocalListen != "" {
+		if *listenFlag == "127.0.0.1:10809" && clientCfg.LocalListen != "" {
 			*listenFlag = clientCfg.LocalListen
 		}
 		if *connsFlag == 2 && clientCfg.Connections > 0 {
@@ -97,7 +99,7 @@ func main() {
 			templatePath := "client.json"
 			if _, statErr := os.Stat(templatePath); os.IsNotExist(statErr) {
 				templateCfg := &config.ClientConfig{
-					LocalListen: "127.0.0.1:10808",
+					LocalListen: "127.0.0.1:10809",
 					Connections: 2,
 					Profile: config.SaturnProfile{
 						Server:        "YOUR_SERVER_IP",
@@ -196,11 +198,23 @@ func main() {
 	log.Printf("[Saturn Client] Local SOCKS5/HTTP inbound active on %s -> Remote %s:%d (SNI: %s, FP: %s, Frag: %s)",
 		*listenFlag, profile.Server, profile.Port, profile.SNI, profile.Fingerprint, profile.Fragmentation)
 
+	if *sysProxyFlag {
+		_ = sysproxy.SetSystemProxy(*listenFlag)
+		cleanupProxy := func() {
+			_ = sysproxy.ClearSystemProxy()
+		}
+		defer cleanupProxy()
+		sysproxy.RegisterCloseHandler(cleanupProxy)
+	}
+
 	sigChan := make(chan os.Signal, 1)
 	signal.Notify(sigChan, syscall.SIGINT, syscall.SIGTERM)
 	go func() {
 		<-sigChan
 		log.Println("[Saturn Client] Shutting down...")
+		if *sysProxyFlag {
+			_ = sysproxy.ClearSystemProxy()
+		}
 		_ = listener.Close()
 		pool.Close()
 		os.Exit(0)

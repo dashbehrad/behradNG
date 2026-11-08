@@ -31,6 +31,7 @@ if (!(Test-Path $installDir)) {
 Write-Host "[*] Fetching latest release for windows-$arch..." -ForegroundColor Yellow
 
 $downloadUrls = @(
+    "https://github.com/dashbehrad/Saturn-core/releases/download/v1.0.0/saturn-windows-$arch.zip",
     "https://github.com/dashbehrad/Saturn-core/releases/latest/download/saturn-windows-$arch.zip",
     "https://ghproxy.net/https://github.com/dashbehrad/Saturn-core/releases/latest/download/saturn-windows-$arch.zip",
     "https://github.moeyy.xyz/https://github.com/dashbehrad/Saturn-core/releases/latest/download/saturn-windows-$arch.zip",
@@ -103,18 +104,20 @@ if (-not $saturnUri) {
     }
 }
 
-# 4. Create launcher batch script with Admin Self-Elevation and Port Fallback Support
+# 4. Create launcher batch script with Admin Self-Elevation and Windows System Proxy
 $batPath = "$installDir\start-saturn.bat"
 $uriPath = "$installDir\connection.uri"
 
-$elevateHeader = "@echo off`r`nnet session >nul 2>&1`r`nif %errorlevel% neq 0 (`r`n    powershell -NoProfile -ExecutionPolicy Bypass -Command `"Start-Process -FilePath '%~f0' -Verb RunAs`"`r`n    exit /b`r`n)`r`ntitle Saturn Client Proxy (Admin)`r`ncd /d `"%~dp0`"`r`ntaskkill /f /im saturn-client.exe >nul 2>&1`r`necho ==========================================================`r`necho        Saturn Client SOCKS5/HTTP Proxy (Admin)`r`necho ==========================================================`r`necho Local Proxy Default Address: 127.0.0.1:10808`r`necho Starting Saturn Client Proxy...`r`necho.`r`n"
+$elevateHeader = "@echo off`r`nnet session >nul 2>&1`r`nif %errorlevel% neq 0 (`r`n    powershell -NoProfile -ExecutionPolicy Bypass -Command `"Start-Process -FilePath '%~f0' -Verb RunAs`"`r`n    exit /b`r`n)`r`ntitle Saturn Client Proxy (Admin)`r`ncd /d `"%~dp0`"`r`ntaskkill /f /im saturn-client.exe >nul 2>&1`r`necho ==========================================================`r`necho        Saturn Client SOCKS5/HTTP Proxy (Admin)`r`necho ==========================================================`r`necho Enabling Windows System Proxy on 127.0.0.1:10809...`r`nreg add `"HKCU\Software\Microsoft\Windows\CurrentVersion\Internet Settings`" /v ProxyEnable /t REG_DWORD /d 1 /f >nul`r`nreg add `"HKCU\Software\Microsoft\Windows\CurrentVersion\Internet Settings`" /v ProxyServer /t REG_SZ /d `"127.0.0.1:10809`" /f >nul`r`nreg add `"HKCU\Software\Microsoft\Windows\CurrentVersion\Internet Settings`" /v ProxyOverride /t REG_SZ /d `"localhost;127.*;10.*;172.16.*;172.17.*;172.18.*;172.19.*;172.20.*;172.21.*;172.22.*;172.23.*;172.24.*;172.25.*;172.26.*;172.27.*;172.28.*;172.29.*;172.30.*;172.31.*;192.168.*;<local>`" /f >nul`r`npowershell -NoProfile -ExecutionPolicy Bypass -Command `"try { Add-Type -TypeDefinition 'using System; using System.Runtime.InteropServices; public class W { [DllImport(\"wininet.dll\")] public static extern bool InternetSetOption(IntPtr h, int o, IntPtr b, int l); }'; [W]::InternetSetOption([IntPtr]::Zero, 39, [IntPtr]::Zero, 0); [W]::InternetSetOption([IntPtr]::Zero, 37, [IntPtr]::Zero, 0); } catch {}`" >nul 2>&1`r`necho Windows System Proxy is ACTIVE (127.0.0.1:10809).`r`necho Starting Saturn Client Proxy...`r`necho.`r`n"
+
+$cleanupFooter = "`r`necho.`r`necho Disabling Windows System Proxy...`r`nreg add `"HKCU\Software\Microsoft\Windows\CurrentVersion\Internet Settings`" /v ProxyEnable /t REG_DWORD /d 0 /f >nul`r`npowershell -NoProfile -ExecutionPolicy Bypass -Command `"try { Add-Type -TypeDefinition 'using System; using System.Runtime.InteropServices; public class W { [DllImport(\"wininet.dll\")] public static extern bool InternetSetOption(IntPtr h, int o, IntPtr b, int l); }'; [W]::InternetSetOption([IntPtr]::Zero, 39, [IntPtr]::Zero, 0); [W]::InternetSetOption([IntPtr]::Zero, 37, [IntPtr]::Zero, 0); } catch {}`" >nul 2>&1`r`necho Windows System Proxy disabled.`r`npause"
 
 if ($saturnUri -and $saturnUri.StartsWith("saturn://")) {
     Set-Content -Path $uriPath -Value $saturnUri -Encoding ASCII
-    $batContent = $elevateHeader + "`"$binPath`" -u `"$saturnUri`" -l 127.0.0.1:10808`r`npause"
+    $batContent = $elevateHeader + "`"$binPath`" -u `"$saturnUri`" -l 127.0.0.1:10809" + $cleanupFooter
     Set-Content -Path $batPath -Value $batContent -Encoding ASCII
 } else {
-    $batContent = $elevateHeader + "`"$binPath`" -l 127.0.0.1:10808`r`npause"
+    $batContent = $elevateHeader + "`"$binPath`" -l 127.0.0.1:10809" + $cleanupFooter
     Set-Content -Path $batPath -Value $batContent -Encoding ASCII
 }
 
@@ -142,6 +145,11 @@ if (Test-Path $desktopPath) {
             [System.IO.File]::WriteAllBytes($shortcutPath, $bytes)
         } catch {}
 
+        # Also create Disable Proxy shortcut on Desktop
+        $disableBat = [System.IO.Path]::Combine($desktopPath, "Disable Proxy.bat")
+        $disableCode = "@echo off`r`ntitle Disable Windows Proxy`r`nreg add `"HKCU\Software\Microsoft\Windows\CurrentVersion\Internet Settings`" /v ProxyEnable /t REG_DWORD /d 0 /f >nul`r`npowershell -NoProfile -ExecutionPolicy Bypass -Command `"try { Add-Type -TypeDefinition 'using System; using System.Runtime.InteropServices; public class W { [DllImport(\"wininet.dll\")] public static extern bool InternetSetOption(IntPtr h, int o, IntPtr b, int l); }'; [W]::InternetSetOption([IntPtr]::Zero, 39, [IntPtr]::Zero, 0); [W]::InternetSetOption([IntPtr]::Zero, 37, [IntPtr]::Zero, 0); } catch {}`" >nul 2>&1`r`necho Windows System Proxy is now DISABLED.`r`ntimeout /t 2 >nul"
+        [System.IO.File]::WriteAllText($disableBat, $disableCode, [System.Text.Encoding]::ASCII)
+
         $shortcutCreated = $true
         Write-Host "[+] Desktop shortcut created (Run As Admin): $shortcutPath" -ForegroundColor Green
     } catch {
@@ -158,6 +166,6 @@ if ($shortcutCreated) {
     Write-Host "1. Launcher script created at: $batPath" -ForegroundColor Cyan
 }
 Write-Host "2. Double-click it anytime to start your proxy." -ForegroundColor Cyan
-Write-Host "3. It will automatically Run as Administrator and handle port conflicts." -ForegroundColor Cyan
-Write-Host "4. Default proxy is 127.0.0.1:10808 (or 10809 if 10808 is occupied)." -ForegroundColor Cyan
+Write-Host "3. It will automatically Run as Administrator and enable Windows System Proxy." -ForegroundColor Cyan
+Write-Host "4. Proxy is active on 127.0.0.1:10809 (System Proxy automatically managed)." -ForegroundColor Cyan
 Write-Host "==========================================================`n" -ForegroundColor Green
